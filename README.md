@@ -103,23 +103,27 @@ do poziomu PR-Minera. Szum jest oczekiwany i nie jest porażką.
 
 ## Nisza: tam, gdzie skanery regułowe są bezradne
 
-Badanie dwóch tysięcy komentarzy z przeglądów kodu w Javie wykazało, że
-**obsługa błędów oraz projekt klas i metod zbierają znaczący odsetek uwag** —
-bo nie ma jednego poprawnego sposobu ich realizacji. Właśnie dlatego skanery
-regułowe niewiele tam wnoszą: producent narzędzia nie może napisać reguły na
-coś, co w każdym projekcie wygląda inaczej.
+Obsługa błędów oraz projekt klas i metod to obszary, w których **nie ma jednego
+poprawnego sposobu realizacji** — każdy projekt rozstrzyga je po swojemu.
+Właśnie dlatego skanery regułowe niewiele tam wnoszą: producent narzędzia nie
+może napisać reguły na coś, co w każdym repozytorium wygląda inaczej.
 
 W obrębie **jednego** projektu sposób jest jeden, a odstępstwo od niego
 widoczne. To jest obszar, w którym ten algorytm ma najwięcej do powiedzenia —
 i powód, dla którego porównuje kod do reszty tego samego repozytorium zamiast
 do progów z sufitu.
 
-Liczba odniesienia dla drugiej strony problemu: GitHub podaje, że **34%
-komentarzy z przeglądu generowanych przez AI jest ignorowanych lub
-odrzucanych**. Uzasadnienie przy każdym zgłoszeniu (ile razy wzorzec występuje,
-gdzie, i dlaczego to miejsce odstaje) oraz jawne rozdzielenie stanów
-`ROZJAZD` / `MIGRACJA W TOKU` / `ZA MAŁO DANYCH` istnieją po to, żeby nie
-dokładać się do tych 34%.
+Druga strona problemu: narzędzia generujące uwagi z przeglądu są masowo
+ignorowane, gdy nie potrafią uzasadnić zgłoszenia. Uzasadnienie przy każdym
+znalezisku (ile razy wzorzec występuje, gdzie, i dlaczego to miejsce odstaje)
+oraz jawne rozdzielenie stanów `ROZJAZD` / `MIGRACJA W TOKU` /
+`ZA MAŁO DANYCH` istnieją właśnie po to.
+
+> Ten akapit celowo nie podaje liczb. Dwie, które tu wcześniej stały —
+> „badanie dwóch tysięcy komentarzy z przeglądów w Javie" i „GitHub: 34%
+> komentarzy AI ignorowanych" — nie dały się potwierdzić u źródła i zostały
+> usunięte. Jedyne liczby w tym dokumencie to te zmierzone niżej, na konkretnym
+> repozytorium, plus 18,1% PR-Minera z publikacji.
 
 ## Dlaczego tak, a nie inaczej
 
