@@ -1,0 +1,20 @@
+{
+  "name": "odd-one-out",
+  "description": "Narzędzia szukające odstępstw od konwencji panującej w projekcie — N razy tak, raz inaczej. Zamiast progów z sufitu porównują kod do reszty tego samego repozytorium.",
+  "owner": {
+    "name": "jwwoj"
+  },
+  "plugins": [
+    {
+      "name": "odd-one-out",
+      "source": "./",
+      "description": "Szuka odstępstw od konwencji panującej w projekcie: N razy tak, raz inaczej. Java, pom.xml, migracje SQL.",
+      "version": "0.1.0",
+      "keywords": [
+        "static-analysis",
+        "code-review",
+        "convention"
+      ]
+    }
+  ]
+}

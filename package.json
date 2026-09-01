@@ -1,0 +1,36 @@
+{
+  "name": "odd-one-out",
+  "version": "0.1.0",
+  "description": "Szuka odstępstw od konwencji panującej w projekcie: N razy tak, raz inaczej. Java, pom.xml, migracje SQL.",
+  "type": "module",
+  "bin": {
+    "odd-one-out": "bin/odd-one-out.mjs"
+  },
+  "main": "src/parser.mjs",
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node bin/odd-one-out.mjs",
+    "smoke": "node src/smoke.mjs test/Smoke.java",
+    "plugin:validate": "claude plugin validate . --strict"
+  },
+  "keywords": [
+    "static-analysis",
+    "anomaly-detection",
+    "pr-miner",
+    "convention",
+    "java",
+    "tree-sitter"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "tree-sitter-java": "^0.23.5",
+    "web-tree-sitter": "^0.27.0"
+  }
+}

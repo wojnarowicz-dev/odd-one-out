@@ -1,0 +1,16 @@
+{
+  "name": "odd-one-out",
+  "version": "0.1.0",
+  "description": "Szuka odstępstw od konwencji panującej w projekcie: N razy tak, raz inaczej. Java, pom.xml, migracje SQL.",
+  "author": {
+    "name": "jwwoj"
+  },
+  "keywords": [
+    "static-analysis",
+    "code-review",
+    "convention",
+    "java",
+    "sql",
+    "maven"
+  ]
+}
