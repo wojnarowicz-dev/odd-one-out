@@ -148,7 +148,7 @@ for (const r of rules) {
       anchor: u.unitKind + '|' + u.recv,
       line: u.items.get(r.A)[0],
       label: r.A + ' -> ' + r.B + '   (recv=' + u.recv + ', ' + u.unitKind + ')',
-      meta: { sup: r.sup, supA: r.supA, conf: +r.conf.toFixed(2), viol: r.viol },
+      meta: { sup: r.sup, supA: r.supA, conf: +r.conf.toFixed(2), viol: r.viol, unit: u.unitKind + '@' + u.unitLine },
     });
   }
 }

@@ -173,13 +173,13 @@ maybeWriteSnapshot(argv, {
       rule: 'martwy-wpis-dependencyManagement',
       file: POM, anchor: e.key, line: e.line,
       label: e.key + ' — przypina wersje, ktorej nikt nie deklaruje',
-      meta: { kind: 'MARTWY', profil: e.profile || '(glowny)' },
+      meta: { kind: 'MARTWY', profil: e.profile || '(glowny)', via: live.length, odd: dead.length },
     })),
     ...suspect.map(e => ({
       rule: 'wpis-nieobecny-w-drzewie',
       file: POM, anchor: e.key, line: e.line,
       label: e.key + ' — brak w drzewie, ale zadeklarowany',
-      meta: { kind: 'DO SPRAWDZENIA', profil: e.profile || '(glowny)' },
+      meta: { kind: 'DO SPRAWDZENIA', profil: e.profile || '(glowny)', via: live.length, odd: suspect.length },
     })),
   ],
 });

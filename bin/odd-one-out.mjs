@@ -42,6 +42,12 @@ const COMMANDS = {
     opis: 'Roznica miedzy dwoma przebiegami: co doszlo, co zniknelo, co zmienilo sile dowodu.',
     opcje: '--all (pokaz takze zgloszenia bez zmian)',
   },
+  rank: {
+    module: null,
+    arg: '<zapis.json> [wiecej.json...]',
+    opis: 'Jeden ranking ponad detektorami — co czytac pierwsze.',
+    opcje: '--top 20',
+  },
 };
 
 function usage(code = 0) {
@@ -107,6 +113,28 @@ if (cmd === 'diff') {
     { showUnchanged: rest.includes('--all') });
   // Kod wyjscia niesie informacje dla CI: 1 = sa nowe zgloszenia.
   process.exit(d.nowe.length ? 1 : 0);
+}
+
+if (cmd === 'rank') {
+  const mod = f => new URL('file://' + path.join(SRC, f).replace(/\\/g, '/')).href;
+  const { readSnapshot } = await import(mod('snapshot.mjs'));
+  const { printRanking } = await import(mod('rank.mjs'));
+  // Flagi z wartością zjadają następny token — bez tego `--top 8` wstawia "8"
+  // na listę plików.
+  const FLAGI_Z_WARTOSCIA = new Set(['--top']);
+  const files = [];
+  let top = 20;
+  for (let i = 0; i < rest.length; i++) {
+    if (FLAGI_Z_WARTOSCIA.has(rest[i])) { if (rest[i] === '--top') top = +rest[i + 1]; i++; continue; }
+    if (rest[i].startsWith('--')) continue;
+    files.push(rest[i]);
+  }
+  if (files.length === 0) {
+    console.error('rank wymaga co najmniej jednego pliku zapisu');
+    process.exit(2);
+  }
+  printRanking(files.map(readSnapshot), { top });
+  process.exit(0);
 }
 
 // Detektory czytają process.argv.slice(2) — podmieniamy je tak, jakby

@@ -72,6 +72,29 @@ Dwie rzeczy, o których trzeba wiedzieć:
   wyjdzie jako `NOWE` + `ZNIKNĘŁO`. Świadomy kompromis — odcisk bez ścieżki
   zlewałby ze sobą różne miejsca.
 
+## Ranking — co czytać pierwsze
+
+Cztery detektory dają cztery listy w czterech skalach. `rank` sprowadza je do
+jednej liczby:
+
+```bash
+odd-one-out rank .odd-one-out/java.json .odd-one-out/sql.json --top 20
+```
+
+`ocena = 100 × konwencja × populacja × rzadkość` — **iloczyn, nie suma**:
+zgłoszenie ma być wysoko tylko wtedy, gdy wszystkie trzy składniki są wysokie.
+Silna konwencja na trzech przykładach nic nie znaczy, tak samo jak duża
+populacja przy połowie miejsc odstających. Suma pozwoliłaby jednemu wysokiemu
+składnikowi przykryć zerowy; iloczyn nie.
+
+Skala jest porządkowa. `94` nie znaczy „94% szans, że to błąd", tylko „czytaj
+to przed zgłoszeniem o 32".
+
+Stany `MIGRACJA W TOKU`, `ZA MAŁO DANYCH` i `DO SPRAWDZENIA` nie wchodzą do
+rankingu w ogóle. Zgłoszenia z tego samego miejsca są scalane w jedną pozycję —
+to jedna decyzja dla człowieka — a pozostałe naruszone reguły idą obok jako
+uzasadnienie.
+
 ## Jak czytać wynik
 
 ```

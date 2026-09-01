@@ -71,6 +71,15 @@ naprawa jednego odstępstwa potrafi wygenerować nowe (zmienia populację, do
 której wszystko jest porównywane), a przeniesienie klasy do innego pakietu
 wychodzi jako `NOWE` + `ZNIKNĘŁO`.
 
+## Ranking
+
+Przy kilku detektorach naraz **nie pokazuj użytkownikowi czterech list** — scal
+je: `odd-one-out rank .odd-one-out/java.json .odd-one-out/sql.json`.
+
+Ocena to iloczyn konwencji, populacji i rzadkości; skala porządkowa, nie
+procent — nie mów „94% szans na błąd". Zgłoszenia z tego samego miejsca są już
+scalone w jedną pozycję, a stany niebędące zgłoszeniem do rankingu nie wchodzą.
+
 ## Jak czytać wynik
 
 Nagłówek zgłoszenia niesie siłę dowodu:
