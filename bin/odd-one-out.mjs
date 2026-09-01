@@ -36,6 +36,12 @@ const COMMANDS = {
     opis: 'revoke bez grant execute w tej samej migracji.',
     opcje: '--minconv 3',
   },
+  diff: {
+    module: null,
+    arg: '<poprzedni.json> <biezacy.json>',
+    opis: 'Roznica miedzy dwoma przebiegami: co doszlo, co zniknelo, co zmienilo sile dowodu.',
+    opcje: '--all (pokaz takze zgloszenia bez zmian)',
+  },
 };
 
 function usage(code = 0) {
@@ -87,6 +93,20 @@ if (!COMMANDS[cmd]) {
 if (rest.length === 0) {
   console.error('Brak argumentu dla polecenia "' + cmd + '": ' + COMMANDS[cmd].arg);
   process.exit(2);
+}
+
+if (cmd === 'diff') {
+  const { readSnapshot, printDiff } = await import(
+    new URL('file://' + path.join(SRC, 'snapshot.mjs').replace(/\\/g, '/')).href);
+  const files = rest.filter(a => !a.startsWith('--'));
+  if (files.length !== 2) {
+    console.error('diff wymaga dwoch plikow: <poprzedni.json> <biezacy.json>');
+    process.exit(2);
+  }
+  const d = printDiff(readSnapshot(files[0]), readSnapshot(files[1]),
+    { showUnchanged: rest.includes('--all') });
+  // Kod wyjscia niesie informacje dla CI: 1 = sa nowe zgloszenia.
+  process.exit(d.nowe.length ? 1 : 0);
 }
 
 // Detektory czytają process.argv.slice(2) — podmieniamy je tak, jakby

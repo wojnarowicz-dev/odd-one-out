@@ -132,3 +132,28 @@ for (const r of rules) {
   }
   console.log('');
 }
+
+// ---- zapis przebiegu ----
+const { maybeWriteSnapshot } = await import('./snapshot.mjs');
+const snapFindings = [];
+let taken = 0;
+for (const r of rules) {
+  if (taken >= TOP) break;
+  taken++;
+  for (const u of all) {
+    if (!u.items.has(r.A) || u.items.has(r.B)) continue;
+    snapFindings.push({
+      rule: r.A + '->' + r.B,
+      file: rel(u.file),
+      anchor: u.unitKind + '|' + u.recv,
+      line: u.items.get(r.A)[0],
+      label: r.A + ' -> ' + r.B + '   (recv=' + u.recv + ', ' + u.unitKind + ')',
+      meta: { sup: r.sup, supA: r.supA, conf: +r.conf.toFixed(2), viol: r.viol },
+    });
+  }
+}
+maybeWriteSnapshot(argv, {
+  detector: 'java', root: ROOT, args: argv.slice(1),
+  counts: { pliki: parsed, bledyParsowania: parseErrors.length, jednostki: all.length, regul: rules.length },
+  findings: snapFindings,
+});

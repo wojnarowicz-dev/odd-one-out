@@ -279,3 +279,27 @@ findings.slice(0, TOP).forEach((f, i) => {
     console.log('     // dolóz import: import ' + f.facade + ';');
   console.log('');
 });
+
+// ---- zapis przebiegu ----
+const { maybeWriteSnapshot } = await import('./snapshot.mjs');
+const snapFindings = [];
+for (const f of findings.slice(0, TOP)) {
+  const [extType, extMethod] = f.op.split('#');
+  for (const o of f.odd) {
+    const c = classes.get(o);
+    snapFindings.push({
+      rule: extType + '.' + extMethod,
+      file: rel(c.file),
+      anchor: short(f.facade),
+      line: (f.sites.find(s => s.fqn === o) || { hits: [{}] }).hits[0].line || 0,
+      label: f.kind + ' — ' + extType.split('.').pop() + '.' + extMethod +
+        ' wprost, zamiast przez ' + short(f.facade),
+      meta: { kind: f.kind, via: f.via.length, odd: f.odd.length },
+    });
+  }
+}
+maybeWriteSnapshot(argv, {
+  detector: 'deps', root: ROOT, args: argv.slice(1),
+  counts: { klasy: classes.size, operacjeOpakowane: wrappers.size, rozjazdy: findings.filter(f => f.kind === 'ROZJAZD').length },
+  findings: snapFindings,
+});

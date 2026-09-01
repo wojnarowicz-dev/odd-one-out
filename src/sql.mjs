@@ -152,3 +152,20 @@ if (both.length < MINCONV) {
     console.log('');
   });
 }
+
+// ---- zapis przebiegu ----
+const { maybeWriteSnapshot } = await import('./snapshot.mjs');
+maybeWriteSnapshot(argv, {
+  detector: 'sql',
+  root: DIR,
+  args: argv.slice(1),
+  counts: { migracje: files.length, parRevokeGrant: both.length, funkcjiZWzorcem: distinct, bezGrantu: onlyRevoke.length },
+  findings: onlyRevoke.map(o => ({
+    rule: 'revoke-bez-grant-execute',
+    file: o.file,
+    anchor: o.name,
+    line: o.a.line,
+    label: o.name + ' — revoke bez grant execute w tej samej migracji',
+    meta: { via: distinct, odd: onlyRevoke.length },
+  })),
+});

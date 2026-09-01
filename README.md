@@ -35,6 +35,43 @@ odd-one-out pom   --pom <pom.xml> --tree <deptree.txt>
 
 `pom` wymaga wcześniejszego `mvn -o -B dependency:tree > deptree.txt`.
 
+## Różnica między uruchomieniami
+
+Bez tego przy każdym uruchomieniu czyta się te same zgłoszenia od nowa. Pytanie
+brzmi nie „co jest nie tak", tylko **„co jest nie tak od ostatniego razu"**.
+
+```bash
+odd-one-out java ./src/main/java --json .odd-one-out/java.json   # zapis przebiegu
+# ...praca nad kodem...
+odd-one-out java ./src/main/java --json .odd-one-out/nowy.json
+odd-one-out diff .odd-one-out/java.json .odd-one-out/nowy.json
+```
+
+Wyjście dzieli się na **NOWE**, **ZNIKNĘŁO**, **ZMIENIONE** (to samo miejsce,
+inna siła dowodu — np. `sup: 8 -> 9, conf: 0.8 -> 0.9, viol: 2 -> 1`) i bez
+zmian. Kod wyjścia `1`, gdy są nowe zgłoszenia — do użycia w CI.
+
+**Odcisk zgłoszenia nie zawiera numeru linii.** To jedyna decyzja, która tu
+naprawdę waży: numery przesuwają się przy każdej niezwiązanej edycji, więc
+gdyby wchodziły do odcisku, dopisanie importu na górze pliku kasowałoby
+wszystkie stare zgłoszenia i wystawiało je jako nowe. Odcisk stoi na tożsamości
+semantycznej: detektor + reguła + plik + kotwica.
+
+Zmierzone: przesunięcie całego pliku o trzy linie i naprawa jednego z dwóch
+odstępstw dały `ZNIKNĘŁO=1`, `bez zmian=8` — żadnego fałszywego „nowego"
+z powodu przesuniętych linii.
+
+Dwie rzeczy, o których trzeba wiedzieć:
+
+- **Naprawa jednego odstępstwa potrafi wygenerować nowe.** W demie dodanie
+  `setOnError` usunęło jedno zgłoszenie i utworzyło trzy — bo to miejsce ma
+  teraz `setOnError`, ale nie ma `setCycleCount`, `setOnHalted` ani
+  `setOnEndOfMedia`. To nie usterka, tylko własność miningu: naprawa zmienia
+  populację, do której wszystko jest porównywane.
+- **Przeniesienie klasy do innego pakietu** zmienia ścieżkę, więc zgłoszenie
+  wyjdzie jako `NOWE` + `ZNIKNĘŁO`. Świadomy kompromis — odcisk bez ścieżki
+  zlewałby ze sobą różne miejsca.
+
 ## Jak czytać wynik
 
 ```

@@ -160,3 +160,26 @@ if (dead.length === 0) {
     console.log('');
   });
 }
+
+// ---- zapis przebiegu ----
+const { maybeWriteSnapshot } = await import('./snapshot.mjs');
+maybeWriteSnapshot(argv, {
+  detector: 'pom',
+  root: POM,
+  args: argv.slice(argv.indexOf('--pom') + 2),
+  counts: { wpisow: managed.length, zywych: live.length, martwych: dead.length, doSprawdzenia: suspect.length },
+  findings: [
+    ...dead.map(e => ({
+      rule: 'martwy-wpis-dependencyManagement',
+      file: POM, anchor: e.key, line: e.line,
+      label: e.key + ' — przypina wersje, ktorej nikt nie deklaruje',
+      meta: { kind: 'MARTWY', profil: e.profile || '(glowny)' },
+    })),
+    ...suspect.map(e => ({
+      rule: 'wpis-nieobecny-w-drzewie',
+      file: POM, anchor: e.key, line: e.line,
+      label: e.key + ' — brak w drzewie, ale zadeklarowany',
+      meta: { kind: 'DO SPRAWDZENIA', profil: e.profile || '(glowny)' },
+    })),
+  ],
+});

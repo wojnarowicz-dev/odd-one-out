@@ -52,6 +52,25 @@ profili. `mvn -P X` wyłącza profile `activeByDefault` — drzewo zdjęte z inn
 listą profili generuje fałszywe zgłoszenia. Jeśli Mavena nie da się uruchomić,
 powiedz to wprost i pomiń `pom`; bez drzewa narzędzie zgadywałoby.
 
+## Różnica między uruchomieniami
+
+Gdy projekt był już skanowany, **nie czytaj całej listy od nowa** — pokaż
+użytkownikowi, co doszło od ostatniego razu:
+
+```bash
+odd-one-out java ./src/main/java --json .odd-one-out/java.json
+odd-one-out diff .odd-one-out/poprzedni.json .odd-one-out/java.json
+```
+
+Sekcje: **NOWE**, **ZNIKNĘŁO** (poprawione albo kod usunięty), **ZMIENIONE**
+(to samo miejsce, inna siła dowodu), bez zmian. Kod wyjścia `1` = są nowe.
+
+Odcisk zgłoszenia nie zawiera numeru linii, więc przesunięcia w pliku **nie**
+generują fałszywych „nowych". Dwie rzeczy warte powiedzenia użytkownikowi:
+naprawa jednego odstępstwa potrafi wygenerować nowe (zmienia populację, do
+której wszystko jest porównywane), a przeniesienie klasy do innego pakietu
+wychodzi jako `NOWE` + `ZNIKNĘŁO`.
+
 ## Jak czytać wynik
 
 Nagłówek zgłoszenia niesie siłę dowodu:
