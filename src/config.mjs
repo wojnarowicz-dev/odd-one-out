@@ -1,19 +1,20 @@
-// odd-one-out — wykluczenia i wyciszenia.
+// odd-one-out — exclusions and mutes.
 //
-// DWIE ROZNE RZECZY, celowo rozdzielone:
+// TWO DIFFERENT THINGS, deliberately kept apart:
 //
-//   exclude  — czego NIE CZYTAC. Wpływa na populację, więc zmienia też wzorzec:
-//              wykluczenie testów potrafi podnieść albo obniżyć konwencję.
-//   mute     — czego NIE POKAZYWAC. Miejsce jest czytane i liczy się do
-//              populacji, ale nie trafia do raportu ani rankingu.
+//   exclude  — what NOT TO READ. It affects the population, so it also changes
+//              the pattern: excluding tests can raise or lower conventionality.
+//   mute     — what NOT TO SHOW. The site is read and counted towards the
+//              population, it just does not reach the report or the ranking.
 //
-// Pomylenie ich psuje wynik po cichu: wyciszenie zaimplementowane jako
-// wykluczenie usuwa miejsce z populacji i osłabia regułę, która je złapała.
+// Confusing the two corrupts results silently: a mute implemented as an
+// exclusion removes the site from the population and weakens the very rule that
+// caught it.
 //
-// Domyślna lista jest wbudowana, żeby narzędzie działało bez konfiguracji.
-// Plik `.odd-one-out.json` w badanym katalogu (albo wskazany przez --config)
-// dokłada się do niej; `"exclude"` zastępuje domyślne tylko wtedy, gdy poda się
-// `"excludeDefaults": false`.
+// A default list is built in so the tool works with no configuration. An
+// `.odd-one-out.json` file in the scanned directory (or one given via --config)
+// adds to it; `"exclude"` replaces the defaults only when
+// `"excludeDefaults": false` is given.
 import fs from 'node:fs';
 import path from 'node:path';
 import { t } from './lang.mjs';
@@ -27,9 +28,9 @@ export const DEFAULT_EXCLUDE = [
 
 export const CONFIG_NAME = '.odd-one-out.json';
 
-// Minimalny dopasowywacz wzorców: ** (dowolne segmenty), * (w obrębie segmentu).
-// Świadomie nie wciągam biblioteki — to kilkanaście linii, a każda zależność
-// w narzędziu, które ma działać po `npm i -g`, to koszt.
+// A minimal pattern matcher: ** (any segments), * (within one segment).
+// Deliberately no library — this is a dozen lines, and every dependency in a
+// tool meant to survive `npm i -g` has a cost.
 const META = '.+^${}()|[]\\';
 function toRegExp(pattern) {
   let out = '';
@@ -82,7 +83,7 @@ export function loadConfig(argv = [], root = process.cwd()) {
   const exclude = [...(useDefaults ? DEFAULT_EXCLUDE : []), ...(raw.exclude || [])];
   const regexes = exclude.map(toRegExp);
 
-  // mute: lista identyfikatorow zgloszen albo obiektow {id, powod}
+  // mute: a list of finding ids, or objects {id, reason}
   const mute = new Map();
   for (const m of raw.mute || []) {
     if (typeof m === 'string') mute.set(m, '');
@@ -90,47 +91,48 @@ export function loadConfig(argv = [], root = process.cwd()) {
   }
 
   const norm = p => String(p).replace(/\\/g, '/');
-  const plikiCache = new Map();   // sciezka -> linie pliku (albo null, gdy nieczytelny)
+  const fileLinesCache = new Map();   // pathArg -> lines pliku (albo null, gdy nieczytelny)
 
   return {
     file,
     exclude,
     mute,
-    /** czy sciezke pominac przy CZYTANIU */
+    /** whether to skip this path while READING */
     isExcluded(p) {
       const s = norm(p);
       return regexes.some(r => r.test(s));
     },
-    /** czy zgloszenie o tym id ukryc w RAPORCIE (populacja zostaje) */
+    /** whether a finding with this id is hidden IN THE REPORT (population stays) */
     isMuted(id) {
       return mute.has(id);
     },
     /**
-     * Wyciszenie KOMENTARZEM w kodzie: `// odd-one-out: ok — powod`.
+     * Muting with a COMMENT in the code: `// odd-one-out: ok — reason`.
      *
-     * Plik z wyciszeniami jest dobry do decyzji zbiorczych, ale zmusza do
-     * skakania miedzy kodem a konfiguracja i zapisuje odcisk, ktorego nie da
-     * sie przeczytac w miejscu. Komentarz stoi tam, gdzie decyzja zapadla,
-     * i przechodzi razem z kodem przez przenosiny i scalenia.
+     * A mute file is good for bulk decisions, but it forces you to jump between
+     * the code and the configuration, and it records a fingerprint that cannot
+     * be read in place. A comment stands where the decision was made and travels
+     * with the code through moves and merges.
      *
-     * Szukamy w linii zgloszenia i w linii POWYZEJ — obie formy sa naturalne:
-     *     foo.bar();   // odd-one-out: ok — obsluga stoi u wolajacego
-     *     // odd-one-out: ok — jw.
+     * We look at the finding's own line and the line ABOVE it — both forms are
+     * natural:
+     *     foo.bar();   // odd-one-out: ok — handling lives in the caller
+     *     // odd-one-out: ok — as above
      *     foo.bar();
      */
     mutedByComment(absFile, line) {
       if (!absFile || !line) return null;
-      let linie = plikiCache.get(absFile);
-      if (linie === undefined) {
-        try { linie = fs.readFileSync(absFile, 'utf8').split(/\r?\n/); }
-        catch { linie = null; }
-        plikiCache.set(absFile, linie);
+      let lines = fileLinesCache.get(absFile);
+      if (lines === undefined) {
+        try { lines = fs.readFileSync(absFile, 'utf8').split(/\r?\n/); }
+        catch { lines = null; }
+        fileLinesCache.set(absFile, lines);
       }
-      if (!linie) return null;
+      if (!lines) return null;
       for (const nr of [line - 1, line - 2]) {
-        const tresc = linie[nr];
-        if (!tresc) continue;
-        const m = tresc.match(/odd-one-out:\s*ok\b[ \t]*[—:-]?[ \t]*(.*)$/i);
+        const content = lines[nr];
+        if (!content) continue;
+        const m = content.match(/odd-one-out:\s*ok\b[ \t]*[—:-]?[ \t]*(.*)$/i);
         if (m) return (m[1] || '').replace(/\s*(\*\/|-->)\s*$/, '').trim() || t('noReason');
       }
       return null;
@@ -138,7 +140,7 @@ export function loadConfig(argv = [], root = process.cwd()) {
     muteReason(id) {
       return mute.get(id) || '';
     },
-    opis() {
+    describe() {
       return t('exclusions', exclude.length) +
         (this.file ? ' (config: ' + norm(this.file) + ')' : t('defaults')) +
         (mute.size ? t('mutes', mute.size) : '');

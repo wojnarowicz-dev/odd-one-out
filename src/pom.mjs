@@ -1,18 +1,18 @@
-// odd-one-out / para pom.xml — martwy wpis w dependencyManagement.
+// odd-one-out / pom.xml pair — a dead entry in dependencyManagement.
 //
-// dependencyManagement tylko PRZYPINA WERSJE zależnościom zadeklarowanym gdzie
-// indziej. Wpis, którego nikt nie deklaruje, nie robi nic — ale samo czytanie
-// pom.xml tego nie pokaże, bo deklaracja może być tranzytywna albo w profilu.
+// dependencyManagement only PINS VERSIONS for dependencies declared elsewhere.
+// An entry nobody declares does nothing — but reading pom.xml alone will not
+// show that, because the declaration may be transitive or live in a profile.
 //
-// Dlatego porównujemy dwie rzeczy:
-//   - wpisy w dependencyManagement (z pom.xml, z atrybucją do profilu)
-//   - rzeczywiste drzewo z `mvn dependency:tree`
-// Wpis, który jest w pierwszym i nie występuje w drugim, jest martwy.
+// So we compare two things:
+//   - the entries in dependencyManagement (from pom.xml, attributed to profiles)
+//   - the actual tree from `mvn dependency:tree`
+// An entry present in the first and absent from the second is dead.
 //
-// UWAGA na profile: `mvn -P X` WYŁĄCZA profile z activeByDefault. Drzewo trzeba
-// zdjąć tym samym zestawem profili, w którym wpis żyje — inaczej narzędzie
-// zgłosi jako martwe wszystko z profili domyślnych. Stąd --tree przyjmuje wiele
-// plików: sumujemy artefakty ze wszystkich przebiegów.
+// MIND THE PROFILES: `mvn -P X` DISABLES profiles marked activeByDefault. The
+// tree has to be taken with the same profile set the entry lives in — otherwise
+// the tool reports everything from the default profiles as dead. That is why
+// --tree accepts several files: we take the union of artefacts from all runs.
 import fs from 'node:fs';
 import { t } from './lang.mjs';
 
@@ -43,7 +43,7 @@ if (propBlock)
     props.set(m[1], m[2].trim());
 const expand = v => (v || '').replace(/\$\{([^}]+)\}/g, (_, k) => props.get(k) ?? '${' + k + '}');
 
-// --- w którym profilu leży dany offset w pliku ---
+// --- which profile a given offset in the file falls into ---
 const profiles = [];
 for (const m of xml.matchAll(/<profile>([\s\S]*?)<\/profile>/g)) {
   const id = (m[1].match(/<id>([^<]+)<\/id>/) || [, '?'])[1];
@@ -73,7 +73,7 @@ for (const m of xml.matchAll(/<dependencyManagement>([\s\S]*?)<\/dependencyManag
   }
 }
 
-// --- deklaracje: <dependencies> poza dependencyManagement ---
+// --- declarations: <dependencies> poza dependencyManagement ---
 const dmRanges = [...xml.matchAll(/<dependencyManagement>[\s\S]*?<\/dependencyManagement>/g)]
   .map(m => [m.index, m.index + m[0].length]);
 const inDm = i => dmRanges.some(([s, e]) => i >= s && i < e);
@@ -94,12 +94,14 @@ for (const f of TREES) {
 }
 
 // --- rozstrzygnięcie ---
-// Dwa poziomy dowodu, których nie wolno mylić:
-//   MARTWY    — nieobecny w drzewie ORAZ nigdzie niezadeklarowany w <dependencies>.
-//               Dwa niezależne świadectwa; werdykt nie zależy od świeżości drzewa.
-//   DO SPRAWDZENIA — nieobecny w drzewie, ale ZADEKLAROWANY w <dependencies>.
-//               Najczęstsza przyczyna to drzewo zdjęte z innej rewizji pom.xml niż
-//               badana (albo profil nieaktywny przy tamtym przebiegu), a nie martwy
+// Two levels of evidence that must not be confused:
+//   DEAD      — absent from the tree AND declared nowhere in <dependencies>.
+//               Two independent witnesses; the verdict does not depend on how
+//               fresh the tree is.
+//   TO_CHECK  — absent from the tree, but DECLARED in <dependencies>. The usual
+//               cause is a tree taken from a different pom.xml revision than the
+//               one examined (or an inactive profile during that run), not a
+//               dead entry. Reported separately and more weakly.
 //               wpis. Zgłaszamy osobno i słabiej.
 const dead = [], suspect = [], live = [];
 for (const e of managed) {
@@ -117,9 +119,9 @@ console.log(t('pomProfiles', profiles.length ? profiles.map(p => p.id + (p.activ
 console.log(t('pomCounts', managed.length, live.length, dead.length, suspect.length));
 console.log('');
 
-// ---- zapis przebiegu i roznica ----
-const { przygotuj, naglowekRoznicy } = await import('./snapshot.mjs');
-const w = przygotuj(argv, {
+// ---- run snapshot and diff ----
+const { prepare, diffHeader } = await import('./snapshot.mjs');
+const w = prepare(argv, {
   detector: 'pom',
   root: POM,
   cfg,
@@ -130,22 +132,22 @@ const w = przygotuj(argv, {
       rule: 'martwy-wpis-dependencyManagement',
       file: POM, anchor: e.key, line: e.line,
       label: e.key + ' — przypina wersje, ktorej nikt nie deklaruje',
-      meta: { kind: 'MARTWY', profil: e.profile || '(glowny)', via: live.length, odd: dead.length },
+      meta: { kind: 'DEAD', profil: e.profile || '(glowny)', via: live.length, odd: dead.length },
     })),
     ...suspect.map(e => ({
       rule: 'wpis-nieobecny-w-drzewie',
       file: POM, anchor: e.key, line: e.line,
-      label: e.key + ' — brak w drzewie, ale zadeklarowany',
-      meta: { kind: 'DO SPRAWDZENIA', profil: e.profile || '(glowny)', via: live.length, odd: suspect.length },
+      label: e.key + ' — missing w drzewie, ale zadeklarowany',
+      meta: { kind: 'TO_CHECK', profil: e.profile || '(glowny)', via: live.length, odd: suspect.length },
     })),
   ],
 });
-const pokaz = new Set(w.doPokazania.map(f => f.anchor));
-naglowekRoznicy(w);
+const visible = new Set(w.toShow.map(f => f.anchor));
+diffHeader(w);
 console.log('');
-process.exitCode = w.nowych ? 1 : 0;
+process.exitCode = w.newCount ? 1 : 0;
 
-for (const s of suspect.filter(x => pokaz.has(x.key))) {
+for (const s of suspect.filter(x => visible.has(x.key))) {
   console.log(t('pomSuspect1', s.key));
   console.log(t('pomSuspect2', POM, s.line));
   console.log(t('pomSuspect3'));
@@ -156,7 +158,7 @@ for (const s of suspect.filter(x => pokaz.has(x.key))) {
 if (dead.length === 0) {
   console.log(t('pomNoDead'));
 } else {
-  dead.filter(e => pokaz.has(e.key)).forEach((e, i) => {
+  dead.filter(e => visible.has(e.key)).forEach((e, i) => {
     console.log('## [' + (i + 1) + '] ' + e.key + (e.v ? ':' + e.v : ''));
     console.log('');
     console.log(t('secInconsistent'));

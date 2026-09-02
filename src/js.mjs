@@ -1,20 +1,21 @@
-// odd-one-out / detektor js — JavaScript i TypeScript jedną gramatyką.
+// odd-one-out / js detector — JavaScript and TypeScript with one grammar.
 //
-// GRAMATYKA. Używamy `tree-sitter-typescript` do OBU języków. TypeScript jest
-// nadzbiorem JavaScriptu, więc jedna gramatyka wystarcza — sprawdzone na tym
-// materiale: 40 plików .js i 10 .ts, zero błędów parsowania. Osobna gramatyka
-// dla JS byłaby drugą rzeczą do utrzymania bez zysku.
+// GRAMMAR. We use `tree-sitter-typescript` for BOTH languages. TypeScript is a
+// superset of JavaScript, so one grammar is enough — verified on this material:
+// 40 .js files and 10 .ts files, zero parse errors. A separate JS grammar would
+// be a second thing to maintain for no gain.
 //
-// SKRYPTY INLINE. Strony trzymają JavaScript w <script> wewnątrz HTML-a.
-// Wycinamy je wyrażeniem regularnym (to jedyne miejsce, gdzie regex jest na
-// miejscu — granice <script> są proste), zapamiętując przesunięcie linii, żeby
-// numery w raporcie wskazywały linię w HTML-u, a nie w wycinku.
+// INLINE SCRIPTS. Pages keep JavaScript in <script> inside HTML. We cut them
+// out with a regular expression (the one place where a regex is appropriate —
+// <script> boundaries are simple), remembering the line offset so the numbers
+// in the report point at the line in the HTML, not in the excerpt.
 //
-// REGUŁA "SIEROTA": nazwa wołana jak funkcja, której strona nie zna. Strona zna
-// trzy rodzaje nazw: własne definicje w swoich skryptach, globalne z plików
-// <script src="...">, które ładuje, oraz wbudowane przeglądarki i języka.
-// To NIE jest reguła z listy dobrych praktyk — wynik zależy od tego, które
-// pliki dana strona ładuje, więc bez wiedzy o projekcie nie da się jej postawić.
+// THE "ORPHAN" RULE: a name called like a function that the page does not know.
+// A page knows three kinds of names: its own definitions in its inline scripts,
+// globals from the <script src="..."> files it loads, and browser/language
+// built-ins. This is NOT a rule off a best-practice list — the result depends on
+// which files a given page loads, so it cannot be stated without knowing the
+// project.
 import fs from 'node:fs';
 import path from 'node:path';
 import { t } from './lang.mjs';
@@ -31,7 +32,7 @@ const flag = (n, d) => {
   return v === undefined || v.startsWith('--') ? true : v;
 };
 const TOP = +flag('top', 20);
-const REGULA = String(flag('regula', 'sierota'));
+const RULE = String(flag('rule', 'sierota'));
 
 const { loadConfig } = await import('./config.mjs');
 const cfg = loadConfig(argv, ROOT);
@@ -42,7 +43,7 @@ const parser = new Parser();
 parser.setLanguage(TS);
 
 // ---- wbudowane: przeglądarka, język, Deno (funkcje brzegowe) ----
-const WBUDOWANE = new Set(`
+const BUILTINS = new Set(`
 alert atob btoa clearInterval clearTimeout confirm decodeURI decodeURIComponent
 encodeURI encodeURIComponent escape eval fetch isFinite isNaN parseFloat parseInt
 prompt queueMicrotask requestAnimationFrame cancelAnimationFrame setInterval
@@ -57,57 +58,57 @@ sessionStorage performance crypto globalThis undefined null true false
 Deno Object.keys require module exports process Buffer
 `.trim().split(/\s+/));
 
-// ---- zbieranie plików ----
-function zbierz(dir, acc = { html: [], skrypt: [] }) {
+// ---- collecting files ----
+function collect(dir, acc = { html: [], script: [] }) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
     if (cfg.isExcluded(p)) continue;
-    if (e.isDirectory()) { zbierz(p, acc); continue; }
+    if (e.isDirectory()) { collect(p, acc); continue; }
     if (/\.html?$/i.test(e.name)) acc.html.push(p);
-    else if (/\.(js|mjs|cjs|ts|mts)$/i.test(e.name)) acc.skrypt.push(p);
+    else if (/\.(js|mjs|cjs|ts|mts)$/i.test(e.name)) acc.script.push(p);
   }
   return acc;
 }
 
-// ---- wycinanie <script> z HTML ----
-// KOMENTARZE HTML trzeba wygasić PRZED szukaniem <script>. Bez tego słowo
-// "<script>" napisane w komentarzu — a tak dokumentuje się strony — zostaje
-// wzięte za otwarcie bloku i sparowane z zamknięciem sto linii dalej, przez co
-// CSS i proza z komentarza trafiają do parsera jako JavaScript. Zmierzone:
-// dawało to 4 z 5 zgłoszeń (`rgba`, `wspolnego`) na jednej stronie.
+// ---- extracting <script> from HTML ----
+// HTML COMMENTS must be blanked out BEFORE looking for <script>. Without that,
+// the word "<script>" written inside a comment — which is how pages get
+// documented — is taken as an opening tag and paired with a closing tag a
+// hundred lines later, so CSS and prose reach the parser as JavaScript.
+// Measured: that produced 4 of 5 findings (`rgba`, `wspolnego`) on one page.
 //
-// Wygaszamy treść komentarza spacjami, ZACHOWUJĄC znaki nowej linii — inaczej
-// rozjadą się numery linii w raporcie.
-function wygasKomentarze(src) {
+// We blank the comment body with spaces, KEEPING the newlines — otherwise the
+// line numbers in the report drift.
+function blankOutHtmlComments(src) {
   return src.replace(/<!--[\s\S]*?-->/g, m => m.replace(/[^\n]/g, ' '));
 }
 
-function skryptyZHtml(surowy) {
-  const src = wygasKomentarze(surowy);
+function scriptsFromHtml(raw) {
+  const src = blankOutHtmlComments(raw);
   const out = [];
   const re = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
   let m;
   while ((m = re.exec(src)) !== null) {
-    const atrybuty = m[1] || '';
-    const srcAttr = atrybuty.match(/\bsrc\s*=\s*["']([^"']+)["']/i);
-    if (srcAttr) { out.push({ zewnetrzny: srcAttr[1] }); continue; }
-    if (/\btype\s*=\s*["']([^"']*)["']/i.test(atrybuty)) {
-      const t = atrybuty.match(/\btype\s*=\s*["']([^"']*)["']/i)[1].toLowerCase();
-      // application/ld+json i podobne to nie JavaScript
+    const attrs = m[1] || '';
+    const srcAttr = attrs.match(/\bsrc\s*=\s*["']([^"']+)["']/i);
+    if (srcAttr) { out.push({ external: srcAttr[1] }); continue; }
+    if (/\btype\s*=\s*["']([^"']*)["']/i.test(attrs)) {
+      const t = attrs.match(/\btype\s*=\s*["']([^"']*)["']/i)[1].toLowerCase();
+      // application/ld+json and the like are not JavaScript
       if (t && !/javascript|module|ecmascript/.test(t)) continue;
     }
-    const tresc = m[2];
-    const przed = src.slice(0, m.index + m[0].indexOf(tresc));
-    out.push({ tresc, offsetLinii: przed.split('\n').length - 1 });
+    const content = m[2];
+    const przed = src.slice(0, m.index + m[0].indexOf(content));
+    out.push({ content, lineOffset: przed.split('\n').length - 1 });
   }
   return out;
 }
 
-// ---- definicje i wywołania z drzewa ----
-function analizuj(tree, src) {
-  const definicje = new Set();
-  const wywolania = [];   // {nazwa, linia}
-  const globalne = new Set();   // window.X = ...
+// ---- definitions i wywołania z drzewa ----
+function analyse(tree, src) {
+  const definitions = new Set();
+  const calls = [];   // {name, line}
+  const globals = new Set();   // window.X = ...
 
   const walk = (n) => {
     switch (n.type) {
@@ -115,27 +116,27 @@ function analizuj(tree, src) {
       case 'generator_function_declaration':
       case 'class_declaration': {
         const nm = n.childForFieldName('name');
-        if (nm) definicje.add(nm.text);
+        if (nm) definitions.add(nm.text);
         break;
       }
       case 'variable_declarator': {
         const nm = n.childForFieldName('name');
-        if (nm && nm.type === 'identifier') definicje.add(nm.text);
+        if (nm && nm.type === 'identifier') definitions.add(nm.text);
         break;
       }
       case 'required_parameter':
       case 'optional_parameter': {
         const nm = n.childForFieldName('pattern');
-        if (nm && nm.type === 'identifier') definicje.add(nm.text);
+        if (nm && nm.type === 'identifier') definitions.add(nm.text);
         break;
       }
       case 'identifier':
-        if (n.parent && n.parent.type === 'formal_parameters') definicje.add(n.text);
+        if (n.parent && n.parent.type === 'formal_parameters') definitions.add(n.text);
         break;
       case 'import_specifier':
       case 'namespace_import': {
         const nm = n.childForFieldName('name') || n.child(n.childCount - 1);
-        if (nm) definicje.add(nm.text);
+        if (nm) definitions.add(nm.text);
         break;
       }
       case 'assignment_expression': {
@@ -144,17 +145,17 @@ function analizuj(tree, src) {
           const o = l.childForFieldName('object');
           const pr = l.childForFieldName('property');
           if (o && pr && (o.text === 'window' || o.text === 'globalThis')) {
-            definicje.add(pr.text); globalne.add(pr.text);
+            definitions.add(pr.text); globals.add(pr.text);
           }
         } else if (l && l.type === 'identifier') {
-          definicje.add(l.text);
+          definitions.add(l.text);
         }
         break;
       }
       case 'call_expression': {
         const f = n.childForFieldName('function');
         if (f && f.type === 'identifier')
-          wywolania.push({ nazwa: f.text, linia: f.startPosition.row + 1 });
+          calls.push({ name: f.text, line: f.startPosition.row + 1 });
         break;
       }
       default: break;
@@ -162,102 +163,103 @@ function analizuj(tree, src) {
     for (let i = 0; i < n.childCount; i++) walk(n.child(i));
   };
   walk(tree.rootNode);
-  return { definicje, wywolania, globalne };
+  return { definitions, calls, globals };
 }
 
 // ---- przebieg ----
-const pliki = zbierz(ROOT);
+const sources = collect(ROOT);
 {
-  const { brakZrodel } = await import('./populacja.mjs');
-  const brak = brakZrodel(pliki.html.length + pliki.skrypt.length, '.html/.js/.ts', ROOT);
-  if (brak) { console.log(brak); process.exit(0); }
+  const { noSourcesIn } = await import('./population.mjs');
+  const missing = noSourcesIn(sources.html.length + sources.script.length, '.html/.js/.ts', ROOT);
+  if (missing) { console.log(missing); process.exit(0); }
 }
 const rel = f => path.relative(ROOT, f).replace(/\\/g, '/');
 
-// globalne wystawiane przez pliki skryptowe (window.X = ..., funkcje najwyzszego poziomu)
-const globalneZPliku = new Map();   // sciezka wzgledna -> Set(nazw)
-for (const f of pliki.skrypt) {
+// globals exposed by script files (window.X = ..., top-level functions)
+const globalsFromFile = new Map();   // pathArg relPath -> Set(nazw)
+for (const f of sources.script) {
   const src = fs.readFileSync(f, 'utf8');
-  const a = analizuj(parser.parse(src), src);
-  globalneZPliku.set(rel(f), new Set([...a.definicje]));
+  const a = analyse(parser.parse(src), src);
+  globalsFromFile.set(rel(f), new Set([...a.definitions]));
 }
 
-const zgloszenia = [];
-let stronBadanych = 0, skryptowInline = 0;
+const findings = [];
+let pagesScanned = 0, inlineBlocks = 0;
 
-for (const f of pliki.html) {
+for (const f of sources.html) {
   const src = fs.readFileSync(f, 'utf8');
-  const bloki = skryptyZHtml(src);
-  const inline = bloki.filter(b => b.tresc !== undefined);
+  const blocks = scriptsFromHtml(src);
+  const inline = blocks.filter(b => b.content !== undefined);
   if (inline.length === 0) continue;
-  stronBadanych++;
-  skryptowInline += inline.length;
+  pagesScanned++;
+  inlineBlocks += inline.length;
 
-  // co ta strona zna z zewnatrz
-  const zna = new Set(WBUDOWANE);
-  for (const b of bloki) {
-    if (!b.zewnetrzny) continue;
-    const cel = b.zewnetrzny.replace(/^\.?\//, '').split('?')[0];
-    for (const [sciezka, nazwy] of globalneZPliku)
-      if (sciezka.endsWith(cel)) for (const n of nazwy) zna.add(n);
+  // co ta strona known z zewnatrz
+  const known = new Set(BUILTINS);
+  for (const b of blocks) {
+    if (!b.external) continue;
+    const cel = b.external.replace(/^\.?\//, '').split('?')[0];
+    for (const [pathArg, nazwy] of globalsFromFile)
+      if (pathArg.endsWith(cel)) for (const n of nazwy) known.add(n);
   }
 
-  // wlasne definicje ze WSZYSTKICH skryptow inline tej strony
-  const wlasne = new Set();
-  const wszystkieWywolania = [];
+  // own definitions from ALL inline scripts on this page
+  const own = new Set();
+  const allCalls = [];
   for (const b of inline) {
-    const a = analizuj(parser.parse(b.tresc), b.tresc);
-    for (const d of a.definicje) wlasne.add(d);
-    for (const w of a.wywolania)
-      wszystkieWywolania.push({ ...w, linia: w.linia + b.offsetLinii });
+    const a = analyse(parser.parse(b.content), b.content);
+    for (const d of a.definitions) own.add(d);
+    for (const w of a.calls)
+      allCalls.push({ ...w, line: w.line + b.lineOffset });
   }
 
-  const widziane = new Set();
-  for (const w of wszystkieWywolania) {
-    if (wlasne.has(w.nazwa) || zna.has(w.nazwa)) continue;
-    const klucz = w.nazwa + '@' + w.linia;
-    if (widziane.has(klucz)) continue;
-    widziane.add(klucz);
-    const ile = wszystkieWywolania.filter(x => x.nazwa === w.nazwa).length;
-    zgloszenia.push({
-      plik: rel(f), linia: w.linia, nazwa: w.nazwa, wywolan: ile,
-      definicjiNaStronie: wlasne.size,
+  const seen = new Set();
+  for (const w of allCalls) {
+    if (own.has(w.name) || known.has(w.name)) continue;
+    const key = w.name + '@' + w.line;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const count = allCalls.filter(x => x.name === w.name).length;
+    findings.push({
+      file: rel(f), line: w.line, name: w.name, callCount: count,
+      definitionsOnPage: own.size,
     });
   }
 }
 
 // ---- raport ----
-// najpierw te wolane RAZ — pojedyncze wywolanie osieroconej nazwy to typowy
+// the ones called ONCE first — a single call to an orphaned name is the typical
+// trace of an unfinished removal
 // slad po niedokonczonym usunieciu funkcji
-zgloszenia.sort((a, b) => a.wywolan - b.wywolan || a.plik.localeCompare(b.plik));
+findings.sort((a, b) => a.callCount - b.callCount || a.file.localeCompare(b.file));
 
-const { przygotuj, naglowekRoznicy } = await import('./snapshot.mjs');
-const w = przygotuj(argv, {
+const { prepare, diffHeader } = await import('./snapshot.mjs');
+const w = prepare(argv, {
   detector: 'js', root: ROOT, args: argv.slice(1), cfg,
-  counts: { stron: stronBadanych, blokowInline: skryptowInline, plikowSkryptowych: pliki.skrypt.length, sierot: zgloszenia.length },
-  findings: zgloszenia.map(z => ({
+  counts: { stron: pagesScanned, blokowInline: inlineBlocks, plikowSkryptowych: sources.script.length, sierot: findings.length },
+  findings: findings.map(z => ({
     rule: 'sierota',
-    file: z.plik,
-    anchor: z.nazwa,
-    line: z.linia,
-    label: z.nazwa + ' — wolane ' + z.wywolan + 'x, nigdzie niezdefiniowane',
-    meta: { sup: z.definicjiNaStronie, odd: z.wywolan, conf: 1, wywolan: z.wywolan },
+    file: z.file,
+    anchor: z.name,
+    line: z.line,
+    label: z.name + ' — wolane ' + z.callCount + 'x, nigdzie niezdefiniowane',
+    meta: { sup: z.definitionsOnPage, odd: z.callCount, conf: 1, callCount: z.callCount },
   })),
 });
 
 console.log(t('jsTitle'));
 console.log(t('root') + ROOT);
-console.log(t('jsStats', stronBadanych, skryptowInline, pliki.skrypt.length));
-console.log(t('jsRule', REGULA, cfg.opis()));
-console.log(t('jsOrphans', w.snap.findings.length, w.roznica && !w.wszystko ? t('onlyNewShown') : ''));
-naglowekRoznicy(w);
+console.log(t('jsStats', pagesScanned, inlineBlocks, sources.script.length));
+console.log(t('jsRule', RULE, cfg.describe()));
+console.log(t('jsOrphans', w.snap.findings.length, w.diff && !w.showAll ? t('onlyNewShown') : ''));
+diffHeader(w);
 console.log('');
 
-w.doPokazania.slice(0, TOP).forEach((f, i) => {
+w.toShow.slice(0, TOP).forEach((f, i) => {
   console.log('## [' + (i + 1) + '] ' + f.anchor + '  —  ' + f.file + ':' + f.line);
   console.log('');
   console.log(t('secInconsistent'));
-  console.log(t('jsBody1', f.meta.wywolan));
+  console.log(t('jsBody1', f.meta.callCount));
   console.log(t('jsBody2'));
   console.log(t('jsBody3'));
   console.log(t('jsBody4', f.meta.sup));
@@ -269,4 +271,4 @@ w.doPokazania.slice(0, TOP).forEach((f, i) => {
   console.log('');
 });
 
-process.exitCode = w.nowych ? 1 : 0;
+process.exitCode = w.newCount ? 1 : 0;

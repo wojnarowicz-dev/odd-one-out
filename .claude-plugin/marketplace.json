@@ -1,6 +1,6 @@
 {
   "name": "odd-one-out",
-  "description": "Narzędzia szukające odstępstw od konwencji panującej w projekcie — N razy tak, raz inaczej. Zamiast progów z sufitu porównują kod do reszty tego samego repozytorium.",
+  "description": "Tools that find deviations from the convention a project already follows: N times this way, once differently. Instead of thresholds from nowhere, they compare code to the rest of the same repository.",
   "owner": {
     "name": "jwwoj"
   },
@@ -8,7 +8,7 @@
     {
       "name": "odd-one-out",
       "source": "./",
-      "description": "Szuka odstępstw od konwencji panującej w projekcie: N razy tak, raz inaczej. Java, pom.xml, migracje SQL.",
+      "description": "Finds places that deviate from the convention of the project itself: N times this way, once differently. Java, pom.xml, SQL migrations, JavaScript/TypeScript.",
       "version": "0.1.0",
       "keywords": [
         "static-analysis",

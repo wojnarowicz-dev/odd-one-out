@@ -36,19 +36,19 @@ function javaFiles(dir, acc = []) {
 
 const parser = await javaParser();
 
-// ZASIEG PARY — jak blisko siebie musza stac dwa wywolania, zeby liczyc sie
-// jako para. Trzy poziomy, od najszerszego:
+// PAIR SCOPE — how close two calls must stand to count as a pair. Three
+// levels, widest first:
 //
-//   file    — gdziekolwiek w pliku na tym samym odbiorniku. Obsluga stojaca
-//             w innej metodzie tego samego pliku ZOSTANIE zauwazona, wiec
-//             miejsce nie bedzie zglaszane. Najmniej falszywych alarmow tej
-//             klasy, ale i najslabsze pojecie "pary" — dwa wywolania oddalone
-//             o tysiac linii nie sa para w zadnym sensownym znaczeniu.
-//   method  — w obrebie metody lub konstruktora; lambdy licza sie do metody,
-//             w ktorej siedza.
-//   lambda  — w obrebie najglebszej funkcji, lambda wlacznie (domyslny).
-//             Najostrzejsze pojecie pary; jednoczesnie kazda obsluga
-//             przeniesiona o jeden poziom w gore wyglada na brak.
+//   file    — anywhere in the file on the same receiver. Handling that sits in
+//             another method of the same file WILL be seen, so the place is not
+//             reported. Fewest false positives of that class, but also the
+//             weakest notion of a "pair" — two calls a thousand lines apart are
+//             not a pair in any useful sense.
+//   method  — within a method or constructor; lambdas count towards the method
+//             they sit in.
+//   lambda  — within the innermost function, lambdas included (the default).
+//             The sharpest notion of a pair; at the same time any handling
+//             moved one level up looks like an omission.
 const SCOPES = {
   lambda: new Set(['method_declaration', 'constructor_declaration',
     'compact_constructor_declaration', 'lambda_expression', 'static_initializer']),
@@ -65,43 +65,44 @@ const FUNC_LIKE = SCOPES[SCOPE];
 
 const files = javaFiles(ROOT);
 {
-  const { brakZrodel } = await import('./populacja.mjs');
-  const brak = brakZrodel(files.length, '.java', ROOT);
-  if (brak) { console.log(brak); process.exit(0); }
+  const { noSourcesIn } = await import('./population.mjs');
+  const missing = noSourcesIn(files.length, '.java', ROOT);
+  if (missing) { console.log(missing); process.exit(0); }
 }
 const units = new Map();
 const parseErrors = [];
 let parsed = 0;
 
-// TYP ODBIORNIKA. Bez niego `mediaControl.setOnEndOfMedia()` (MediaControl,
-// metoda bezargumentowa klasy projektu) i `mediaPlayer.setOnEndOfMedia(...)`
-// (javafx.MediaPlayer) licza sie jako ta sama pozycja — bo regula patrzy na
-// nazwe metody, a nie na to, na czym jest wolana.
+// RECEIVER TYPE. Without it `mediaControl.setOnEndOfMedia()` (MediaControl, a
+// no-argument method of a project class) and `mediaPlayer.setOnEndOfMedia(...)`
+// (javafx.MediaPlayer) count as the same item — because the rule looks at the
+// method name, not at what it is called on.
 //
-// Rozwiazywanie typu jest celowo plytkie i ma dwa zrodla:
-//   1. deklaracje zmiennych, pol i parametrow w pliku (nazwa -> typ),
-//   2. mapa WYRAZENIE -> TYP zbierana z calego projektu z deklaracji
-//      z inicjalizatorem: `MediaPlayer player = mediaView.getMediaPlayer();`
-//      uczy, ze `mediaView.getMediaPlayer()` ma typ MediaPlayer.
-// Drugie zrodlo jest tu kluczowe: bez niego odbiorniki bedace wywolaniem
-// metody zostaja nierozpoznane i wypadaja z populacji razem z prawdziwymi
-// odstepstwami.
+// Type resolution is deliberately shallow and has two sources:
+//   1. declarations of variables, fields and parameters in the file (name -> type),
+//   2. an EXPRESSION -> TYPE map collected across the whole project from
+//      declarations with an initialiser: `MediaPlayer player =
+//      mediaView.getMediaPlayer();` teaches that `mediaView.getMediaPlayer()`
+//      has type MediaPlayer.
+// The second source is essential here: without it, receivers that are method
+// calls stay unresolved and drop out of the population together with the real
+// deviations.
 //
-// Zakres jest plikowy, nie blokowy — przeslanianie nazw (`shadowing`) jest
-// rzadkie i swiadomie je pomijam; bledne rozpoznanie typu daje ten sam wynik
-// co brak rozpoznania, czyli pozycje "?".
-const TYPY = String(flag('typy', 'on')) !== 'off';
+// The scope is per file, not per block — shadowing is rare and deliberately
+// ignored; a wrong type guess yields the same outcome as no type at all, the
+// "?" item.
+const TYPY = String(flag('types', 'on')) !== 'off';
 const exprTypes = new Map();   // znormalizowane wyrazenie -> typ (caly projekt)
 
-const czystyTyp = t => String(t).replace(/<.*/s, '').replace(/\[\]/g, '').trim();
+const bareType = t => String(t).replace(/<.*/s, '').replace(/\[\]/g, '').trim();
 const norm = s => s.replace(/\s+/g, '');
 
-// pierwszy przebieg: mapa wyrazenie -> typ z calego projektu
+// first pass: expression -> type map for the whole project
 if (TYPY) {
   for (const file of files) {
     const src = fs.readFileSync(file, 'utf8');
     const tree = parser.parse(src);
-    const zbierz = (node) => {
+    const collect = (node) => {
       if (node.type === 'local_variable_declaration' || node.type === 'field_declaration') {
         const t = node.childForFieldName('type');
         if (t && t.text !== 'var') {
@@ -110,13 +111,13 @@ if (TYPY) {
             if (d.type !== 'variable_declarator') continue;
             const val = d.childForFieldName('value');
             if (val && (val.type === 'method_invocation' || val.type === 'field_access'))
-              exprTypes.set(norm(val.text), czystyTyp(t.text));
+              exprTypes.set(norm(val.text), bareType(t.text));
           }
         }
       }
-      for (let i = 0; i < node.childCount; i++) zbierz(node.child(i));
+      for (let i = 0; i < node.childCount; i++) collect(node.child(i));
     };
-    zbierz(tree.rootNode);
+    collect(tree.rootNode);
   }
 }
 
@@ -126,10 +127,10 @@ for (const file of files) {
   parsed++;
   if (tree.rootNode.hasError) parseErrors.push(file);
 
-  // deklaracje w tym pliku: nazwa -> typ
+  // declarations in this file: name -> type
   const varTypes = new Map();
   if (TYPY) {
-    const zbierzDekl = (node) => {
+    const collectDeclarations = (node) => {
       if (node.type === 'local_variable_declaration' || node.type === 'field_declaration') {
         const t = node.childForFieldName('type');
         if (t && t.text !== 'var')
@@ -137,46 +138,46 @@ for (const file of files) {
             const d = node.child(i);
             if (d.type === 'variable_declarator') {
               const n = d.childForFieldName('name');
-              if (n) varTypes.set(n.text, czystyTyp(t.text));
+              if (n) varTypes.set(n.text, bareType(t.text));
             }
           }
       } else if (node.type === 'formal_parameter' || node.type === 'catch_formal_parameter') {
         const t = node.childForFieldName('type');
         const n = node.childForFieldName('name');
-        if (t && n && t.text !== 'var') varTypes.set(n.text, czystyTyp(t.text));
+        if (t && n && t.text !== 'var') varTypes.set(n.text, bareType(t.text));
       }
-      for (let i = 0; i < node.childCount; i++) zbierzDekl(node.child(i));
+      for (let i = 0; i < node.childCount; i++) collectDeclarations(node.child(i));
     };
-    zbierzDekl(tree.rootNode);
+    collectDeclarations(tree.rootNode);
   }
 
-  // ALIASY. `final MediaPlayer toDispose = player;` a linijke pozniej
-  // `toDispose.dispose()` w lambdzie — to ten sam obiekt, ale dla detektora byly
-  // to dwa rozne odbiorniki w dwoch roznych jednostkach, wiec `dispose` wygladal
-  // na osamotniony. Zgloszenie powstawalo wylacznie ze zmiany nazwy zmiennej.
+  // ALIASES. `final MediaPlayer toDispose = player;` and one line later
+  // `toDispose.dispose()` inside a lambda — the same object, but to the detector
+  // these were two different receivers in two different units, so `dispose`
+  // looked orphaned. The finding came purely from renaming a variable.
   //
-  // Dwa kroki, oba potrzebne:
-  //   1. kanonizacja nazwy: x = y  =>  wywolania na x licza sie jak na y;
-  //   2. przypisanie wywolania do jednostki, w ktorej zmienna zostala
-  //      ZADEKLAROWANA, a nie w ktorej stoi wywolanie. Bez tego alias w lambdzie
-  //      dalej siedzi w osobnej jednostce niz reszta zycia obiektu.
-  // DOMYSLNIE WYLACZONE — zmierzone, pogarsza wynik. Poprawia dokladnie ten
-  // falszywy alarm, dla ktorego powstalo (Loading.java:974, alias toDispose),
-  // ale przypisanie wywolan do jednostki deklaracji scala tez wywolania
-  // niezwiazane i tworzy nowe reguly na metodach zapytujacych
-  // (setOnError -> getStatus). Bilans na projekcie autora: -1 falszywy alarm,
-  // +2 nowe. Trafnosc 29% -> 21%. Zostaje jako opcja: w kodzie, ktory czesciej
-  // przepisuje uchwyty miedzy zmiennymi, bilans moze byc odwrotny.
-  const ALIASY = String(flag('aliasy', 'off')) === 'on';
-  const alias = new Map();       // nazwa -> nazwa kanoniczna
-  const deklaracje = new Map();  // nazwa -> [{unit, start, end}]
+  // Two steps, both required:
+  //   1. canonicalise the name: x = y  =>  calls on x count as calls on y;
+  //   2. attribute the call to the unit in which the variable was DECLARED,
+  //      not the one the call stands in. Without that, an alias inside a lambda
+  //      still sits in a unit separate from the rest of the object's life.
+  // OFF BY DEFAULT — measured, it makes results worse. It removes exactly the
+  // false positive it was written for (Loading.java:974, the toDispose alias),
+  // but attributing calls to the declaring unit also merges unrelated calls and
+  // creates new rules on query methods (setOnError -> getStatus). Balance on the
+  // author's project: -1 false positive, +2 new ones; accuracy 29% -> 21%.
+  // It stays as an option: in code that passes handles between variables more
+  // often, the balance may go the other way.
+  const ALIASES = String(flag('aliases', 'off')) === 'on';
+  const alias = new Map();       // name -> name kanoniczna
+  const declarations = new Map();  // name -> [{unit, start, end}]
 
-  // ZAKRESY, NIE SAMA NAZWA. Mapa "nazwa -> jednostka" na caly plik jest bledna:
-  // `player` bywa zadeklarowany w trzech metodach i wtedy wszystkie wywolania
-  // trafialyby do ostatniej z nich. Zapisujemy wiec zasieg funkcji, w ktorej
-  // deklaracja stoi, i przy wywolaniu wybieramy ten, ktory je obejmuje.
-  if (ALIASY) {
-    const zbierzAliasy = (node, unit, span) => {
+  // SCOPES, NOT THE BARE NAME. A file-wide "name -> unit" map is wrong:
+  // `player` may be declared in three methods, and then every call would be
+  // attributed to the last of them. So we record the span of the function the
+  // declaration sits in, and at the call site pick the span that contains it.
+  if (ALIASES) {
+    const collectAliases = (node, unit, span) => {
       if (FUNC_LIKE.has(node.type)) {
         const nn = node.childForFieldName ? node.childForFieldName('name') : null;
         unit = {
@@ -194,8 +195,8 @@ for (const file of files) {
           if (!n) continue;
           if (v && v.type === 'identifier') alias.set(n.text, v.text);
           if (unit && span) {
-            if (!deklaracje.has(n.text)) deklaracje.set(n.text, []);
-            deklaracje.get(n.text).push({ unit, start: span.start, end: span.end });
+            if (!declarations.has(n.text)) declarations.set(n.text, []);
+            declarations.get(n.text).push({ unit, start: span.start, end: span.end });
           }
         }
       } else if (node.type === 'assignment_expression') {
@@ -203,14 +204,14 @@ for (const file of files) {
         const r = node.childForFieldName('right');
         if (l && r && l.type === 'identifier' && r.type === 'identifier') alias.set(l.text, r.text);
       }
-      for (let i = 0; i < node.childCount; i++) zbierzAliasy(node.child(i), unit, span);
+      for (let i = 0; i < node.childCount; i++) collectAliases(node.child(i), unit, span);
     };
-    zbierzAliasy(tree.rootNode, null, null);
+    collectAliases(tree.rootNode, null, null);
   }
 
-  // deklaracja obejmujaca dane wywolanie; przy kilku wybieramy najwezsza
-  const declUnitDla = (nazwa, poz) => {
-    const lista = deklaracje.get(nazwa);
+  // the declaration that encloses this call; with several, take the narrowest
+  const declaringUnitFor = (name, poz) => {
+    const lista = declarations.get(name);
     if (!lista) return null;
     let best = null;
     for (const d of lista) {
@@ -220,43 +221,43 @@ for (const file of files) {
     return best ? best.unit : null;
   };
 
-  const kanon = (n) => {
+  const canonical = (n) => {
     let x = n, i = 0;
     while (alias.has(x) && i++ < 8) x = alias.get(x);   // licznik chroni przed cyklem x=y, y=x
     return x;
   };
 
-  // ODBIORNIK UTWORZONY W TEJ SAMEJ JEDNOSTCE (sygnal 2). Zbierane przed
-  // glownym przebiegiem, bo `new X()` moze stac po wywolaniach albo przed nimi.
-  const noweWJednostce = new Map();   // "linia:rodzaj" -> Set(nazw)
+  // RECEIVER CREATED IN THIS VERY UNIT (signal 2). Collected before the main
+  // pass, because `new X()` may stand after the calls as well as before them.
+  const createdInUnit = new Map();   // "line:kind" -> Set(nazw)
   {
-    const zbierzNowe = (node, unit) => {
+    const collectCreated = (node, unit) => {
       if (FUNC_LIKE.has(node.type)) {
         const nn = node.childForFieldName ? node.childForFieldName('name') : null;
         unit = (node.startPosition.row + 1) + ':' +
           (node.type === 'lambda_expression' ? 'lambda' : (nn ? nn.text : node.type));
       }
-      const zapamietaj = (nazwa) => {
+      const remember = (name) => {
         const k = unit || 'top';
-        if (!noweWJednostce.has(k)) noweWJednostce.set(k, new Set());
-        noweWJednostce.get(k).add(nazwa);
+        if (!createdInUnit.has(k)) createdInUnit.set(k, new Set());
+        createdInUnit.get(k).add(name);
       };
       if (node.type === 'variable_declarator') {
         const n = node.childForFieldName('name');
         const v = node.childForFieldName('value');
-        if (n && v && v.type === 'object_creation_expression') zapamietaj(n.text);
+        if (n && v && v.type === 'object_creation_expression') remember(n.text);
       } else if (node.type === 'assignment_expression') {
         const l = node.childForFieldName('left');
         const r = node.childForFieldName('right');
         if (l && r && l.type === 'identifier' && r.type === 'object_creation_expression')
-          zapamietaj(l.text);
+          remember(l.text);
       }
-      for (let i = 0; i < node.childCount; i++) zbierzNowe(node.child(i), unit);
+      for (let i = 0; i < node.childCount; i++) collectCreated(node.child(i), unit);
     };
-    zbierzNowe(tree.rootNode, null);
+    collectCreated(tree.rootNode, null);
   }
 
-  const typOdbiornika = (obj, recvText) => {
+  const receiverType = (obj, recvText) => {
     if (!TYPY) return null;
     if (!obj) return null;
     if (obj.type === 'identifier') {
@@ -280,29 +281,29 @@ for (const file of files) {
       const nm = node.childForFieldName('name');
       if (nm) {
         let recv = obj ? obj.text.replace(/\s+/g, '') : 'this';
-        // odbiornik bedacy prosta nazwa sprowadzamy do nazwy kanonicznej,
-        // a wywolanie przypisujemy do jednostki, w ktorej ta nazwa powstala
-        let unitDlaWywolania = unit;
-        if (ALIASY && obj && obj.type === 'identifier') {
-          recv = kanon(obj.text);
-          const d = declUnitDla(recv, node.startIndex);
-          if (d) unitDlaWywolania = d;
+        // a receiver that is a plain name is reduced to its canonical name, and
+        // the call is attributed to the unit in which that name was created
+        let unitForCall = unit;
+        if (ALIASES && obj && obj.type === 'identifier') {
+          recv = canonical(obj.text);
+          const d = declaringUnitFor(recv, node.startIndex);
+          if (d) unitForCall = d;
         }
-        const key = file + ' ' + (unitDlaWywolania ? unitDlaWywolania.line + ':' + unitDlaWywolania.kind : 'top') + ' ' + recv;
+        const key = file + ' ' + (unitForCall ? unitForCall.line + ':' + unitForCall.kind : 'top') + ' ' + recv;
         let u = units.get(key);
         if (!u) {
           u = {
             file,
-            unitLine: unitDlaWywolania ? unitDlaWywolania.line : 0,
-            unitKind: unitDlaWywolania ? unitDlaWywolania.kind : 'top',
-            recv, typ: typOdbiornika(obj, recv), items: new Map(),
-            swiezy: (noweWJednostce.get(
-              (unitDlaWywolania ? unitDlaWywolania.line + ':' + unitDlaWywolania.kind : 'top')) || new Set()).has(recv),
+            unitLine: unitForCall ? unitForCall.line : 0,
+            unitKind: unitForCall ? unitForCall.kind : 'top',
+            recv, typ: receiverType(obj, recv), items: new Map(),
+            freshlyCreated: (createdInUnit.get(
+              (unitForCall ? unitForCall.line + ':' + unitForCall.kind : 'top')) || new Set()).has(recv),
           };
           units.set(key, u);
         }
-        // Pozycja niesie typ odbiornika: MediaPlayer#setOnError to co innego
-        // niz MediaControl#setOnEndOfMedia. Nierozpoznany typ daje "?".
+        // The item carries the receiver type: MediaPlayer#setOnError is not the
+        // same as MediaControl#setOnEndOfMedia. An unresolved type gives "?".
         const item = TYPY ? (u.typ || '?') + '#' + nm.text : nm.text;
         if (!u.items.has(item)) u.items.set(item, []);
         u.items.get(item).push(nm.startPosition.row + 1);
@@ -334,9 +335,9 @@ for (const [k, ab] of supAB) {
   if (ab < MINSUP) continue;
   const [x, y] = k.split(' ');
   for (const [A, B] of [[x, y], [y, x]]) {
-    // --only podaje NAZWY metod; pozycje moga miec prefiks typu (Typ#nazwa)
-    const nazwa = s => s.includes('#') ? s.slice(s.indexOf('#') + 1) : s;
-    if (ONLY && ONLY.indexOf(nazwa(A)) < 0 && ONLY.indexOf(nazwa(B)) < 0) continue;
+    // --only takes METHOD NAMES; items may carry a type prefix (Type#name)
+    const name = s => s.includes('#') ? s.slice(s.indexOf('#') + 1) : s;
+    if (ONLY && ONLY.indexOf(name(A)) < 0 && ONLY.indexOf(name(B)) < 0) continue;
     const conf = ab / supA.get(A);
     const viol = supA.get(A) - ab;
     if (conf < MINCONF || viol < 1 || viol > MAXVIOL) continue;
@@ -345,144 +346,146 @@ for (const [k, ab] of supAB) {
 }
 rules.sort((a, b) => b.score - a.score);
 
-// ---- stabilnosc wzorca ----
+// ---- pattern stability ----
 //
-// Wzorzec obecny w KAZDYM podzbiorze populacji jest pewniejszy niz taki, ktory
-// powstaje dopiero z calosci. Ten drugi czesto oznacza, ze regula zlepila sie
-// z kilku niezaleznych zwyczajow panujacych w roznych czesciach projektu.
+// A pattern present in EVERY subset of the population is more trustworthy than
+// one that only emerges from the whole. The latter often means the rule was
+// glued together from several independent habits living in different parts of
+// the project.
 //
-// UWAGA — to jest SPRAWDZENIE, nie zmiana populacji. Reguly sa wydobyte
-// z calego zbioru (powyzej) i nic tu tego nie rusza; podzbiory sluza wylacznie
-// do policzenia, jak rowno wzorzec sie rozklada. Dzielenie populacji, na ktorej
-// PRACUJE detektor, pogarsza wynik — zmierzone przy zasiegu `method` (7%).
+// NOTE — this is a CHECK, not a change of population. The rules are mined from
+// the whole set (above) and nothing here touches that; the subsets serve only
+// to count how evenly the pattern is spread. Splitting the population the
+// detector WORKS ON makes results worse — measured with scope `method` (7%).
 //
-// Podzial idzie po PLIKU, nie po jednostce: klasa nie ma sie rozjezdzac miedzy
-// podzbiory, bo wtedy kazdy podzbior widzialby urwany fragment jej zwyczajow.
-const PODZBIORY = Math.max(2, +flag('podzbiory', 4));
-const haszPliku = (s) => {
+// The split is BY FILE, not by unit: a class must not be spread across subsets,
+// because then each subset would see a truncated fragment of its habits.
+const SUBSETS = Math.max(2, +flag('subsets', 4));
+const fileHash = (s) => {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h) % PODZBIORY;
+  return Math.abs(h) % SUBSETS;
 };
-for (const u of all) u.podzbior = haszPliku(u.file);
+for (const u of all) u.subset = fileHash(u.file);
 
 for (const r of rules) {
-  const supAi = new Array(PODZBIORY).fill(0);
-  const supABi = new Array(PODZBIORY).fill(0);
+  const supAi = new Array(SUBSETS).fill(0);
+  const supABi = new Array(SUBSETS).fill(0);
   for (const u of all) {
     if (!u.items.has(r.A)) continue;
-    supAi[u.podzbior]++;
-    if (u.items.has(r.B)) supABi[u.podzbior]++;
+    supAi[u.subset]++;
+    if (u.items.has(r.B)) supABi[u.subset]++;
   }
 
-  // podzbior "rozstrzygajacy" to taki, w ktorym poprzednik w ogole wystepuje
-  let rozstrzygajace = 0, trzyma = 0;
-  for (let i = 0; i < PODZBIORY; i++) {
+  // a "decisive" subset is one in which the antecedent occurs at all
+  let decisive = 0, holds = 0;
+  for (let i = 0; i < SUBSETS; i++) {
     if (supAi[i] === 0) continue;
-    rozstrzygajace++;
-    if (supABi[i] / supAi[i] >= MINCONF) trzyma++;
+    decisive++;
+    if (supABi[i] / supAi[i] >= MINCONF) holds++;
   }
 
-  // narastajaco: czy regula trzyma sie na kazdym prefiksie podzbiorow
-  let kumA = 0, kumAB = 0, prefiksy = 0, prefiksyTrzyma = 0;
-  for (let i = 0; i < PODZBIORY; i++) {
+  // cumulative: does the rule hold on every prefix of the subsets
+  let kumA = 0, kumAB = 0, prefixes = 0, prefixesHold = 0;
+  for (let i = 0; i < SUBSETS; i++) {
     kumA += supAi[i]; kumAB += supABi[i];
     if (kumA === 0) continue;
-    prefiksy++;
-    if (kumAB / kumA >= MINCONF) prefiksyTrzyma++;
+    prefixes++;
+    if (kumAB / kumA >= MINCONF) prefixesHold++;
   }
 
-  r.stab = rozstrzygajace === 0 ? null
-    : +(((trzyma / rozstrzygajace) + (prefiksy ? prefiksyTrzyma / prefiksy : 1)) / 2).toFixed(2);
-  r.stabOpis = rozstrzygajace === 0 ? t('ageNoData')
-    : t('javaStabDesc', trzyma, rozstrzygajace, prefiksyTrzyma, prefiksy);
+  r.stab = decisive === 0 ? null
+    : +(((holds / decisive) + (prefixes ? prefixesHold / prefixes : 1)) / 2).toFixed(2);
+  r.stabDesc = decisive === 0 ? t('ageNoData')
+    : t('javaStabDesc', holds, decisive, prefixesHold, prefixes);
 }
 
-// ---- odsiewanie klasy "setter obok settera" ----
+// ---- the "setter next to setter" sieve ----
 //
-// Mechaniczne wspolwystapienia wywolan konfiguracyjnych zajmowaly pierwsze
-// dwanascie pozycji rankingu przy odkrywaniu par: setMinHeight -> setMinWidth,
-// initModality -> initOwner, setCycleCount -> play. Kolejnosc i komplet sa tam
-// przypadkowe, a brak jednego z nich nie jest bledem.
+// Mechanical co-occurrences of configuration calls occupied the first twelve
+// positions of the ranking in discovery mode: setMinHeight -> setMinWidth,
+// initModality -> initOwner, setCycleCount -> play. Their order and
+// completeness are accidental, and a missing one of them is not a bug.
 //
-// Trzy sygnaly, kazdy wlaczany osobno (--odsiej 1 / 2 / 3 / 1,3), zeby dalo sie
-// zmierzyc, ktory co usuwa. Odsiewanie dziala na REGULACH i ZGLOSZENIACH —
-// populacja, na ktorej wydobyto reguly, zostaje nietknieta.
+// Three signals, each switchable on its own (--filter 1 / 2 / 3 / 1,3) so that
+// it is possible to measure what each removes. The sieve acts on RULES and
+// FINDINGS — the population the rules were mined from is left untouched.
 //
-// UWAGA na granice: `setOnError` zaczyna sie od "set", ale PODPINA OBSLUGE
-// ZDARZENIA, a nie ustawia wartosc. Musi przezyc kazdy z sygnalow, inaczej
-// tracimy znana odpowiedz MediaPlayer#dispose -> MediaPlayer#setOnError.
-// DOMYSLNIE WLACZONE wszystkie trzy — zmierzone, nie zabiera zadnej znanej
-// odpowiedzi, a poprawia oba tryby:
-//   odkrywanie par: zweryfikowane trafienia z pozycji 88/89 na 13/14 (z 30)
-//   --only setOnError: 14 -> 12 zgloszen, trafnosc 29% -> 33%; usuniete dwa
-//   to Menu.java:2690 i Preview.java:498, oba wczesniej ocenione jako falszywe
-// `--odsiej none` wylacza.
-const ODSIEJ_SUROWY = String(flag('odsiej', '1,2,3'));
-const ODSIEJ = new Set(
-  /^(none|off|brak)$/i.test(ODSIEJ_SUROWY) ? []
-    : ODSIEJ_SUROWY.split(',').map(s => s.trim()).filter(Boolean));
+// MIND THE BOUNDARY: `setOnError` starts with "set" but ATTACHES AN EVENT
+// HANDLER rather than setting a value. It has to survive every signal, or we
+// lose the known answer MediaPlayer#dispose -> MediaPlayer#setOnError.
+// ALL THREE ARE ON BY DEFAULT — measured; they take away no known answer and
+// improve both modes:
+//   discovery mode: verified hits move from position 88 to 47 of 99
+//   --only setOnError: 14 -> 12 findings; the two removed are Menu.java:2690
+//   and Preview.java:498, both judged false beforehand
+// `--filter none` turns the sieve off.
+const FILTER_RAW = String(flag('filter', '1,2,3'));
+const FILTER = new Set(
+  /^(none|off|missing)$/i.test(FILTER_RAW) ? []
+    : FILTER_RAW.split(',').map(s => s.trim()).filter(Boolean));
 
-const nazwaMetody = s => (s.includes('#') ? s.slice(s.indexOf('#') + 1) : s);
-// setter = ustawia wartosc; setOnX NIE jest setterem, tylko podpieciem zdarzenia
-const jestSetter = s => /^set[A-Z]/.test(nazwaMetody(s)) && !/^setOn[A-Z]/.test(nazwaMetody(s));
-// sygnal 1: obie strony to zwykle settery
-const s1 = r => jestSetter(r.A) && jestSetter(r.B);
+const methodName = s => (s.includes('#') ? s.slice(s.indexOf('#') + 1) : s);
+// setter = sets a value; setOnX is NOT a setter, it attaches an event handler
+const isSetter = s => /^set[A-Z]/.test(methodName(s)) && !/^setOn[A-Z]/.test(methodName(s));
+// signal 1: both sides are plain setters
+const s1 = r => isSetter(r.A) && isSetter(r.B);
 
-// sygnal 3: obie strony USTAWIAJA STAN — rozpoznawane po ksztalcie nazwy, a nie
-// przez wykluczenie.
+// signal 3: both sides SET STATE — recognised by the shape of the name, not by
+// exclusion.
 //
-// PIERWSZA WERSJA BYLA ZLA i warto wiedziec dlaczego. Definiowala "ustawia
-// stan" jako "nie jest zdarzeniem ani czynnoscia cyklu zycia" — czyli przez
-// negacje dwoch krotkich list. Na projekcie autora prawie nie dzialala, bo tam
-// niemal wszystko bylo `setOn*` (zdarzeniowe). Na cudzym kodzie ta sama
-// definicja obejmowala WSZYSTKO pozostale: `charAt`/`length`, `get`/`size`,
-// kazda pare getterow. Na netty/common wycinala niemal cala tresc raportu.
+// THE FIRST VERSION WAS WRONG and it is worth knowing why. It defined "sets
+// state" as "is neither an event nor a lifecycle action" — that is, by negating
+// two short lists. On the author's own project it barely fired, because almost
+// everything there was `setOn*` (event-shaped). On somebody else's code the
+// same definition covered EVERYTHING ELSE: `charAt`/`length`, `get`/`size`,
+// every pair of getters. On netty/common it removed nearly the whole report.
 //
-// Teraz sygnal mowi dokladnie to, co obiecuje jego nazwa: obie strony maja
-// ksztalt nazwy metody konfigurujacej. `setMinHeight`, `initModality`,
-// `putHeader`, `withTimeout` — tak. `charAt`, `size`, `error` — nie.
-// `setOnError` nadal NIE jest setterem: podpina obsluge zdarzenia.
+// Now the signal says exactly what its name promises: both sides have the shape
+// of a configuration method name. `setMinHeight`, `initModality`,
+// `putHeader`, `withTimeout` — yes. `charAt`, `size`, `error` — no.
+// `setOnError` is still NOT a setter: it attaches an event handler.
 //
-// Sygnal 3 zawiera w sobie sygnal 1 (kazdy setter jest konfiguracyjny).
-// Sygnal 1 zostaje osobno, bo pozwala zmierzyc sam jego udzial.
-const jestKonfiguracyjna = s => /^(set|init|put|with)[A-Z]/.test(nazwaMetody(s)) &&
-  !/^setOn[A-Z]/.test(nazwaMetody(s));
-const s3 = r => jestKonfiguracyjna(r.A) && jestKonfiguracyjna(r.B);
-// sygnal 2 dziala na ZGLOSZENIU: odbiornik powstal w tej samej jednostce
-const s2 = u => u.swiezy === true;
+// Signal 3 subsumes signal 1 (every setter is a configuration call). Signal 1
+// is kept separately because it lets us measure its own contribution.
+const isConfigCall = s => /^(set|init|put|with)[A-Z]/.test(methodName(s)) &&
+  !/^setOn[A-Z]/.test(methodName(s));
+const s3 = r => isConfigCall(r.A) && isConfigCall(r.B);
+// signal 2 works on the FINDING: the receiver was created in this very unit
+const s2 = u => u.freshlyCreated === true;
 
-function odsiane(r, u) {
-  if (ODSIEJ.has('1') && s1(r)) return 'setter obok settera';
-  if (ODSIEJ.has('3') && s3(r)) return 'obie ustawiaja stan';
-  if (ODSIEJ.has('2') && u && s2(u)) return 'odbiornik utworzony w tej jednostce';
+function sieved(r, u) {
+  if (FILTER.has('1') && s1(r)) return 'setter obok settera';
+  if (FILTER.has('3') && s3(r)) return 'obie ustawiaja stan';
+  if (FILTER.has('2') && u && s2(u)) return 'odbiornik utworzony w tej jednostce';
   return null;
 }
 
-let odsianych = 0;
+let sievedCount = 0;
 
 const rel = f => path.relative(ROOT, f).replace(/\\/g, '/');
 
-// ---- zapis przebiegu ----
-const { przygotuj, naglowekRoznicy } = await import('./snapshot.mjs');
+// ---- run snapshot ----
+const { prepare, diffHeader } = await import('./snapshot.mjs');
 const snapFindings = [];
-// ZAPIS ZAWIERA WSZYSTKO, --top ogranicza WYLACZNIE WYDRUK.
-// Wczesniej zapis byl przycinany tym samym progiem co raport, przez co
-// zawartosc pliku — a wiec i roznica miedzy przebiegami, i ranking — zalezala
-// od flagi wyswietlania. Dwa przebiegi z roznym --top dawaly rozne "nowe
-// odstepstwa" przy nietknietym kodzie.
+// THE SNAPSHOT HOLDS EVERYTHING; --top limits THE PRINTOUT ONLY.
+// The snapshot used to be truncated by the same threshold as the report, so the
+// contents of the file — and therefore the diff between runs and the ranking —
+// depended on a display flag. Two runs with a different --top reported
+// different "new deviations" over untouched code.
 for (const r of rules) {
-  // Miejsca ZGODNE z wzorcem — potrzebne, zeby porownac wiek odstepstwa
-  // z wiekiem reszty. Bez nich sygnal wieku nie ma punktu odniesienia.
-  const wzorzec = [];
+  // Sites that CONFORM to the pattern — needed to compare the age of the
+  // deviation against the age of the rest. Without them the age signal has no
+  // reference point.
+  const pattern = [];
   for (const u of all) {
     if (!u.items.has(r.A) || !u.items.has(r.B)) continue;
-    wzorzec.push({ file: rel(u.file), line: u.items.get(r.B)[0] });
-    if (wzorzec.length >= 5) break;
+    pattern.push({ file: rel(u.file), line: u.items.get(r.B)[0] });
+    if (pattern.length >= 5) break;
   }
   for (const u of all) {
     if (!u.items.has(r.A) || u.items.has(r.B)) continue;
-    if (odsiane(r, u)) continue;
+    if (sieved(r, u)) continue;
     snapFindings.push({
       rule: r.A + '->' + r.B,
       file: rel(u.file),
@@ -492,62 +495,62 @@ for (const r of rules) {
       meta: {
         sup: r.sup, supA: r.supA, conf: +r.conf.toFixed(2), viol: r.viol,
         unit: u.unitKind + '@' + u.unitLine,
-        stab: r.stab, stabOpis: r.stabOpis,
-        wzorzec,
+        stab: r.stab, stabDesc: r.stabDesc,
+        pattern,
       },
     });
   }
 }
-const w = przygotuj(argv, {
+const w = prepare(argv, {
   detector: 'java', root: ROOT, args: argv.slice(1), cfg,
-  counts: { pliki: parsed, zasieg: SCOPE, bledyParsowania: parseErrors.length, jednostki: all.length, regul: rules.length },
+  counts: { sources: parsed, zasieg: SCOPE, bledyParsowania: parseErrors.length, jednostki: all.length, regul: rules.length },
   findings: snapFindings,
 });
-const pokaz = new Set(w.doPokazania.map(f => f.rule + '|' + f.file + '|' + f.line));
-process.exitCode = w.nowych ? 1 : 0;
+const visible = new Set(w.toShow.map(f => f.rule + '|' + f.file + '|' + f.line));
+process.exitCode = w.newCount ? 1 : 0;
 
 // ---- report ----
 console.log(t('javaTitle'));
 console.log(t('root') + ROOT);
 console.log(t('javaStats', parsed, parseErrors.length, all.length, supA.size, frequent.size));
 if (parseErrors.length) console.log(t('javaParseErrors', parseErrors.slice(0, 5).map(rel).join(', ')));
-if (ODSIEJ.size) console.log(t('javaSieve', [...ODSIEJ].join(',')));
-const { zaMaloDanych } = await import('./populacja.mjs');
-naglowekRoznicy(w);
+if (FILTER.size) console.log(t('javaSieve', [...FILTER].join(',')));
+const { notEnoughData } = await import('./population.mjs');
+diffHeader(w);
 if ([...supA.keys()].some(k => k.startsWith('?#'))) console.log(t('legendUnknownType'));
 console.log(t('javaRules', SCOPE, MINSUP, MINCONF, MAXVIOL, rules.length));
 console.log('');
 
-// Brak populacji: jeden osad dla wszystkich detektorow (src/populacja.mjs).
-const brak = zaMaloDanych(frequent.size, MINSUP);
-if (brak) { console.log(brak); }
+// No population: one judgement shared by all detectors (src/population.mjs).
+const missing = notEnoughData(frequent.size, MINSUP);
+if (missing) { console.log(missing); }
 
-// NAGLOWEK DOPIERO, GDY WIADOMO, ZE COS POD NIM BEDZIE.
-// Wczesniej naglowek szedl na wyjscie od razu, a miejsca dopiero pod nim — gdy
-// wszystkie zostaly odsiane albo odpadly przy roznicy, na ekranie zostawal sam
-// naglowek. Na cudzym repozytorium dawalo to dziesiec pustych sekcji z rzedu,
-// co wyglada na zepsute narzedzie, a nie na brak wynikow. Regula bez ani jednego
-// miejsca nie zajmuje tez slotu w TOP — inaczej pusta regula wypychala z listy
-// te, ktora ma tresc.
+// PRINT THE HEADER ONLY ONCE WE KNOW SOMETHING WILL FOLLOW IT.
+// The rule header used to go out immediately, with the sites printed under it —
+// so when every site had been sieved away or dropped by the diff, a bare header
+// was left on screen. On a stranger's repository that produced ten empty
+// sections in a row, which reads as a broken tool rather than as "no results".
+// A rule with no sites also no longer consumes a TOP slot; otherwise an empty
+// rule pushed a rule that does have content off the list.
 let shown = 0;
 for (const r of rules) {
   if (shown >= TOP) break;
 
-  const linie = [];
+  const lines = [];
   for (const u of all) {
     if (!u.items.has(r.A) || u.items.has(r.B)) continue;
-    if (odsiane(r, u)) { odsianych++; continue; }
-    if (!pokaz.has((r.A + '->' + r.B) + '|' + rel(u.file) + '|' + u.items.get(r.A)[0])) continue;
-    linie.push('   ' + rel(u.file) + ':' + u.items.get(r.A)[0] + '  recv=' + u.recv +
+    if (sieved(r, u)) { sievedCount++; continue; }
+    if (!visible.has((r.A + '->' + r.B) + '|' + rel(u.file) + '|' + u.items.get(r.A)[0])) continue;
+    lines.push('   ' + rel(u.file) + ':' + u.items.get(r.A)[0] + '  recv=' + u.recv +
       '  in ' + u.unitKind + '@' + u.unitLine);
-    linie.push(t('javaCallsHere', [...u.items.keys()].join(', ')));
+    lines.push(t('javaCallsHere', [...u.items.keys()].join(', ')));
   }
-  if (linie.length === 0) continue;
+  if (lines.length === 0) continue;
 
   shown++;
   console.log(t('javaRuleHead', shown, r.A, r.B, r.sup, r.supA, (r.conf * 100).toFixed(0), r.viol) +
-    (r.stab === null ? '' : t('javaStab', r.stab, r.stabOpis)));
-  for (const l of linie) console.log(l);
+    (r.stab === null ? '' : t('javaStab', r.stab, r.stabDesc)));
+  for (const l of lines) console.log(l);
   console.log('');
 }
 

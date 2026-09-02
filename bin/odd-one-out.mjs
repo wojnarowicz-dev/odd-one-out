@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// odd-one-out — jedno wejście do wszystkich detektorów.
+// odd-one-out — a single entry point for every detector.
 //
-// Każdy detektor jest osobnym modułem czytającym process.argv przy imporcie.
-// Dyspozytor podmienia argv i importuje właściwy moduł — dzięki temu detektory
-// zostają uruchamialne pojedynczo (`node src/sql.mjs ...`) także wtedy, gdy
-// woła się je przez to polecenie.
+// Each detector is a separate module that reads process.argv on import. The
+// dispatcher swaps argv and imports the right module — which keeps the
+// detectors runnable on their own (`node src/sql.mjs ...`) as well as through
+// this command.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { t } from '../src/lang.mjs';
@@ -16,49 +16,49 @@ const COMMANDS = {
   java: {
     module: 'oddone.mjs',
     arg: '<java-source-dir>',
-    opisKey: 'cmdJava',
-    opcje: '--minsup 3 --minconf 0.6 --maxviol 4 --top 10 --only nazwa1,nazwa2',
+    descKey: 'cmdJava',
+    options: '--minsup 3 --minconf 0.6 --maxviol 4 --top 10 --only nazwa1,nazwa2',
   },
   deps: {
     module: 'deps.mjs',
     arg: '<java-source-dir>',
-    opisKey: 'cmdDeps',
-    opcje: '--minvia 5 --maxodd 3 --top 10',
+    descKey: 'cmdDeps',
+    options: '--minvia 5 --maxodd 3 --top 10',
   },
   pom: {
     module: 'pom.mjs',
     arg: '--pom <pom.xml> --tree <deptree.txt> [...]',
-    opisKey: 'cmdPom',
-    opcje: null,
+    descKey: 'cmdPom',
+    options: null,
   },
   sql: {
     module: 'sql.mjs',
     arg: '<migrations-dir>',
-    opisKey: 'cmdSql',
-    opcje: '--minconv 3',
+    descKey: 'cmdSql',
+    options: '--minconv 3',
   },
   js: {
     module: 'js.mjs',
     arg: '<web-project-dir>',
-    opisKey: 'cmdJs',
-    opcje: '--top 20',
+    descKey: 'cmdJs',
+    options: '--top 20',
   },
   diff: {
     module: null,
     arg: '<previous.json> <current.json>',
-    opisKey: 'cmdDiff',
-    opcje: '--all (also show unchanged findings)',
+    descKey: 'cmdDiff',
+    options: '--all (also show unchanged findings)',
   },
   rank: {
     module: null,
     arg: '<snapshot.json> [more.json...]',
-    opisKey: 'cmdRank',
-    opcje: '--top 20  --wiek <repo-dir>  --stabilnosc  (both OFF by default)',
+    descKey: 'cmdRank',
+    options: '--top 20  --age <repo-dir>  --stability  (both OFF by default)',
   },
 };
 
-const { pomoc } = await import(new URL('./usage.mjs', import.meta.url).href);
-const usage = (kod = 0) => pomoc(COMMANDS, kod);
+const { help } = await import(new URL('./usage.mjs', import.meta.url).href);
+const usage = (code = 0) => help(COMMANDS, code);
 
 const [cmd, ...rest] = process.argv.slice(2);
 
@@ -94,7 +94,7 @@ if (cmd === 'diff') {
   }
   const d = printDiff(readSnapshot(files[0]), readSnapshot(files[1]),
     { showUnchanged: rest.includes('--all') });
-  // Kod wyjscia niesie informacje dla CI: 1 = sa nowe zgloszenia.
+  // The exit code carries information for CI: 1 = there are new findings.
   process.exit(d.nowe.length ? 1 : 0);
 }
 
@@ -103,14 +103,14 @@ if (cmd === 'rank') {
   const { readSnapshot } = await import(mod('snapshot.mjs'));
   const { printRanking } = await import(mod('rank.mjs'));
   // Flagi z wartością zjadają następny token — bez tego `--top 8` wstawia "8"
-  // na listę plików.
-  const FLAGI_Z_WARTOSCIA = new Set(['--top', '--wiek', '--lang']);
+  // na listę fileów.
+  const FLAGI_Z_WARTOSCIA = new Set(['--top', '--age', '--lang']);
   const files = [];
   let top = 20, wiek = null;
   for (let i = 0; i < rest.length; i++) {
     if (FLAGI_Z_WARTOSCIA.has(rest[i])) {
       if (rest[i] === '--top') top = +rest[i + 1];
-      if (rest[i] === '--wiek') wiek = rest[i + 1];
+      if (rest[i] === '--age') wiek = rest[i + 1];
       i++; continue;
     }
     if (rest[i].startsWith('--')) continue;
@@ -120,31 +120,31 @@ if (cmd === 'rank') {
     console.error(t('rankNeedsOne'));
     process.exit(2);
   }
-  await printRanking(files.map(readSnapshot), { top, wiek, stabilnosc: rest.includes('--stabilnosc') });
+  await printRanking(files.map(readSnapshot), { top, wiek, stabilnosc: rest.includes('--stability') });
   process.exit(0);
 }
 
-// SPRAWDZENIE WEJSCIA — jedno miejsce dla wszystkich detektorow, przed
-// uruchomieniem czegokolwiek. Bez tego nieistniejaca sciezka daje surowy
-// ENOENT ze sladem stosu, co wyglada na awarie narzedzia, a jest literowka.
+// INPUT VALIDATION — one place for every detector, before anything runs.
+// Without it a non-existent path produces a raw ENOENT with a stack trace,
+// which looks like the tool crashed when in fact somebody mistyped a path.
 {
   const mod = f => new URL('file://' + path.join(SRC, f).replace(/\\/g, '/')).href;
-  const { wymagajKatalog, wymagajPlik } = await import(mod('wejscie.mjs'));
-  const wartosc = (nazwa) => {
-    const i = rest.indexOf(nazwa);
+  const { requireDirectory, requireFile } = await import(mod('input.mjs'));
+  const wartosc = (name) => {
+    const i = rest.indexOf(name);
     return i >= 0 && rest[i + 1] && !rest[i + 1].startsWith('--') ? rest[i + 1] : null;
   };
   if (cmd === 'pom') {
-    wymagajPlik(wartosc('--pom'), '--pom <pom.xml>');
+    requireFile(wartosc('--pom'), '--pom <pom.xml>');
     const i = rest.indexOf('--tree');
-    if (i < 0) wymagajPlik(null, '--tree <deptree.txt>');
-    for (let j = i + 1; j < rest.length && !rest[j].startsWith('--'); j++) wymagajPlik(rest[j], '--tree');
+    if (i < 0) requireFile(null, '--tree <deptree.txt>');
+    for (let j = i + 1; j < rest.length && !rest[j].startsWith('--'); j++) requireFile(rest[j], '--tree');
   } else {
-    wymagajKatalog(rest.find(a => !a.startsWith('--')), COMMANDS[cmd].arg);
+    requireDirectory(rest.find(a => !a.startsWith('--')), COMMANDS[cmd].arg);
   }
 }
 
-// Detektory czytają process.argv.slice(2) — podmieniamy je tak, jakby
+// The detectors read process.argv.slice(2) — we swap it so they behave as if
 // uruchomiono je bezpośrednio.
 process.argv = [process.argv[0], path.join(SRC, COMMANDS[cmd].module), ...rest];
 await import(new URL('file://' + path.join(SRC, COMMANDS[cmd].module).replace(/\\/g, '/')).href);

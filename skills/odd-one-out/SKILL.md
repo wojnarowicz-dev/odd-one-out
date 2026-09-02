@@ -1,240 +1,237 @@
 ---
 name: odd-one-out
-description: Znajduje miejsca odstające od konwencji panującej w tym projekcie — "N razy tak, raz inaczej". Użyj przy przeglądzie kodu, audycie, przed wydaniem, przy pytaniach typu "czy coś tu odstaje", "czy o czymś zapomniałem", "sprawdź spójność", a także gdy użytkownik dodał nowy kod obok istniejącej rodziny podobnych miejsc. Obsługuje Javę (pary wywołań, warstwy wspólne), pom.xml (martwe wpisy dependencyManagement), migracje SQL/Supabase (revoke bez grant execute) oraz JavaScript/TypeScript i strony HTML (nazwa wołana, której strona nie zna).
+description: Finds places that deviate from the convention of this project — "N times this way, once differently". Use it during code review, an audit, before a release, for questions like "does anything here stand out", "did I forget something", "check consistency", and when the user has just added code next to an existing family of similar places. Covers Java (call pairs, shared layers), pom.xml (dead dependencyManagement entries), SQL/Supabase migrations (revoke without grant execute) and JavaScript/TypeScript with HTML pages (a name called that the page does not know).
 ---
 
 # odd-one-out
 
-Narzędzie szuka **odstępstw od konwencji tego projektu**, a nie naruszeń
-uniwersalnych reguł. Klasa z tysiącem linii w projekcie, gdzie wszystkie mają
-tysiąc, nie odstaje. Cztery `MediaPlayer` z `setOnError` i jeden bez — odstaje.
+The tool looks for **deviations from this project's own convention**, not for
+violations of universal rules. A thousand-line class in a project where every
+class is a thousand lines does not deviate. Four `MediaPlayer` instances with
+`setOnError` and one without — that deviates.
 
-Nie zmienia plików. Zwraca gotową poprawkę do wklejenia.
+It never changes files. It returns a ready-made fix to paste.
 
-## Kiedy to uruchomić
+## When to run it
 
-- przegląd kodu, audyt, sprawdzenie przed wydaniem,
-- „czy coś tu odstaje", „czy o czymś zapomniałem", „sprawdź spójność",
-- użytkownik właśnie dopisał kod obok rodziny podobnych miejsc,
-- po dodaniu migracji SQL nadającej lub odbierającej uprawnienia,
-- po zmianie `pom.xml`.
+- code review, an audit, a check before a release,
+- "does anything here stand out", "did I forget something", "check consistency",
+- the user has just written code next to a family of similar places,
+- after adding an SQL migration that grants or revokes privileges,
+- after changing `pom.xml`.
 
-Nie uruchamiaj do szukania błędów w pojedynczej funkcji bez kontekstu reszty
-projektu — narzędzie potrzebuje populacji do porównania.
+Do not run it to hunt for bugs in a single function without the rest of the
+project — the tool needs a population to compare against.
 
-## Jak uruchomić
+## How to run it
 
-Silnik jest osobną paczką npm. Z katalogu wtyczki albo po `npm i -g odd-one-out`:
+The engine is a separate npm package. From the plugin directory, or after
+`npm i -g odd-one-out`:
 
 ```bash
-odd-one-out java  <katalog-zrodel-java>      # pary wywołań na tym samym odbiorniku
-odd-one-out deps  <katalog-zrodel-java>      # warstwa wspólna vs użycie bezpośrednie
-odd-one-out sql   <katalog-migracji>         # revoke bez grant execute
+odd-one-out java  <java-source-dir>     # call pairs on the same receiver
+odd-one-out deps  <java-source-dir>     # shared layer vs direct use
+odd-one-out sql   <migrations-dir>      # revoke without grant execute
+odd-one-out js    <web-project-dir>     # a name the page does not know
 odd-one-out pom   --pom <pom.xml> --tree <deptree.txt>
-odd-one-out js    <katalog-web>              # nazwa wołana, której strona nie zna
 ```
 
-Gdy paczka nie jest zainstalowana globalnie, wołaj przez `node`:
-`node <katalog-wtyczki>/bin/odd-one-out.mjs java ./src/main/java`.
+If the package is not installed globally, call it through `node`:
+`node <plugin-dir>/bin/odd-one-out.mjs java ./src/main/java`.
 
-**Język komunikatów:** `--lang en` (domyślnie) albo `--lang pl`. Dobierz do
-języka, w którym rozmawiasz z użytkownikiem. Pozycje, oceny i ścieżki są w obu
-identyczne — różnią się tylko etykiety.
+**Message language:** `--lang en` (default) or `--lang pl`. Match the language
+you are speaking with the user. Positions, scores and paths are identical in
+both; only the labels differ.
 
-### `pom` wymaga przygotowania
+### `pom` needs preparation
 
-`dependencyManagement` tylko przypina wersje zależnościom zadeklarowanym gdzie
-indziej — z samego pliku nie da się orzec, czy wpis coś robi. Najpierw zdejmij
-drzewo, dopiero potem uruchom detektor:
+`dependencyManagement` only pins versions for dependencies declared elsewhere —
+the file alone cannot tell you whether an entry does anything. Take the tree
+first, then run the detector:
 
 ```bash
 mvn -o -B dependency:tree > deptree.txt
 odd-one-out pom --pom pom.xml --tree deptree.txt
 ```
 
-Drzewo musi pochodzić z **tej samej rewizji `pom.xml`** i tego samego zestawu
-profili. `mvn -P X` wyłącza profile `activeByDefault` — drzewo zdjęte z inną
-listą profili generuje fałszywe zgłoszenia. Jeśli Mavena nie da się uruchomić,
-powiedz to wprost i pomiń `pom`; bez drzewa narzędzie zgadywałoby.
+The tree must come from **the same revision of `pom.xml`** and the same profile
+set. `mvn -P X` disables `activeByDefault` profiles — a tree taken with a
+different profile list produces false findings. If Maven cannot be run, say so
+plainly and skip `pom`; without the tree the tool would be guessing.
 
-## Różnica między uruchomieniami — domyślna
+## The diff between runs — the default
 
-**Zawsze podawaj `--json <plik>`.** Gdy plik już istnieje, detektor sam pokazuje
-tylko **nowe i zmienione** zgłoszenia, a nagłówek podaje bilans. `--all` daje
-pełną listę.
+**Always pass `--json <file>`.** When the file already exists, the detector shows
+**only new and changed** findings by itself, and the header carries the balance.
+`--all` gives the full list.
 
 ```bash
 odd-one-out java ./src/main/java --json .odd-one-out/java.json
 ```
 
-Kod wyjścia: `0` = brak nowych odstępstw, `1` = są. Dotyczy każdego detektora.
+Exit code: `0` = no new deviations, `1` = there are some, `2` = usage error.
+This holds for every detector.
 
-Osobne `odd-one-out diff <a> <b>` zostaje do porównywania dwóch dowolnych zapisów.
+The separate `odd-one-out diff <a> <b>` command remains, for comparing any two
+saved runs.
 
-## Wyciszanie
+## Muting
 
-Gdy użytkownik uzna zgłoszenie za świadomą decyzję, **zaproponuj komentarz
-w kodzie**, nie plik konfiguracyjny — decyzja ma stać tam, gdzie zapadła:
+When the user decides a finding is deliberate, **propose a comment in the code**
+rather than a config file — the decision should stand where it was made:
 
 ```
-// odd-one-out: ok — obsługa błędu stoi u wołającego
+// odd-one-out: ok — the error handling lives in the caller
 ```
 
-Szukany jest w linii zgłoszenia i w linii powyżej; powód po myślniku trafia do
-raportu. Plik `.odd-one-out.json` (po `unitId`) jest do decyzji zbiorczych.
-Wyciszenie nie usuwa miejsca z populacji — znika tylko z raportu.
+It is looked for on the finding's line and on the line above; the reason after
+the dash reaches the report. `.odd-one-out.json` (keyed by `unitId`) is for bulk
+decisions. A mute does not remove the site from the population — it only
+disappears from the report.
 
-## Znane ograniczenie, które trzeba nazwać
+## The known limitation you must name
 
-Fałszywe alarmy tej klasy biorą się stąd, że **obsługa stoi o poziom wyżej niż
-wywołanie** — metoda wiążąca zachowanie obsługuje błąd u wołającego, a para
-liczona w zasięgu jednostki tego nie widzi. To granica metody, nie usterka; tę
-samą klasę wymieniają lintery Fluttera przy sprzątaniu delegowanym do metody
-pomocniczej. Mów o tym wprost zamiast przedstawiać takie zgłoszenie jako szum.
+False positives of this class arise because **the handling sits one level above
+the call** — a method that binds behaviour has its errors handled by the caller,
+and a pair counted within the unit scope cannot see that. This is a boundary of
+the method, not a defect; the same class is named by Flutter linters for cleanup
+delegated to a helper method. Say so plainly instead of presenting such a finding
+as noise.
 
-Odcisk zgłoszenia nie zawiera numeru linii, więc przesunięcia w pliku **nie**
-generują fałszywych „nowych". Dwie rzeczy warte powiedzenia użytkownikowi:
-naprawa jednego odstępstwa potrafi wygenerować nowe (zmienia populację, do
-której wszystko jest porównywane), a przeniesienie klasy do innego pakietu
-wychodzi jako `NOWE` + `ZNIKNĘŁO`.
+## The setter sieve
 
-## Odsiewanie „setter obok settera"
+On by default (`--filter none` disables it). It removes mechanical
+co-occurrences of configuration calls that used to fill the top of the ranking
+(`setMinHeight -> setMinWidth`, `initModality -> initOwner`). `setOnError` is
+**not** treated as a setter — it attaches an event handler rather than setting a
+value.
 
-Włączone domyślnie (`--odsiej none` wyłącza). Odsiewa mechaniczne
-współwystąpienia wywołań konfiguracyjnych, które zajmowały czoło rankingu
-(`setMinHeight -> setMinWidth`, `initModality -> initOwner`). `setOnError` **nie**
-jest traktowane jak setter — podpina obsługę zdarzenia, nie ustawia wartości.
+Measured: it takes away no known answer; in discovery mode the verified hits move
+from position 88 to 47, and with `--only setOnError` all known answers fit in the
+top five.
 
-Zmierzone: nie zabiera żadnej znanej odpowiedzi; przy odkrywaniu par
-zweryfikowane trafienia idą z pozycji 88/89 na 13/14, a przy `--only setOnError`
-wszystkie znane odpowiedzi mieszczą się w pierwszej piątce.
+## Discovery versus narrowing
 
-## Odkrywanie par kontra zawężanie
+The `java` detector discovers pairs by itself — `--only <names>` is a filter, not
+a precondition. Measured: without the filter, 327 rules and **711 findings**, and
+the top of the ranking is entirely mechanical co-occurrences of JavaFX setters.
+Verified hits land at positions 73–74 of 99. **Accuracy in the top ten: 0%.**
 
-Detektor `java` domyślnie odkrywa pary sam — `--only <nazwy>` to filtr, nie
-warunek działania. Zmierzone: bez filtra 327 reguł i **711 zgłoszeń**, a czoło
-rankingu w całości zajmują mechaniczne współwystąpienia setterów JavaFX
-(`Button#setMinHeight -> Button#setMinWidth`). Zweryfikowane trafienia lądują
-na pozycjach 73–74 z 99. **Trafność w pierwszej dziesiątce: 0%.**
+So: for **review**, always narrow with `--only` to the family the user cares
+about. Show full discovery only when the question is "what conventions exist in
+this code at all" — that is material to review, not a list of things to fix.
 
-Dlatego: do **przeglądu** zawsze zawężaj `--only` do rodziny, która interesuje
-użytkownika. Pełne odkrywanie pokazuj wtedy, gdy pytanie brzmi „jakie w ogóle
-konwencje panują w tym kodzie" — to materiał do przejrzenia, nie lista
-zgłoszeń do naprawy.
+## Receiver type
 
-## Typ odbiornika
+On by default (`--types off` disables it): items carry the receiver type, so
+`MediaControl#setOnEndOfMedia` does not mix with `MediaPlayer#setOnEndOfMedia`.
+Measured: accuracy 20% → 29%.
 
-Włączony domyślnie (`--typy off` wyłącza): pozycje niosą typ odbiornika, więc
-`MediaControl#setOnEndOfMedia` nie miesza się z `MediaPlayer#setOnEndOfMedia`.
-Zmierzone: trafność 20% → 29%.
+`--aliases on` (off by default) merges calls on aliases of the same variable.
+Measured: it makes results worse (29% → 21%) — it removes one false positive and
+creates two new ones on query methods. Do not enable it without measuring.
 
-`--aliasy on` (domyślnie wyłączone) scala wywołania na aliasach tej samej
-zmiennej. Zmierzone: pogarsza wynik (29% → 21%) — usuwa jeden fałszywy alarm,
-tworzy dwa nowe na metodach zapytujących. Nie włączaj bez pomiaru.
+## Pair scope
 
-## Zasięg pary
+`--scope file|method|lambda` (default `lambda`) sets how close two calls must
+stand to count as a pair.
 
-`--scope file|method|lambda` (domyślnie `lambda`) ustala, jak blisko siebie muszą
-stać dwa wywołania, żeby liczyć się jako para.
+Measured on 111 files: **narrowing the scope does NOT improve accuracy** — false
+positives arise because the handling sits one level above the call, and a narrow
+scope cannot see it. For review, suggest `--scope file`: the same defects with
+about 40% fewer findings (9 instead of 15). Scope `method` is the worst of the
+three — it loses findings, because it splits the population so that rules lose
+support.
 
-Zmierzone na 111 plikach: **zwężanie zasięgu NIE poprawia trafności** — fałszywe
-alarmy tej klasy biorą się stąd, że obsługa stoi o poziom wyżej niż wywołanie,
-a wąski zasięg tego nie widzi i zgłasza brak. Do przeglądu proponuj
-`--scope file`: te same defekty przy około 40% mniejszej liczbie zgłoszeń
-(9 zamiast 15). Zasięg `method` jest najgorszy z trzech — gubi zgłoszenia,
-bo dzieli populację tak, że reguły tracą wsparcie.
+## Pattern stability
 
-## Stabilność wzorca
+`--stability` on `rank` multiplies the score by how evenly the pattern is spread
+across subsets of the population. **Off by default.**
 
-`--stabilnosc` przy `rank` mnoży ocenę przez to, jak równo wzorzec rozkłada się
-na podzbiorach populacji. **Domyślnie wyłączone.**
+Measured: the verified hits moved up by one position, but at the cost of pushing
+another true finding down; the two false positives at the top have stability 1.00
+and are immune. The number of true findings in the top three and top five did not
+change. Movement in the ranking is not the same as an improvement of it.
 
-Zmierzone: pozycja zweryfikowanych trafień podniosła się o jedno miejsce, ale
-kosztem zepchnięcia w dół innego prawdziwego zgłoszenia; dwa fałszywe alarmy
-z czoła listy mają stabilność 1,00 i są odporne. Liczba prawdziwych zgłoszeń
-w pierwszej trójce i piątce bez zmian. Ruch w rankingu to nie to samo co
-poprawa rankingu.
+## Age of a deviation
 
-## Wiek odstępstwa
+`--age <repo-dir>` on `rank` boosts deviations newer than the conforming lines.
+**Off by default, and usually leave it there.**
 
-`--wiek <katalog-repo>` przy `rank` podbija ocenę odstępstw nowszych niż linie
-zgodne z wzorcem. **Domyślnie wyłączone i zwykle tak zostaw.**
-
-Zmierzone na projekcie autora: nie ruszyło pozycji prawdziwych trafień, za to
-wypromowało jedno fałszywe. `git blame` pokazuje ostatnią rękę, nie autora
-treści — w repozytorium założonym jednym commitem importującym cały kod
-wszystkie linie mają tę samą datę i sygnał nie niesie informacji. Włączaj tylko
-tam, gdzie kod od początku powstawał w gicie, i nigdy nie traktuj wieku jako
-podstawy do odrzucenia zgłoszenia.
+Measured on the author's project: it did not move the true findings and it
+promoted a false one. `git blame` shows the last hand, not the author of the
+content — in a repository created by a single import commit every line carries
+the same date and the signal carries no information. Enable it only where the
+code grew inside git from the start, and never treat age as grounds for
+rejecting a finding.
 
 ## Ranking
 
-Przy kilku detektorach naraz **nie pokazuj użytkownikowi czterech list** — scal
-je: `odd-one-out rank .odd-one-out/java.json .odd-one-out/sql.json`.
+With several detectors at once, **do not show the user four lists** — merge
+them: `odd-one-out rank .odd-one-out/java.json .odd-one-out/sql.json`.
 
-Ocena to iloczyn konwencji, populacji i rzadkości; skala porządkowa, nie
-procent — nie mów „94% szans na błąd". Zgłoszenia z tego samego miejsca są już
-scalone w jedną pozycję, a stany niebędące zgłoszeniem do rankingu nie wchodzą.
+The score is a product of conventionality, population and rarity; the scale is
+ordinal, not a percentage — do not say "94% chance of a bug". Findings from the
+same site are already merged into one entry, and states that are not findings do
+not enter the ranking.
 
-## Jak czytać wynik
-
-Nagłówek zgłoszenia niesie siłę dowodu:
+## How to read the output
 
 ```
 ## [2] setOnReady -> setOnError   sup=8/10 conf=80% odd=2
 ```
 
-- `sup=8/10` — 10 miejsc woła `setOnReady`, 8 z nich woła też `setOnError`.
-- `conf=80%` — siła konwencji.
-- `odd=2` — tyle miejsc odstaje. **`odd=1` przy wysokim `sup` to najmocniejszy
-  sygnał**; `odd` bliskie połowie `sup` znaczy, że konwencji nie ma.
+- `sup=8/10` — 10 sites call `setOnReady`, 8 of them also call `setOnError`.
+- `conf=80%` — the strength of the convention.
+- `odd=2` — how many sites deviate. **`odd=1` with a high `sup` is the strongest
+  signal**; `odd` close to half of `sup` means there is no convention.
+- `Type#method` — the receiver type; `?` means it could not be resolved.
 
-Każde zgłoszenie ma trzy sekcje: **CO JEST NIESPÓJNE**, **JAK ZROBIONO
-W POZOSTAŁYCH MIEJSCACH** (z przykładem i ścieżką) oraz **GOTOWA POPRAWKA**.
+Every finding has three sections: **WHAT IS INCONSISTENT**, **HOW IT IS DONE
+ELSEWHERE** (with an example and a path), and **READY-MADE FIX**.
 
-### Stany, których nie wolno mylić ze znaleziskiem
+### States that must not be mistaken for a finding
 
-Detektory `deps` i `sql` rozróżniają trzy rozłączne stany i mówią to wprost:
+- **DIVERGENCE** — the layer is the convention, a few sites bypass it. The only
+  state that is a finding.
+- **MIGRATION** — both routes are common. Nothing to call a deviation; this is an
+  unfinished transition, not a bug to fix in one place.
+- **TOO_LITTLE** — too few occurrences to speak of a convention.
 
-- **ROZJAZD** — warstwa jest konwencją, kilka miejsc jej nie używa. To jedyny
-  stan, który jest zgłoszeniem.
-- **MIGRACJA W TOKU** — obie drogi są liczne. Nie ma czego nazwać odstępstwem;
-  to niedokończone przejście, nie błąd do poprawienia punktowo.
-- **ZA MAŁO DANYCH** — za mało wystąpień, by mówić o konwencji.
+The `pom` detector splits similarly: **DEAD** (absent from the tree and declared
+nowhere — two independent witnesses) versus **TO_CHECK** (absent from the tree
+but declared — usually a mismatched tree revision).
 
-Detektor `pom` rozdziela podobnie: **MARTWY** (nieobecny w drzewie i nigdzie
-niezadeklarowany — dwa niezależne świadectwa) od **DO SPRAWDZENIA** (nieobecny
-w drzewie, ale zadeklarowany — najczęściej niedopasowana rewizja drzewa).
+Never present `MIGRATION`, `TOO_LITTLE` or `TO_CHECK` as a bug. An empty result
+is a correct result.
 
-Nie przedstawiaj „MIGRACJI W TOKU", „ZA MAŁO DANYCH" ani „DO SPRAWDZENIA" jako
-błędu. Pusty wynik jest poprawnym wynikiem.
+## What accuracy to expect
 
-## Czego się spodziewać po trafności
+**Report accuracy over the first five and ten entries, not over the whole list.**
+Whole-list accuracy is misleading — nobody reads the whole list. What counts is
+how many true findings the person sees before they stop reading.
 
-Trafność referencyjna tej klasy narzędzi (PR-Miner, 2005) to **18,1%**. Szum
-jest oczekiwany i nie jest porażką.
+Measured on the author's project (`java --only setOnError`, a 7-entry ranking):
+**3 true in the first 5 (60%)**, 3 in the first 10 (43%). All four known answers
+fit in the top five; two false positives stand above them. The `sql`, `pom` and
+`js` detectors scored 1/1 on pairs with a known answer.
 
-**Podawaj trafność w pierwszej piątce i dziesiątce, nie na całej liście.**
-Trafność całej listy jest myląca — nikt całej listy nie czyta. Liczy się, ile
-prawdziwych trafień człowiek zobaczy, zanim przestanie czytać.
+Reference accuracy for this class of tool (PR-Miner, 2005) is **18.1%**. Noise is
+expected and is not a failure. Note as well that these numbers come from the
+author's own project, about conventions the author set — a tool tuned on one
+repository looks better there than anywhere else.
 
-Zmierzone na projekcie autora (`java --only setOnError`, ranking 7 pozycji):
-**3 prawdziwe w pierwszych 5 (60%)**, 3 w pierwszych 10 (43%). Wszystkie cztery
-znane odpowiedzi mieszczą się w pierwszej piątce; nad nimi stoją dwa fałszywe
-alarmy. Detektory `sql`, `pom` i `js` trafiały 1/1 na parach ze znaną
-odpowiedzią.
+Give the user numbers, not adjectives: how many findings, how many true, at which
+position.
 
-Podawaj użytkownikowi liczby, nie przymiotniki: ile zgłoszeń, ile prawdziwych,
-na której pozycji.
+## Rules for working with the result
 
-## Zasady pracy z wynikiem
-
-1. **Nie stosuj poprawek automatycznie.** Narzędzie ich nie stosuje i Ty też nie
-   — dopóki użytkownik nie poprosi. Poprawka bez testu mierzącego, czy pomogła,
-   jest ryzykiem, nie wartością.
-2. **Zweryfikuj przepływ, zanim nazwiesz coś błędem.** Brak wywołania nie
-   dowodzi błędu — sprawdź, czy nie jest robione gdzie indziej (inna metoda,
-   try-with-resources, inny hak cyklu życia).
-3. **Odsiewaj duplikaty.** To samo miejsce potrafi wyjść w kilku regułach.
-4. **Uwaga na odbiornik.** Reguła oparta na nazwach potrafi zestawić dwa różne
-   typy o podobnie nazwanych metodach.
+1. **Never apply fixes automatically.** The tool does not, and neither should you
+   — until the user asks. A fix without a test that measures whether it helped is
+   a risk, not a benefit.
+2. **Verify the control flow before calling something a bug.** A missing call
+   does not prove a defect — check whether it is done elsewhere (another method,
+   try-with-resources, a different lifecycle hook).
+3. **Filter duplicates.** The same site can surface under several rules.
+4. **Mind the receiver.** A name-based rule can put two different types with
+   similarly named methods into one rule.

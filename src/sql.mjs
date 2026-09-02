@@ -1,15 +1,15 @@
-// odd-one-out / para SQL — revoke bez grant execute w tej samej migracji.
+// odd-one-out / SQL pair — revoke without grant execute in the same migration.
 //
-// PARSOWANIE: nie tree-sitter. GRANT/REVOKE to regularne DDL, a jedyna realna
-// pulapka skladniowa w migracjach Postgresa to cytowanie dolarowe ($$ ... $$),
-// w ktorym siedza cialla plpgsql pelne srednikow. Naiwny split po ';' rozjezdza
-// sie na pierwszej funkcji. Ponizszy tokenizer obsluguje: $tag$, '...' (z ''),
-// komentarze -- i /* */. To swiadomy wybor, nie brak parsera.
+// PARSING: not tree-sitter. GRANT/REVOKE is regular DDL, and the only real
+// syntactic trap in Postgres migrations is dollar quoting ($$ ... $$), which
+// holds plpgsql bodies full of semicolons. A naive split on ';' falls apart on
+// the first function. The tokenizer below handles $tag$, '...' (with ''), and
+// -- and /* */ comments. A deliberate choice, not a missing parser.
 //
-// REGULA: migracja, ktora odbiera uprawnienia do funkcji, ale nie nadaje
-// EXECUTE zadnej roli w TYM SAMYM pliku. Postgres nadaje EXECUTE roli `public`
-// przy tworzeniu funkcji, wiec `revoke ... from public` zabiera je wszystkim,
-// ktorzy mieli je tylko tak — lacznie z service_role.
+// RULE: a migration that revokes privileges on a function but grants EXECUTE to
+// nobody in THE SAME file. Postgres grants EXECUTE to role `public` when a
+// function is created, so `revoke ... from public` takes it away from everyone
+// who held it only that way — service_role included.
 import fs from 'node:fs';
 import path from 'node:path';
 import { t } from './lang.mjs';
@@ -22,7 +22,7 @@ const flag = (n, d) => {
   const v = argv[i + 1];
   return v === undefined || v.startsWith('--') ? true : v;
 };
-const MINCONV = +flag('minconv', 3);   // ile migracji musi trzymać wzorzec, by to była konwencja
+const MINCONV = +flag('minconv', 3);   // count migracji musi holdsć pattern, by to była konwencja
 
 // --- podzial na instrukcje, swiadomy cytowania dolarowego ---
 function statements(sql) {
@@ -56,7 +56,7 @@ function statements(sql) {
 
 const norm = s => s.replace(/\s+/g, ' ').trim();
 
-// --- wyciagniecie GRANT / REVOKE ---
+// --- extracting GRANT / REVOKE ---
 function acl(stmt) {
   const s = norm(stmt);
   const m = s.match(/^(grant|revoke)\s+(?:grant\s+option\s+for\s+)?(.+?)\s+on\s+(function|procedure|routine|table|sequence|schema)\s+([^\s(]+)\s*(\([^)]*\))?/i);
@@ -71,14 +71,14 @@ function acl(stmt) {
   return { kind, privs, objType, name, args, roles, text: s };
 }
 
-// --- wczytanie migracji ---
+// --- reading the migrations ---
 const { loadConfig } = await import('./config.mjs');
 const cfg = loadConfig(argv, DIR);
 const files = fs.readdirSync(DIR).filter(f => f.endsWith('.sql') && !cfg.isExcluded(path.join(DIR, f))).sort();
 {
-  const { brakZrodel } = await import('./populacja.mjs');
-  const brak = brakZrodel(files.length, '.sql', DIR);
-  if (brak) { console.log(brak); process.exit(0); }
+  const { noSourcesIn } = await import('./population.mjs');
+  const missing = noSourcesIn(files.length, '.sql', DIR);
+  if (missing) { console.log(missing); process.exit(0); }
 }
 const perFile = [];
 for (const f of files) {
@@ -91,7 +91,7 @@ for (const f of files) {
   perFile.push({ file: f, acls });
 }
 
-// --- konwencja i odstepstwa, liczone per migracja ---
+// --- convention and deviations, counted per migration ---
 const FN = new Set(['function', 'procedure', 'routine']);
 const both = [], onlyRevoke = [];
 for (const pf of perFile) {
@@ -120,9 +120,9 @@ const distinct = new Set(both.map(b => b.name)).size;
 console.log(t('sqlPairs', both.length, distinct, onlyRevoke.length));
 console.log('');
 
-// ---- zapis przebiegu i roznica ----
-const { przygotuj, naglowekRoznicy } = await import('./snapshot.mjs');
-const w = przygotuj(argv, {
+// ---- run snapshot and diff ----
+const { prepare, diffHeader } = await import('./snapshot.mjs');
+const w = prepare(argv, {
   detector: 'sql',
   root: DIR,
   cfg,
@@ -137,17 +137,17 @@ const w = przygotuj(argv, {
     meta: { via: distinct, odd: onlyRevoke.length },
   })),
 });
-const pokaz = new Set(w.doPokazania.map(f => f.file + ':' + f.line));
-naglowekRoznicy(w);
+const visible = new Set(w.toShow.map(f => f.file + ':' + f.line));
+diffHeader(w);
 console.log('');
-process.exitCode = w.nowych ? 1 : 0;
+process.exitCode = w.newCount ? 1 : 0;
 
 if (both.length < MINCONV) {
   console.log(t('sqlTooFew', both.length, MINCONV));
 } else if (onlyRevoke.length === 0) {
   console.log(t('sqlNoDeviations'));
 } else {
-  onlyRevoke.filter(o => pokaz.has(o.file + ':' + o.a.line)).forEach((o, i) => {
+  onlyRevoke.filter(o => visible.has(o.file + ':' + o.a.line)).forEach((o, i) => {
     const fixed = grantedLater.get(o.name);
     console.log('## [' + (i + 1) + '] ' + o.name + '  —  ' + rel(o.file));
     console.log('');

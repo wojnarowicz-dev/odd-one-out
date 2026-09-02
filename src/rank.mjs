@@ -1,30 +1,31 @@
 import { t } from './lang.mjs';
-// odd-one-out — jeden ranking ponad detektorami.
+// odd-one-out — one ranking across all detectors.
 //
-// PO CO. Cztery detektory dają cztery osobne listy w czterech skalach:
-// `conf=80% odd=2`, `15 funkcji ma wzorzec, ta jedna nie`, `MARTWY`. Człowiek
-// nie ma jak porównać zgłoszenia z pom.xml ze zgłoszeniem z Javy i nie wie, co
-// czytać pierwsze. Ranking sprowadza je do jednej liczby z jawnych składników.
+// WHY. Four detectors produce four separate lists on four different scales:
+// `conf=80% odd=2`, `15 functions have the pattern, this one does not`, `DEAD`.
+// A person has no way to compare a pom.xml finding with a Java finding and does
+// not know what to read first. The ranking reduces them to a single number
+// built from explicit components.
 //
-// SKŁADNIKI. Każde zgłoszenie niesie w `meta` te same trzy wielkości, niezależnie
-// od detektora:
-//   konwencja  — jak mocno wzorzec się trzyma (0..1)
-//   populacja  — na ilu przykładach stoi (nasycenie przy 10)
-//   rzadkosc   — im mniej miejsc odstaje, tym mocniejszy sygnał (1/odd)
+// COMPONENTS. Every finding carries the same three quantities in `meta`,
+// regardless of detector:
+//   conventionality — how strongly the pattern holds (0..1)
+//   population      — how many examples it rests on (saturates at 10)
+//   rarity          — the fewer sites deviate, the stronger the signal (1/odd)
 //
-// Mnożenie, nie suma. Zgłoszenie ma być wysoko tylko wtedy, gdy WSZYSTKIE trzy
-// są wysokie — silna konwencja na trzech przykładach nic nie znaczy, tak samo
-// jak duża populacja przy połowie miejsc odstających. Suma pozwoliłaby jednemu
-// wysokiemu składnikowi przykryć zerowy; iloczyn nie.
+// Multiplication, not a sum. A finding should rank high only when ALL THREE are
+// high — a strong convention over three examples means nothing, and so does a
+// large population with half the sites deviating. A sum would let one high
+// component mask a zero one; a product does not.
 //
-// Skala jest porządkowa, nie prawdopodobieństwem. 94 nie znaczy "94% szans, że
-// to błąd" — znaczy "czytaj to przed zgłoszeniem o 32".
+// The scale is ordinal, not a probability. 94 does not mean "94% chance this is
+// a bug" — it means "read this before the finding scored 32".
 
 export function components(meta = {}) {
   const m = meta || {};
   const odd = Number(m.odd ?? m.viol ?? 1) || 1;
 
-  // konwencja: wprost z conf (Java), albo z proporcji via/(via+odd) (reszta)
+  // conventionality: straight from conf (Java), or from via/(via+odd) (the rest)
   let konwencja = null;
   if (m.conf !== undefined) konwencja = Number(m.conf);
   else if (m.via !== undefined) {
@@ -33,7 +34,7 @@ export function components(meta = {}) {
   }
   if (konwencja === null || Number.isNaN(konwencja)) konwencja = 0.5;
 
-  // populacja: ile przykładów podpiera wzorzec; nasycenie przy 10
+  // population: how many examples support the pattern; saturates at 10
   const pop = Number(m.sup ?? m.via ?? 0) || 0;
   const populacja = Math.min(1, pop / 10);
 
@@ -47,19 +48,19 @@ export function score(meta) {
   return Math.round(100 * c.konwencja * c.populacja * c.rzadkosc);
 }
 
-// Stany, które NIE są zgłoszeniem, nie mają czego robić w rankingu —
-// niezależnie od tego, jak wysoko wyszłyby z arytmetyki.
-const NIE_ZGLOSZENIE = new Set(['MIGRACJA W TOKU', 'ZA MALO DANYCH', 'DO SPRAWDZENIA']);
+// States that are NOT findings have no business in the ranking — no matter how
+// high the arithmetic would put them.
+const NOT_A_FINDING = new Set(['MIGRATION', 'TOO_LITTLE', 'TO_CHECK']);
 
-// SCALANIE. Jedno miejsce potrafi naruszyc kilka regul naraz — w tym projekcie
-// `bindPlayButtonToPlayerStatus` wychodzil trzy razy (setOnPlaying/setOnPaused/
-// setOnStopped -> setOnError), zajmujac pozycje 4, 5 i 6 rankingu i spychajac
-// zgloszenia z innych miejsc. To jedna decyzja do podjecia przez czlowieka,
-// wiec jest jedna pozycja; pozostale reguly ida obok jako uzasadnienie.
+// MERGING. One site can violate several rules at once — in this project
+// `bindPlayButtonToPlayerStatus` came out three times (setOnPlaying/setOnPaused/
+// setOnStopped -> setOnError), taking ranking positions 4, 5 and 6 and pushing
+// findings from other sites down. That is one decision for a human to make, so
+// it is one entry; the remaining rules stand beside it as justification.
 //
-// Jednostka bierze sie z meta.unit (Java: rodzaj+linia funkcji otaczajacej),
-// a gdy jej nie ma — z pary plik+linia. Numer linii jest tu bezpieczny, bo
-// scalanie dziala W OBREBIE JEDNEGO przebiegu, nie miedzy przebiegami.
+// The unit comes from meta.unit (Java: kind + line of the enclosing function),
+// and where that is absent, from the file+line pair. The line number is safe
+// here because merging happens WITHIN A SINGLE run, not between runs.
 function unitKey(f, detector) {
   return [detector, f.file, (f.meta && f.meta.unit) || f.line || 0].join('|');
 }
@@ -69,13 +70,13 @@ export function rankSnapshots(snapshots) {
   for (const s of snapshots)
     for (const f of s.findings) {
       const kind = f.meta && f.meta.kind;
-      if (kind && NIE_ZGLOSZENIE.has(kind)) continue;
+      if (kind && NOT_A_FINDING.has(kind)) continue;
       const detector = f.detector || s.detector;
       const k = unitKey(f, detector);
       const rec = { ...f, detector, root: s.root, score: score(f.meta), comp: components(f.meta) };
       const prev = grupy.get(k);
       if (!prev) { grupy.set(k, { ...rec, takze: [] }); continue; }
-      // zostaje najmocniejsza regula; slabsze ida obok
+      // the strongest rule stays; weaker ones are listed beside it
       if (rec.score > prev.score) grupy.set(k, { ...rec, takze: [...prev.takze, prev.rule] });
       else prev.takze.push(rec.rule);
     }
@@ -87,12 +88,12 @@ export function rankSnapshots(snapshots) {
 export async function printRanking(snapshots, { top = 20, wiek = null, stabilnosc = false } = {}) {
   const ranked = rankSnapshots(snapshots);
 
-  // STABILNOSC WZORCA — czwarty skladnik oceny, opcjonalny.
-  // Wzorzec obecny w kazdym podzbiorze populacji jest pewniejszy niz taki,
-  // ktory powstaje dopiero z calosci. Wartosc liczy detektor (patrz
-  // src/oddone.mjs) na PODZBIORACH SPRAWDZAJACYCH — populacja, na ktorej
-  // wydobyto reguly, pozostaje cala.
-  let stabOpis = null;
+  // PATTERN STABILITY — an optional fourth component of the score.
+  // A pattern present in every subset of the population is more trustworthy
+  // than one that only emerges from the whole. The value is computed by the
+  // detector (see src/oddone.mjs) on CHECKING SUBSETS — the population the
+  // rules were mined from stays whole.
+  let stabDesc = null;
   if (stabilnosc) {
     let zeSkladnikiem = 0;
     for (const f of ranked) {
@@ -100,11 +101,11 @@ export async function printRanking(snapshots, { top = 20, wiek = null, stabilnos
       if (typeof s === 'number') { f.score = Math.round(f.score * s); zeSkladnikiem++; }
     }
     ranked.sort((a, b) => b.score - a.score || a.file.localeCompare(b.file));
-    stabOpis = t('stabApplied', zeSkladnikiem, ranked.length);
+    stabDesc = t('stabApplied', zeSkladnikiem, ranked.length);
   }
 
-  // WIEK — sygnal opcjonalny, domyslnie wylaczony. Wylacznie podbicie oceny;
-  // nic nie jest na tej podstawie usuwane ani obnizane (patrz src/age.mjs).
+  // AGE — an optional signal, off by default. A score boost only; nothing is
+  // removed or lowered on its basis (see src/age.mjs).
   let wiekOpis = null;
   if (wiek) {
     const { ageSignal, isGitRepo } = await import('./age.mjs');
@@ -115,15 +116,15 @@ export async function printRanking(snapshots, { top = 20, wiek = null, stabilnos
       for (const f of ranked) {
         const a = ageSignal(f, f.root, wiek);
         f.wiek = a;
-        if (a.mnoznik !== 1) podbitych++;
-        f.score = Math.round(f.score * a.mnoznik);
+        if (a.multiplier !== 1) podbitych++;
+        f.score = Math.round(f.score * a.multiplier);
       }
       ranked.sort((a, b) => b.score - a.score || a.file.localeCompare(b.file));
       wiekOpis = t('ageSignal', podbitych, ranked.length);
     }
   }
   const pominiete = snapshots.reduce((n, s) =>
-    n + s.findings.filter(f => f.meta && NIE_ZGLOSZENIE.has(f.meta.kind)).length, 0);
+    n + s.findings.filter(f => f.meta && NOT_A_FINDING.has(f.meta.kind)).length, 0);
 
   console.log(t('rankTitle'));
   console.log(t('rankSnapshots', snapshots.length, snapshots.map(s => s.detector).join(', ')));
@@ -131,7 +132,7 @@ export async function printRanking(snapshots, { top = 20, wiek = null, stabilnos
   console.log('');
   console.log(t('rankFormula'));
   if (wiekOpis) console.log(wiekOpis);
-  if (stabOpis) console.log(stabOpis);
+  if (stabDesc) console.log(stabDesc);
   console.log('');
 
   ranked.slice(0, top).forEach((f, i) => {
@@ -141,9 +142,9 @@ export async function printRanking(snapshots, { top = 20, wiek = null, stabilnos
     console.log('       ' + f.label);
     console.log(t('rankComponents', (c.konwencja * 100).toFixed(0), c.pop, c.odd));
     if (f.takze && f.takze.length) console.log(t('rankAlsoViolates', f.takze.join(', ')));
-    if (f.wiek) console.log(t('rankAge', f.wiek.opis));
-    if (stabilnosc && f.meta && f.meta.stabOpis)
-      console.log(t('rankStability', f.meta.stab, f.meta.stabOpis));
+    if (f.wiek) console.log(t('rankAge', f.wiek.describe));
+    if (stabilnosc && f.meta && f.meta.stabDesc)
+      console.log(t('rankStability', f.meta.stab, f.meta.stabDesc));
   });
 
   if (ranked.length > top) console.log(t('rankMore', ranked.length - top));

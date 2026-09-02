@@ -1,10 +1,10 @@
-// Wspólny parser Javy.
+// Shared Java parser.
 //
-// DLACZEGO OSOBNY MODUŁ: detektory ładowały wasm ze ścieżki
-// 'node_modules/tree-sitter-java/tree-sitter-java.wasm' liczonej względem
-// KATALOGU ROBOCZEGO. Działa to wyłącznie wtedy, gdy narzędzie uruchamia się
-// z własnego katalogu — czyli nigdy po `npm i -g`. Tutaj ścieżka idzie przez
-// resolver modułów, więc jest niezależna od tego, skąd wołamy polecenie.
+// WHY A SEPARATE MODULE: the detectors used to load the wasm grammar from
+// 'node_modules/tree-sitter-java/tree-sitter-java.wasm' resolved against the
+// CURRENT WORKING DIRECTORY. That only works when the tool is started from its
+// own directory — i.e. never after `npm i -g`. Here the path goes through the
+// module resolver, so it does not depend on where the command was invoked.
 import { Parser, Language } from 'web-tree-sitter';
 import { createRequire } from 'node:module';
 

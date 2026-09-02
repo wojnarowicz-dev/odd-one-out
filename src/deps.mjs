@@ -1,15 +1,17 @@
-// odd-one-out / kategoria 5 — zależności rozłożone niespójnie.
+// odd-one-out / category 5 — dependencies spread inconsistently.
 //
-// Nie zgłasza samego użycia biblioteki. Zgłasza ROZJAZD:
-// "N klas robi to przez warstwę X, K bezpośrednio".
+// It does not report the mere use of a library. It reports a DIVERGENCE:
+// "N classes do this through layer X, K do it directly".
 //
-// Kluczowe: "przez warstwę" znaczy WOŁA KONKRETNĄ METODĘ OPAKOWUJĄCĄ, a nie
-// "gdziekolwiek dotyka tej klasy". Bez tego klasa stałych importowana przez pół
-// projektu (FilePaths) udaje fasadę I/O i cały wynik jest szumem.
+// The crucial part: "through the layer" means CALLS A SPECIFIC WRAPPING METHOD,
+// not "touches that class anywhere". Without that, a constants class imported by
+// half the project (FilePaths) poses as an I/O facade and the whole result is
+// noise.
 //
-// Warstwa nie jest wpisana na sztywno. Wykrywana tak: publiczna metoda klasy
-// projektu, która woła operację zewnętrzną T.m, jest "opakowaniem" T.m.
-// Kto woła tę metodę — idzie przez warstwę. Kto woła T.m wprost — odstaje.
+// The layer is not hard-coded. It is detected like this: a public method of a
+// project class that calls an external operation T.m is a "wrapper" of T.m.
+// Whoever calls that method goes through the layer. Whoever calls T.m directly
+// deviates.
 import { javaParser } from './parser.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -23,29 +25,29 @@ const flag = (n, d) => {
   const v = argv[i + 1];
   return v === undefined || v.startsWith('--') ? true : v;
 };
-const MINVIA = +flag('minvia', 5);   // ile klas musi iść przez warstwę, by to była konwencja
+const MINVIA = +flag('minvia', 5);   // count klas musi iść przez warstwę, by to była konwencja
 const MAXODD = +flag('maxodd', 3);   // ilu odstających jeszcze zgłaszamy (więcej = to nie rozjazd)
 const TOP = +flag('top', 10);
 
 const { loadConfig } = await import('./config.mjs');
 const cfg = loadConfig(argv, ROOT);
 
-// DWIE GRAMATYKI, JEDEN DETEKTOR. Algorytm nizej (warstwa vs uzycie
-// bezposrednie) jest jezykowo niezalezny — rozni sie tylko WYDOBYCIE faktow.
-// Java i JavaScript mowia to samo innym ksztaltem skladni:
+// TWO GRAMMARS, ONE DETECTOR. The algorithm below (layer vs direct use) is
+// language-independent — only the FACT EXTRACTION differs. Java and JavaScript
+// say the same thing in a different syntactic shape:
 //
-//   Java:  SafeIo.writeStringUtf8(path, txt)   — wywolanie na TYPIE
-//   JS:    import { przygotuj } from './snapshot.mjs';  przygotuj(argv, ...)
-//                                              — wywolanie GOLEJ NAZWY z importu
+//   Java:  SafeIo.writeStringUtf8(path, txt)   — a call on a TYPE
+//   JS:    import { prepare } from './snapshot.mjs';  prepare(argv, ...)
+//                                              — a call on a BARE NAME from an import
 //
-// Dlatego adapter JS sprowadza jedno do drugiego: nazwa zaimportowana z modulu
-// dostaje sztuczny "typ" (#nazwa), ktory wskazuje na modul zrodlowy. Od tego
-// miejsca reszta detektora nie wie, w jakim jest jezyku.
-function zrodla(dir, acc = { java: [], js: [] }) {
+// So the JS adapter reduces one to the other: a name imported from a module is
+// given a synthetic "type" (#name) pointing at the source module. From that
+// point on the rest of the detector does not know which language it is in.
+function collectSources(dir, acc = { java: [], js: [] }) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
     if (cfg.isExcluded(p)) continue;
-    if (e.isDirectory()) { zrodla(p, acc); continue; }
+    if (e.isDirectory()) { collectSources(p, acc); continue; }
     if (e.name.endsWith('.java')) acc.java.push(p);
     else if (/\.(js|mjs|cjs|ts|mts)$/i.test(e.name)) acc.js.push(p);
   }
@@ -53,15 +55,15 @@ function zrodla(dir, acc = { java: [], js: [] }) {
 }
 
 const parser = await javaParser();
-const pliki = zrodla(ROOT);
+const sources = collectSources(ROOT);
 {
-  const { brakZrodel } = await import('./populacja.mjs');
-  const brak = brakZrodel(pliki.java.length + pliki.js.length, '.java/.js/.ts', ROOT);
-  if (brak) { console.log(brak); process.exit(0); }
+  const { noSourcesIn } = await import('./population.mjs');
+  const missing = noSourcesIn(sources.java.length + sources.js.length, '.java/.js/.ts', ROOT);
+  if (missing) { console.log(missing); process.exit(0); }
 }
 
 let parserJs = null;
-if (pliki.js.length) {
+if (sources.js.length) {
   const { Parser, Language } = await import('web-tree-sitter');
   const { createRequire } = await import('node:module');
   const req = createRequire(import.meta.url);
@@ -72,7 +74,7 @@ if (pliki.js.length) {
 
 const classes = new Map();
 
-for (const file of pliki.java) {
+for (const file of sources.java) {
   const src = fs.readFileSync(file, 'utf8');
   const tree = parser.parse(src);
 
@@ -135,36 +137,36 @@ for (const file of pliki.java) {
   classes.set(fqn, { fqn, simple, pkg, file, src, imports, starPkgs, methods, calls });
 }
 
-// ---- adapter JavaScript / TypeScript ----
-for (const file of pliki.js) {
+// ---- JavaScript / TypeScript adapter ----
+for (const file of sources.js) {
   const src = fs.readFileSync(file, 'utf8');
   const tree = parserJs.parse(src);
 
-  const wzgledna = path.relative(ROOT, file).replace(/\\/g, '/');
+  const relPath = path.relative(ROOT, file).replace(/\\/g, '/');
   const targets = new Map();     // "#nazwaLokalna" -> id modulu (projekt) albo specyfikator (zewn.)
-  const eksport = new Map();     // nazwaLokalna -> nazwa eksportowana (przy aliasach)
+  const exportedName = new Map();     // nazwaLokalna -> name eksportowana (przy aliasach)
   const methods = [];
   const calls = [];
 
-  // modul projektu rozpoznajemy po specyfikatorze wzglednym; reszta jest zewnetrzna
-  const celImportu = (spec) => {
+  // a project module is recognised by a relative specifier; the rest is external
+  const importTarget = (spec) => {
     if (!spec.startsWith('.')) return spec;                       // 'node:fs', 'web-tree-sitter'
     const abs = path.resolve(path.dirname(file), spec);
     return path.relative(ROOT, abs).replace(/\\/g, '/');
   };
 
-  const zapiszImport = (lokalna, eksportowana, spec) => {
-    targets.set('#' + lokalna, celImportu(spec));
-    eksport.set(lokalna, eksportowana || lokalna);
+  const recordImport = (lokalna, eksportowana, spec) => {
+    targets.set('#' + lokalna, importTarget(spec));
+    exportedName.set(lokalna, eksportowana || lokalna);
   };
 
-  const zbierzWywolania = (node, sink) => {
+  const collectJsCalls = (node, sink) => {
     if (node.type === 'call_expression') {
       const f = node.childForFieldName('function');
       if (f && f.type === 'identifier' && targets.has('#' + f.text)) {
-        // gola nazwa z importu — odpowiednik Facade.method() w Javie
+        // a bare name from an import — the equivalent of Facade.method() in Java
         sink.push({
-          type: '#' + f.text, method: eksport.get(f.text) || f.text,
+          type: '#' + f.text, method: exportedName.get(f.text) || f.text,
           line: f.startPosition.row + 1,
           text: node.text.replace(/\s+/g, ' ').slice(0, 200),
         });
@@ -179,11 +181,11 @@ for (const file of pliki.js) {
           });
       }
     }
-    for (let i = 0; i < node.childCount; i++) zbierzWywolania(node.child(i), sink);
+    for (let i = 0; i < node.childCount; i++) collectJsCalls(node.child(i), sink);
   };
 
-  // 1. importy — statyczne i dynamiczne (`const { x } = await import('...')`)
-  const zbierzImporty = (node) => {
+  // 1. imports — static and dynamic (`const { x } = await import('...')`)
+  const collectImports = (node) => {
     if (node.type === 'import_statement') {
       const zrodlo = node.childForFieldName('source');
       const spec = zrodlo ? zrodlo.text.slice(1, -1) : null;
@@ -192,17 +194,17 @@ for (const file of pliki.js) {
           if (n.type === 'import_specifier') {
             const nm = n.childForFieldName('name');
             const al = n.childForFieldName('alias');
-            if (nm) zapiszImport((al || nm).text, nm.text, spec);
+            if (nm) recordImport((al || nm).text, nm.text, spec);
           } else if (n.type === 'namespace_import' || n.type === 'identifier') {
             const nm = n.type === 'identifier' ? n : n.child(n.childCount - 1);
-            if (nm && n.parent && n.parent.type !== 'import_specifier') zapiszImport(nm.text, null, spec);
+            if (nm && n.parent && n.parent.type !== 'import_specifier') recordImport(nm.text, null, spec);
           }
           for (let i = 0; i < n.childCount; i++) wIdent(n.child(i));
         };
         wIdent(node);
       }
     } else if (node.type === 'variable_declarator') {
-      // const { przygotuj } = await import('./snapshot.mjs');
+      // const { prepare } = await import('./snapshot.mjs');
       const nm = node.childForFieldName('name');
       const val = node.childForFieldName('value');
       const tekst = val ? val.text : '';
@@ -211,28 +213,28 @@ for (const file of pliki.js) {
         if (nm.type === 'object_pattern') {
           for (let i = 0; i < nm.childCount; i++) {
             const p = nm.child(i);
-            if (p.type === 'shorthand_property_identifier_pattern') zapiszImport(p.text, p.text, m[1]);
+            if (p.type === 'shorthand_property_identifier_pattern') recordImport(p.text, p.text, m[1]);
             else if (p.type === 'pair_pattern') {
               const k = p.childForFieldName('key');
               const v = p.childForFieldName('value');
-              if (k && v) zapiszImport(v.text, k.text, m[1]);
+              if (k && v) recordImport(v.text, k.text, m[1]);
             }
           }
-        } else if (nm.type === 'identifier') zapiszImport(nm.text, null, m[1]);
+        } else if (nm.type === 'identifier') recordImport(nm.text, null, m[1]);
       }
     }
-    for (let i = 0; i < node.childCount; i++) zbierzImporty(node.child(i));
+    for (let i = 0; i < node.childCount; i++) collectImports(node.child(i));
   };
-  zbierzImporty(tree.rootNode);
+  collectImports(tree.rootNode);
 
   // 2. publiczne metody modulu = funkcje eksportowane
-  const zbierzFunkcje = (node) => {
+  const collectFunctions = (node) => {
     if (node.type === 'function_declaration') {
       const nm = node.childForFieldName('name');
       const body = node.childForFieldName('body');
       const eksportowana = node.parent && node.parent.type === 'export_statement';
       const inner = [];
-      if (body) zbierzWywolania(body, inner);
+      if (body) collectJsCalls(body, inner);
       if (nm) methods.push({
         name: nm.text,
         isPublic: !!eksportowana,
@@ -241,20 +243,20 @@ for (const file of pliki.js) {
         calls: inner,
       });
     }
-    for (let i = 0; i < node.childCount; i++) zbierzFunkcje(node.child(i));
+    for (let i = 0; i < node.childCount; i++) collectFunctions(node.child(i));
   };
-  zbierzFunkcje(tree.rootNode);
-  zbierzWywolania(tree.rootNode, calls);
+  collectFunctions(tree.rootNode);
+  collectJsCalls(tree.rootNode, calls);
 
-  classes.set(wzgledna, {
-    fqn: wzgledna, simple: path.basename(file), pkg: path.dirname(wzgledna),
+  classes.set(relPath, {
+    fqn: relPath, simple: path.basename(file), pkg: path.dirname(relPath),
     file, src, imports: new Map(), starPkgs: [], targets, methods, calls,
   });
 }
 
 const isProject = f => classes.has(f);
 function resolve(c, name) {
-  if (c.targets && c.targets.has(name)) return c.targets.get(name);   // JS: #nazwa -> modul
+  if (c.targets && c.targets.has(name)) return c.targets.get(name);   // JS: #name -> modul
   if (c.imports.has(name)) return c.imports.get(name);
   const same = c.pkg + '.' + name;
   if (classes.has(same)) return same;
@@ -264,7 +266,7 @@ function resolve(c, name) {
 
 // ---- 1. kto woła jaką operację zewnętrzną wprost ----
 const extCallers = new Map();   // "T#m" -> Map(fqn -> [{line,text,file}])
-// ---- 2. kto woła jaką metodę klasy projektu ----
+// ---- 2. who calls which method of a project class ----
 const projCallers = new Map();  // "Fqn#m" -> Set(fqn)
 
 for (const c of classes.values()) {
@@ -284,19 +286,20 @@ for (const c of classes.values()) {
   }
 }
 
-// ---- 3. warstwy: publiczna metoda projektu opakowująca operację zewnętrzną ----
+// ---- 3. layers: a public project method wrapping an external operation ----
 //
-// Sam fakt, że publiczna metoda woła T.m, NIE czyni jej opakowaniem T.m —
-// prawie każda metoda coś woła. ProjectFileBundle.resolveAnchorVideoMediaPath()
-// woła Files.readAllLines(), ale jest operacją dziedzinową, nie opakowaniem I/O.
+// The mere fact that a public method calls T.m does NOT make it a wrapper of
+// T.m — almost every method calls something.
+// ProjectFileBundle.resolveAnchorVideoMediaPath() calls Files.readAllLines(),
+// but it is a domain operation, not an I/O wrapper.
 //
-// Cienkie opakowanie odróżniamy dwoma warunkami:
-//   1. NAZWA — opakowanie nazywa się od tego, co opakowuje.
+// A thin wrapper is told apart by two conditions:
+//   1. NAME — a wrapper is named after what it wraps.
 //      movePathWithRetry ⊃ "move", readStringUtf8WithRetry ⊃ "readString",
-//      ale resolveAnchorVideoMediaPath ⊅ "readAllLines".
-//   2. CIENKOŚĆ — opakowanie nie robi wielu innych rzeczy zewnętrznych obok.
+//      but resolveAnchorVideoMediaPath ⊅ "readAllLines".
+//   2. THINNESS — a wrapper does not do many other external things beside it.
 const NAME_MIN = 4;      // krótsze nazwy (get, put, of) są za pospolite, by cokolwiek znaczyć
-const MAX_OTHER_OPS = 6; // ile innych operacji zewn. metoda może wołać, wciąż będąc opakowaniem
+const MAX_OTHER_OPS = 6; // count innych operacji zewn. metoda może wołać, wciąż będąc opakowaniem
 
 const wrappers = new Map();     // "T#m" -> [{facade, method, sig, line}]
 for (const c of classes.values()) {
@@ -329,30 +332,30 @@ for (const [op, wraps] of wrappers) {
     byFacade.get(w.facade).push(w);
   }
   for (const [facade, ms] of byFacade) {
-    // kto idzie przez warstwę = woła którąkolwiek z metod opakowujących
+    // who goes through the layer = calls any of the wrapping methods
     const via = new Set();
     for (const m of ms)
       for (const u of (projCallers.get(facade + '#' + m.method) || []))
         if (u !== facade) via.add(u);
 
-    // kto odstaje = woła operację wprost, nie będąc samą warstwą
+    // who deviates = calls the operation directly, without being the layer itself
     const direct = extCallers.get(op) || new Map();
     const odd = [...direct.keys()].filter(f => f !== facade);
     if (odd.length === 0) continue;
 
-    // Trzy różne stany, których nie wolno mylić:
-    //   ROZJAZD      — warstwa jest konwencją, kilka miejsc jej nie używa
-    //   MIGRACJA     — obie drogi są liczne; nie ma czego nazwać odstępstwem
-    //   ZA MALO DANYCH — warstwa ma za mało użyć, by cokolwiek twierdzić
+    // Three different states that must not be confused:
+    //   DIVERGENCE — the layer is the convention, a few sites bypass it
+    //   MIGRATION  — both routes are common; there is nothing to call a deviation
+    //   TOO_LITTLE — the layer has too few users to claim anything
     let kind;
-    if (via.size >= MINVIA && odd.length <= MAXODD) kind = 'ROZJAZD';
-    else if (via.size >= 2 && odd.length > MAXODD) kind = 'MIGRACJA W TOKU';
-    else kind = 'ZA MALO DANYCH';
+    if (via.size >= MINVIA && odd.length <= MAXODD) kind = 'DIVERGENCE';
+    else if (via.size >= 2 && odd.length > MAXODD) kind = 'MIGRATION';
+    else kind = 'TOO_LITTLE';
 
     findings.push({
       kind, op, facade, methods: ms, via: [...via], odd,
       sites: odd.map(f => ({ fqn: f, hits: direct.get(f) })),
-      score: (kind === 'ROZJAZD' ? 1000 : kind === 'MIGRACJA W TOKU' ? 100 : 0) +
+      score: (kind === 'DIVERGENCE' ? 1000 : kind === 'MIGRATION' ? 100 : 0) +
         via.size / (via.size + odd.length) * via.size,
     });
   }
@@ -365,8 +368,8 @@ console.log(t('root') + ROOT);
 console.log(t('depsStats', classes.size, extCallers.size, wrappers.size));
 console.log(t('depsThresholds', MINVIA, MAXODD));
 const nOf = k => findings.filter(f => f.kind === k).length;
-console.log(t('depsCounts', nOf('ROZJAZD'), nOf('MIGRACJA W TOKU'), nOf('ZA MALO DANYCH')));
-if (nOf('ROZJAZD') === 0)
+console.log(t('depsCounts', nOf('DIVERGENCE'), nOf('MIGRATION'), nOf('TOO_LITTLE')));
+if (nOf('DIVERGENCE') === 0)
   console.log(t('depsNoDivergence'));
 console.log('');
 
@@ -378,12 +381,12 @@ findings.slice(0, TOP).forEach((f, i) => {
   console.log('## [' + (i + 1) + '] ' + f.kind + ' — ' +
     extType.split('.').pop() + '.' + extMethod +
     ': ' + f.via.length + ' klas przez ' + short(f.facade) + ', ' + f.odd.length + ' bezposrednio');
-  if (f.kind === 'ZA MALO DANYCH') {
+  if (f.kind === 'TOO_LITTLE') {
     console.log(t('depsTooFew', f.via.length, MINVIA));
     console.log('');
     return;
   }
-  if (f.kind === 'MIGRACJA W TOKU') {
+  if (f.kind === 'MIGRATION') {
     console.log(t('depsMigration'));
     console.log(t('depsMigration2', short(f.facade)));
   }
@@ -398,9 +401,9 @@ findings.slice(0, TOP).forEach((f, i) => {
   const exampleUser = f.via[0];
   const eu = classes.get(exampleUser);
   let exLine = 0, exText = '';
-  // Java: odbiornikiem jest nazwa klasy (SafeIo.writeString).
-  // JS: odbiornikiem jest sztuczny "#nazwa" z importu, wiec porownujemy przez
-  // resolve — inaczej przyklad wychodzi z numerem linii 0.
+  // Java: the receiver is a class name (SafeIo.writeString).
+  // JS: the receiver is a synthetic "#name" from an import, so we compare via
+  // resolve — otherwise the example comes out with line number 0.
   for (const c of eu.calls) {
     const celWywolania = resolve(eu, c.type);
     if ((c.type === facadeSimple || celWywolania === f.facade) &&
@@ -426,7 +429,7 @@ findings.slice(0, TOP).forEach((f, i) => {
   console.log('');
 });
 
-// ---- zapis przebiegu ----
+// ---- run snapshot ----
 const { maybeWriteSnapshot } = await import('./snapshot.mjs');
 const snapFindings = [];
 for (const f of findings.slice(0, TOP)) {
@@ -446,6 +449,6 @@ for (const f of findings.slice(0, TOP)) {
 }
 maybeWriteSnapshot(argv, {
   detector: 'deps', root: ROOT, args: argv.slice(1), cfg,
-  counts: { klasy: classes.size, operacjeOpakowane: wrappers.size, rozjazdy: findings.filter(f => f.kind === 'ROZJAZD').length },
+  counts: { klasy: classes.size, operacjeOpakowane: wrappers.size, rozjazdy: findings.filter(f => f.kind === 'DIVERGENCE').length },
   findings: snapFindings,
 });

@@ -1,7 +1,7 @@
 {
   "name": "odd-one-out",
   "version": "0.1.0",
-  "description": "Szuka odstępstw od konwencji panującej w projekcie: N razy tak, raz inaczej. Java, pom.xml, migracje SQL.",
+  "description": "Finds places that deviate from the convention of the project itself: N times this way, once differently. Java, pom.xml, SQL migrations, JavaScript/TypeScript.",
   "author": {
     "name": "jwwoj"
   },
