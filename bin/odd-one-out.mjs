@@ -157,6 +157,26 @@ if (cmd === 'rank') {
   process.exit(0);
 }
 
+// SPRAWDZENIE WEJSCIA — jedno miejsce dla wszystkich detektorow, przed
+// uruchomieniem czegokolwiek. Bez tego nieistniejaca sciezka daje surowy
+// ENOENT ze sladem stosu, co wyglada na awarie narzedzia, a jest literowka.
+{
+  const mod = f => new URL('file://' + path.join(SRC, f).replace(/\\/g, '/')).href;
+  const { wymagajKatalog, wymagajPlik } = await import(mod('wejscie.mjs'));
+  const wartosc = (nazwa) => {
+    const i = rest.indexOf(nazwa);
+    return i >= 0 && rest[i + 1] && !rest[i + 1].startsWith('--') ? rest[i + 1] : null;
+  };
+  if (cmd === 'pom') {
+    wymagajPlik(wartosc('--pom'), '--pom <pom.xml>');
+    const i = rest.indexOf('--tree');
+    if (i < 0) wymagajPlik(null, '--tree <deptree.txt>');
+    for (let j = i + 1; j < rest.length && !rest[j].startsWith('--'); j++) wymagajPlik(rest[j], '--tree');
+  } else {
+    wymagajKatalog(rest.find(a => !a.startsWith('--')), COMMANDS[cmd].arg);
+  }
+}
+
 // Detektory czytają process.argv.slice(2) — podmieniamy je tak, jakby
 // uruchomiono je bezpośrednio.
 process.argv = [process.argv[0], path.join(SRC, COMMANDS[cmd].module), ...rest];

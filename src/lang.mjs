@@ -33,6 +33,24 @@ const S = {
   'mutes': { en: '  mutes={0}', pl: '  wyciszen={0}' },
   'noReason': { en: '(no reason given)', pl: '(bez powodu)' },
 
+  // ---------- sprawdzenie wejścia ----------
+  'inputNoSuchPath': { en: 'Path does not exist: {0}', pl: 'Sciezka nie istnieje: {0}' },
+  'inputNotDir': { en: 'Not a directory: {0}', pl: 'To nie jest katalog: {0}' },
+  'inputNotFile': { en: 'Not a file: {0}', pl: 'To nie jest plik: {0}' },
+  'inputUnreadable': { en: 'Cannot read: {0} ({1})', pl: 'Nie da sie odczytac: {0} ({1})' },
+  'inputMissingArg': { en: 'Missing argument: {0}', pl: 'Brak argumentu: {0}' },
+  'inputHintPath': { en: '  Check the path. Run "odd-one-out --help" for usage.', pl: '  Sprawdz sciezke. Uzycie: "odd-one-out --help".' },
+  'inputHintDir': { en: '  This command expects a directory to scan, not a single file.', pl: '  To polecenie oczekuje katalogu do przeskanowania, nie pojedynczego pliku.' },
+  'inputHintFile': { en: '  This command expects a file.', pl: '  To polecenie oczekuje pliku.' },
+
+  // ---------- zapis wyniku ----------
+  'saveFailed': { en: 'Cannot save the run snapshot to: {0}', pl: 'Nie da sie zapisac przebiegu do: {0}' },
+  'saveReason': { en: '  Reason: {0} ({1})', pl: '  Powod: {0} ({1})' },
+  'saveIsDir': { en: '  That path is a directory. Give --json a file path.', pl: '  Ta sciezka to katalog. Podaj --json sciezke pliku.' },
+  'saveNoSpace': { en: '  No space left on the device.', pl: '  Brak miejsca na dysku.' },
+  'saveBusy': { en: '  The file is locked by another process.', pl: '  Plik jest zablokowany przez inny proces.' },
+  'saveDenied': { en: '  No permission to write there.', pl: '  Brak uprawnien do zapisu.' },
+
   // ---------- sekcje zgłoszenia ----------
   'secInconsistent': { en: '   WHAT IS INCONSISTENT', pl: '   CO JEST NIESPOJNE' },
   'secElsewhere': { en: '   HOW IT IS DONE ELSEWHERE', pl: '   JAK ZROBIONO W POZOSTALYCH MIEJSCACH' },
