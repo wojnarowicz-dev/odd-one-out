@@ -36,6 +36,12 @@ const COMMANDS = {
     opis: 'revoke bez grant execute w tej samej migracji.',
     opcje: '--minconv 3',
   },
+  js: {
+    module: 'js.mjs',
+    arg: '<katalog-projektu-web>',
+    opis: 'JavaScript i TypeScript: nazwa wolana jak funkcja, ktorej strona nie zna.',
+    opcje: '--top 20',
+  },
   diff: {
     module: null,
     arg: '<poprzedni.json> <biezacy.json>',

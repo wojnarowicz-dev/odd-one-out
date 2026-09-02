@@ -31,6 +31,7 @@
   "license": "MIT",
   "dependencies": {
     "tree-sitter-java": "^0.23.5",
+    "tree-sitter-typescript": "^0.23.2",
     "web-tree-sitter": "^0.27.0"
   }
 }
