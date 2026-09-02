@@ -71,13 +71,17 @@ naprawa jednego odstępstwa potrafi wygenerować nowe (zmienia populację, do
 której wszystko jest porównywane), a przeniesienie klasy do innego pakietu
 wychodzi jako `NOWE` + `ZNIKNĘŁO`.
 
-## Zasieg pary
+## Zasięg pary
 
-`--scope file|method|lambda` (domyslnie `lambda`) ustala, jak blisko siebie musza
-stac dwa wywolania, zeby liczyc sie jako para. Zmierzone: **zwezanie zasiegu NIE
-poprawia trafnosci** — falszywe alarmy biora sie stad, ze obsluga stoi o poziom
-wyzej niz wywolanie. Do przegladu proponuj `--scope file`: te same defekty przy
-okolo 40% mniejszej liczbie zgloszen.
+`--scope file|method|lambda` (domyślnie `lambda`) ustala, jak blisko siebie muszą
+stać dwa wywołania, żeby liczyć się jako para.
+
+Zmierzone na 111 plikach: **zwężanie zasięgu NIE poprawia trafności** — fałszywe
+alarmy tej klasy biorą się stąd, że obsługa stoi o poziom wyżej niż wywołanie,
+a wąski zasięg tego nie widzi i zgłasza brak. Do przeglądu proponuj
+`--scope file`: te same defekty przy około 40% mniejszej liczbie zgłoszeń
+(9 zamiast 15). Zasięg `method` jest najgorszy z trzech — gubi zgłoszenia,
+bo dzieli populację tak, że reguły tracą wsparcie.
 
 ## Ranking
 
