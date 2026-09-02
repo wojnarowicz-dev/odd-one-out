@@ -421,20 +421,29 @@ const ODSIEJ = new Set(
 const nazwaMetody = s => (s.includes('#') ? s.slice(s.indexOf('#') + 1) : s);
 // setter = ustawia wartosc; setOnX NIE jest setterem, tylko podpieciem zdarzenia
 const jestSetter = s => /^set[A-Z]/.test(nazwaMetody(s)) && !/^setOn[A-Z]/.test(nazwaMetody(s));
-// reaguje na zdarzenie albo je podpina
-const jestZdarzeniowa = s => /^(setOn[A-Z]|addEventHandler|addEventFilter|addListener|removeListener|on[A-Z])/
-  .test(nazwaMetody(s));
-// czynnosc cyklu zycia — ma porzadek w czasie, wiec para z nia NIE jest przypadkowa
-const CZYNNOSCI = new Set(['play', 'stop', 'start', 'pause', 'dispose', 'close', 'open', 'show',
-  'hide', 'shutdown', 'cancel', 'commit', 'rollback', 'release', 'acquire', 'lock', 'unlock',
-  'flush', 'run', 'execute', 'submit', 'seek', 'load', 'reload', 'refresh', 'await', 'join']);
-const jestCzynnoscia = s => CZYNNOSCI.has(nazwaMetody(s));
-
 // sygnal 1: obie strony to zwykle settery
 const s1 = r => jestSetter(r.A) && jestSetter(r.B);
-// sygnal 3: obie ustawiaja stan — zadna nie jest zdarzeniowa ani czynnoscia
-const s3 = r => !jestZdarzeniowa(r.A) && !jestZdarzeniowa(r.B) &&
-  !jestCzynnoscia(r.A) && !jestCzynnoscia(r.B);
+
+// sygnal 3: obie strony USTAWIAJA STAN — rozpoznawane po ksztalcie nazwy, a nie
+// przez wykluczenie.
+//
+// PIERWSZA WERSJA BYLA ZLA i warto wiedziec dlaczego. Definiowala "ustawia
+// stan" jako "nie jest zdarzeniem ani czynnoscia cyklu zycia" — czyli przez
+// negacje dwoch krotkich list. Na projekcie autora prawie nie dzialala, bo tam
+// niemal wszystko bylo `setOn*` (zdarzeniowe). Na cudzym kodzie ta sama
+// definicja obejmowala WSZYSTKO pozostale: `charAt`/`length`, `get`/`size`,
+// kazda pare getterow. Na netty/common wycinala niemal cala tresc raportu.
+//
+// Teraz sygnal mowi dokladnie to, co obiecuje jego nazwa: obie strony maja
+// ksztalt nazwy metody konfigurujacej. `setMinHeight`, `initModality`,
+// `putHeader`, `withTimeout` — tak. `charAt`, `size`, `error` — nie.
+// `setOnError` nadal NIE jest setterem: podpina obsluge zdarzenia.
+//
+// Sygnal 3 zawiera w sobie sygnal 1 (kazdy setter jest konfiguracyjny).
+// Sygnal 1 zostaje osobno, bo pozwala zmierzyc sam jego udzial.
+const jestKonfiguracyjna = s => /^(set|init|put|with)[A-Z]/.test(nazwaMetody(s)) &&
+  !/^setOn[A-Z]/.test(nazwaMetody(s));
+const s3 = r => jestKonfiguracyjna(r.A) && jestKonfiguracyjna(r.B);
 // sygnal 2 dziala na ZGLOSZENIU: odbiornik powstal w tej samej jednostce
 const s2 = u => u.swiezy === true;
 
