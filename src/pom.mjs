@@ -29,6 +29,9 @@ if (!POM || TREES.length === 0) {
   process.exit(2);
 }
 
+const { loadConfig } = await import('./config.mjs');
+const cfg = loadConfig(argv, POM.replace(/[^\/]+$/, ''));
+
 const xml = fs.readFileSync(POM, 'utf8');
 
 // --- properties, żeby rozwinąć ${...} w wersjach ---
@@ -166,6 +169,7 @@ const { maybeWriteSnapshot } = await import('./snapshot.mjs');
 maybeWriteSnapshot(argv, {
   detector: 'pom',
   root: POM,
+  cfg,
   args: argv.slice(argv.indexOf('--pom') + 2),
   counts: { wpisow: managed.length, zywych: live.length, martwych: dead.length, doSprawdzenia: suspect.length },
   findings: [

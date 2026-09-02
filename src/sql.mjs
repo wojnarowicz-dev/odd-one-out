@@ -71,7 +71,9 @@ function acl(stmt) {
 }
 
 // --- wczytanie migracji ---
-const files = fs.readdirSync(DIR).filter(f => f.endsWith('.sql')).sort();
+const { loadConfig } = await import('./config.mjs');
+const cfg = loadConfig(argv, DIR);
+const files = fs.readdirSync(DIR).filter(f => f.endsWith('.sql') && !cfg.isExcluded(path.join(DIR, f))).sort();
 const perFile = [];
 for (const f of files) {
   const sql = fs.readFileSync(path.join(DIR, f), 'utf8');
@@ -158,6 +160,7 @@ const { maybeWriteSnapshot } = await import('./snapshot.mjs');
 maybeWriteSnapshot(argv, {
   detector: 'sql',
   root: DIR,
+  cfg,
   args: argv.slice(1),
   counts: { migracje: files.length, parRevokeGrant: both.length, funkcjiZWzorcem: distinct, bezGrantu: onlyRevoke.length },
   findings: onlyRevoke.map(o => ({

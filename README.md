@@ -72,6 +72,34 @@ Dwie rzeczy, o których trzeba wiedzieć:
   wyjdzie jako `NOWE` + `ZNIKNĘŁO`. Świadomy kompromis — odcisk bez ścieżki
   zlewałby ze sobą różne miejsca.
 
+## Wykluczenia i wyciszenia
+
+Dwie **różne** rzeczy, celowo rozdzielone:
+
+- **`exclude`** — czego nie czytać. Wpływa na populację, więc zmienia też
+  wzorzec: wykluczenie testów potrafi podnieść albo obniżyć konwencję.
+- **`mute`** — czego nie pokazywać. Miejsce jest czytane i **liczy się do
+  populacji**, znika tylko z raportu i rankingu.
+
+Pomylenie ich psuje wynik po cichu: wyciszenie zrobione jako wykluczenie usuwa
+miejsce z populacji i osłabia regułę, która je złapała.
+
+Plik `.odd-one-out.json` w badanym katalogu albo `--config <ścieżka>`:
+
+```json
+{
+  "exclude": ["**/legacy/**", "**/*Generated.java"],
+  "mute": [
+    { "id": "f7946d7a0259", "powod": "setCycleCount to konfiguracja, nie obsługa błędu" }
+  ]
+}
+```
+
+Domyślna lista wykluczeń (`build`, `target`, `out`, `dist`, `node_modules`,
+`.git`, `.idea`, `generated`, `coverage`, `*Test.java`, `*Tests.java`,
+`*IT.java`) działa bez konfiguracji; `"excludeDefaults": false` ją zastępuje
+zamiast dokładać. Identyfikatory do `mute` bierze się z pliku zapisu (`--json`).
+
 ## Ranking — co czytać pierwsze
 
 Cztery detektory dają cztery listy w czterech skalach. `rank` sprowadza je do

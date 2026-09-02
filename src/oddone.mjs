@@ -20,14 +20,15 @@ const MAXVIOL = +flag('maxviol', 4);
 const TOP = +flag('top', 10);
 const ONLY = flag('only', null) ? String(flag('only', '')).split(',') : null;
 
-const SKIP_DIR = /[\\/](build|target|out|node_modules|\.git|generated|\.idea)[\\/]/;
-const SKIP_FILE = /(Test|Tests|IT)\.java$/;
+const { loadConfig } = await import('./config.mjs');
+const cfg = loadConfig(argv, ROOT);
 
 function javaFiles(dir, acc = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
-    if (e.isDirectory()) { if (!SKIP_DIR.test(p + path.sep)) javaFiles(p, acc); }
-    else if (e.name.endsWith('.java') && !SKIP_FILE.test(e.name)) acc.push(p);
+    if (cfg.isExcluded(p)) continue;
+    if (e.isDirectory()) javaFiles(p, acc);
+    else if (e.name.endsWith('.java')) acc.push(p);
   }
   return acc;
 }
@@ -153,7 +154,7 @@ for (const r of rules) {
   }
 }
 maybeWriteSnapshot(argv, {
-  detector: 'java', root: ROOT, args: argv.slice(1),
+  detector: 'java', root: ROOT, args: argv.slice(1), cfg,
   counts: { pliki: parsed, bledyParsowania: parseErrors.length, jednostki: all.length, regul: rules.length },
   findings: snapFindings,
 });

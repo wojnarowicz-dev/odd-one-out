@@ -26,14 +26,15 @@ const MINVIA = +flag('minvia', 5);   // ile klas musi iść przez warstwę, by t
 const MAXODD = +flag('maxodd', 3);   // ilu odstających jeszcze zgłaszamy (więcej = to nie rozjazd)
 const TOP = +flag('top', 10);
 
-const SKIP_DIR = /[\\/](build|target|out|node_modules|\.git|generated|\.idea)[\\/]/;
-const SKIP_FILE = /(Test|Tests|IT)\.java$/;
+const { loadConfig } = await import('./config.mjs');
+const cfg = loadConfig(argv, ROOT);
 
 function javaFiles(dir, acc = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
-    if (e.isDirectory()) { if (!SKIP_DIR.test(p + path.sep)) javaFiles(p, acc); }
-    else if (e.name.endsWith('.java') && !SKIP_FILE.test(e.name)) acc.push(p);
+    if (cfg.isExcluded(p)) continue;
+    if (e.isDirectory()) javaFiles(p, acc);
+    else if (e.name.endsWith('.java')) acc.push(p);
   }
   return acc;
 }
@@ -299,7 +300,7 @@ for (const f of findings.slice(0, TOP)) {
   }
 }
 maybeWriteSnapshot(argv, {
-  detector: 'deps', root: ROOT, args: argv.slice(1),
+  detector: 'deps', root: ROOT, args: argv.slice(1), cfg,
   counts: { klasy: classes.size, operacjeOpakowane: wrappers.size, rozjazdy: findings.filter(f => f.kind === 'ROZJAZD').length },
   findings: snapFindings,
 });
