@@ -213,13 +213,23 @@ Trzy sygnały, każdy włączany osobno (`--odsiej 1`, `--odsiej 1,3`,
 Granica jest tu istotna: `setOnError` zaczyna się od `set`, ale **podpina obsługę
 zdarzenia**, a nie ustawia wartość, więc nie jest setterem dla żadnego z sygnałów.
 
-| sygnał | zgłoszeń (odkrywanie) | pozycja `Loading.java:397/411` |
+| sygnał | zgłoszeń (odkrywanie, VideoAudioAnalyzer) | pozycja `Loading.java:397` |
 |---|---|---|
-| brak | 1086 | 88 / 89 z 99 |
-| 1 | 645 | 56 / 57 |
-| 2 | 708 | 70 / 71 |
-| 3 | 220 | 16 / 17 z 52 |
-| **1,2,3** | **161** | **13 / 14 z 30** |
+| brak | 1086 | 88 z 99 |
+| 1 | 645 | 56 |
+| 2 | 708 | 70 |
+| 3 | 628 | 55 |
+| **1,2,3** | **462** | **47 z 99** |
+
+Na cudzym kodzie (netty/common, 204 pliki) odsiewanie zdejmuje **101 → 100** —
+czyli praktycznie nic. Ten kod nie ma masowej konfiguracji setterami, którą
+sygnały 1 i 3 mają wycinać.
+
+> **Wcześniejsza wersja tej tabeli podawała 161 zgłoszeń i pozycję 13 z 30.**
+> Te liczby mierzyły **zepsuty sygnał 3**, który definiował „ustawia stan" przez
+> negację i ukrywał około trzystu poprawnych zgłoszeń, a na cudzym kodzie wycinał
+> całą treść raportu. Po naprawie poprawa jest realna, ale znacznie skromniejsza:
+> z pozycji 88 na 47, a nie na 13.
 
 **Żaden sygnał nie zabrał ani jednej znanej odpowiedzi.**
 `MediaPlayer#dispose -> MediaPlayer#setOnError`, `Loading.java:397`, `:411`,
@@ -230,11 +240,9 @@ Usunięte to `Menu.java:2690` i `Preview.java:498` — oba wcześniej ocenione j
 fałszywe, oba złapane sygnałem 2 (kompletna konfiguracja świeżo utworzonego
 `MediaPlayer`).
 
-Trafność w pierwszej dziesiątce przy odkrywaniu: **1 na 10** (pozycja 10,
-`Menu.java:5754`) wobec 0 na 10 przed odsianiem. Ujawnia to osobną słabość
-raportu: nagłówek scalonej pozycji wybierany jest po ocenie, więc regułą
-wiodącą została szumowa `dispose -> getStatus`, a prawdziwa
-`dispose -> setOnError` stoi w liście „także".
+Osobna słabość raportu, widoczna przy odkrywaniu: **nagłówek scalonej pozycji
+wybierany jest po ocenie**, więc regułą wiodącą bywa szumowa (`dispose ->
+getStatus`), a prawdziwa (`dispose -> setOnError`) ląduje w liście „także".
 
 ## Odkrywanie par — zmierzone, szum zalewa wynik
 

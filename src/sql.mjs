@@ -75,6 +75,11 @@ function acl(stmt) {
 const { loadConfig } = await import('./config.mjs');
 const cfg = loadConfig(argv, DIR);
 const files = fs.readdirSync(DIR).filter(f => f.endsWith('.sql') && !cfg.isExcluded(path.join(DIR, f))).sort();
+{
+  const { brakZrodel } = await import('./populacja.mjs');
+  const brak = brakZrodel(files.length, '.sql', DIR);
+  if (brak) { console.log(brak); process.exit(0); }
+}
 const perFile = [];
 for (const f of files) {
   const sql = fs.readFileSync(path.join(DIR, f), 'utf8');

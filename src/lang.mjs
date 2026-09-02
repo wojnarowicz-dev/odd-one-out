@@ -33,6 +33,38 @@ const S = {
   'mutes': { en: '  mutes={0}', pl: '  wyciszen={0}' },
   'noReason': { en: '(no reason given)', pl: '(bez powodu)' },
 
+  'unknownCommand': { en: 'Unknown command: {0}', pl: 'Nieznane polecenie: {0}' },
+  'diffNeedsTwo': { en: 'diff needs two files: <previous.json> <current.json>', pl: 'diff wymaga dwoch plikow: <poprzedni.json> <biezacy.json>' },
+  'rankNeedsOne': { en: 'rank needs at least one snapshot file', pl: 'rank wymaga co najmniej jednego pliku zapisu' },
+  'legendUnknownType': { en: 'legend: Type#method = receiver type; "?" = type could not be resolved', pl: 'legenda: Typ#metoda = typ odbiornika; "?" = typu nie udalo sie ustalic' },
+
+  // ---------- pomoc ----------
+  'helpTagline': { en: 'odd-one-out — finds places that deviate from the convention of THIS project.', pl: 'odd-one-out — szuka odstepstw od konwencji panujacej w TYM projekcie.' },
+  'helpPrinciple': { en: '  Principle: N times this way, once differently. No thresholds pulled from thin air — the code is compared to the rest of this repository. It never changes files: it shows a ready-made fix to paste.', pl: '  Zasada: N razy tak, raz inaczej. Zadnych progow z sufitu — kod jest porownywany do reszty tego repozytorium. Nie zmienia plikow: pokazuje gotowa poprawke do wklejenia.' },
+  'helpUsage': { en: 'USAGE', pl: 'UZYCIE' },
+  'helpLangSec': { en: 'LANGUAGE', pl: 'JEZYK' },
+  'helpLangEn': { en: '  --lang en   English (default)', pl: '  --lang en   angielski (domyslnie)' },
+  'helpLangPl': { en: '  --lang pl   Polish', pl: '  --lang pl   polski' },
+  'helpCommands': { en: 'COMMANDS', pl: 'POLECENIA' },
+  'helpOptions': { en: '         options: {0}', pl: '         opcje: {0}' },
+  'helpStart': { en: 'START HERE', pl: 'OD CZEGO ZACZAC' },
+  'helpStart1': { en: '  1. Scan and save the run:', pl: '  1. Przeskanuj i zapisz przebieg:' },
+  'helpStart2': { en: '  2. Read the merged, ranked list (this is the readable output):', pl: '  2. Przeczytaj scalona liste w kolejnosci sily dowodu (to czytelne wyjscie):' },
+  'helpStart3': { en: '  3. Run it again later — it will show only what is NEW since last time.', pl: '  3. Uruchom pozniej ponownie — pokaze tylko to, co NOWE od ostatniego razu.' },
+  'helpExamples': { en: 'MORE EXAMPLES', pl: 'DALSZE PRZYKLADY' },
+  'helpReading': { en: 'HOW TO READ THE OUTPUT', pl: 'JAK CZYTAC WYNIK' },
+  'helpReading1': { en: '  sup=8/10 conf=80% odd=2  — 10 places have the antecedent, 8 of them also', pl: '  sup=8/10 conf=80% odd=2  — 10 miejsc ma poprzednik, 8 z nich ma tez' },
+  'helpReading2': { en: '  have the consequent; 2 deviate. odd=1 with a high sup is the strongest signal.', pl: '  nastepnik; 2 odstaja. odd=1 przy wysokim sup to najmocniejszy sygnal.' },
+  'helpReading3': { en: '  Type#method — the receiver type. "?" means the type could not be resolved.', pl: '  Typ#metoda — typ odbiornika. "?" znaczy, ze typu nie udalo sie ustalic.' },
+  'helpReading4': { en: '  Reference accuracy for this class of tool (PR-Miner): 18.1% — noise is expected.', pl: '  Trafnosc referencyjna tej klasy narzedzi (PR-Miner): 18,1% — szum jest oczekiwany.' },
+  'cmdJava': { en: 'Call pairs on the same receiver (PR-Miner). Rule A->B; a deviation has A but not B.', pl: 'Pary wywolan na tym samym odbiorniku (PR-Miner). Regula A->B, odstepstwo = ma A, nie ma B.' },
+  'cmdDeps': { en: 'Dependencies spread inconsistently: N classes via a shared layer, K directly.', pl: 'Zaleznosci rozlozone niespojnie: N klas przez warstwe wspolna, K bezposrednio.' },
+  'cmdPom': { en: 'Dead entry in dependencyManagement. Needs a tree from mvn dependency:tree.', pl: 'Martwy wpis w dependencyManagement. Wymaga drzewa z mvn dependency:tree.' },
+  'cmdSql': { en: 'revoke without grant execute in the same migration.', pl: 'revoke bez grant execute w tej samej migracji.' },
+  'cmdJs': { en: 'JavaScript and TypeScript: a name called like a function that the page does not know.', pl: 'JavaScript i TypeScript: nazwa wolana jak funkcja, ktorej strona nie zna.' },
+  'cmdDiff': { en: 'Diff between two saved runs: what appeared, what is gone, what changed.', pl: 'Roznica miedzy dwoma zapisami: co doszlo, co zniknelo, co sie zmienilo.' },
+  'cmdRank': { en: 'One ranked list across detectors — what to read first.', pl: 'Jeden ranking ponad detektorami — co czytac pierwsze.' },
+  'optPomNote': { en: '(the tree must come from THE SAME pom.xml revision and profile set)', pl: '(drzewo musi pochodzic z TEJ SAMEJ rewizji pom.xml i tego samego zestawu profili)' },
   // ---------- sprawdzenie wejścia ----------
   'inputNoSuchPath': { en: 'Path does not exist: {0}', pl: 'Sciezka nie istnieje: {0}' },
   'inputNotDir': { en: 'Not a directory: {0}', pl: 'To nie jest katalog: {0}' },
@@ -50,6 +82,12 @@ const S = {
   'saveNoSpace': { en: '  No space left on the device.', pl: '  Brak miejsca na dysku.' },
   'saveBusy': { en: '  The file is locked by another process.', pl: '  Plik jest zablokowany przez inny proces.' },
   'saveDenied': { en: '  No permission to write there.', pl: '  Brak uprawnien do zapisu.' },
+
+  // ---------- populacja ----------
+  'tooLittleData': { en: 'Too little code to speak of a convention: {0} occurrences, threshold {1}.', pl: 'Za malo kodu, by mowic o konwencji: {0} wystapien, prog {1}.' },
+  'tooLittleDataHint': { en: '  Nothing is reported — the tool compares code to the rest of THIS project, and there is not enough of it yet. Come back when there are {0}.', pl: '  Nic nie zglaszam — narzedzie porownuje kod do reszty TEGO projektu, a jeszcze go za malo. Wroc, gdy bedzie ich {0}.' },
+  'noSourcesFound': { en: 'No {0} files found in: {1}', pl: 'Nie znalazlem plikow {0} w: {1}' },
+  'noSourcesHint': { en: '  Supported: Java (java, deps), JavaScript/TypeScript and HTML (js), SQL migrations (sql), Maven pom.xml (pom). Other languages are not read.', pl: '  Obslugiwane: Java (java, deps), JavaScript/TypeScript i HTML (js), migracje SQL (sql), pom.xml Mavena (pom). Innych jezykow nie czytam.' },
 
   // ---------- sekcje zgłoszenia ----------
   'secInconsistent': { en: '   WHAT IS INCONSISTENT', pl: '   CO JEST NIESPOJNE' },

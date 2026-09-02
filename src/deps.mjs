@@ -54,6 +54,11 @@ function zrodla(dir, acc = { java: [], js: [] }) {
 
 const parser = await javaParser();
 const pliki = zrodla(ROOT);
+{
+  const { brakZrodel } = await import('./populacja.mjs');
+  const brak = brakZrodel(pliki.java.length + pliki.js.length, '.java/.js/.ts', ROOT);
+  if (brak) { console.log(brak); process.exit(0); }
+}
 
 let parserJs = null;
 if (pliki.js.length) {

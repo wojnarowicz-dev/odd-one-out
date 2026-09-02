@@ -7,6 +7,7 @@
 // woła się je przez to polecenie.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { t } from '../src/lang.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.join(HERE, '..', 'src');
@@ -14,84 +15,50 @@ const SRC = path.join(HERE, '..', 'src');
 const COMMANDS = {
   java: {
     module: 'oddone.mjs',
-    arg: '<katalog-zrodel-java>',
-    opis: 'Pary wywołań na tym samym odbiorniku (PR-Miner). Reguła A->B, odstępstwo = ma A, nie ma B.',
+    arg: '<java-source-dir>',
+    opisKey: 'cmdJava',
     opcje: '--minsup 3 --minconf 0.6 --maxviol 4 --top 10 --only nazwa1,nazwa2',
   },
   deps: {
     module: 'deps.mjs',
-    arg: '<katalog-zrodel-java>',
-    opis: 'Zależności rozłożone niespójnie: N klas przez warstwę wspólną, K bezpośrednio.',
+    arg: '<java-source-dir>',
+    opisKey: 'cmdDeps',
     opcje: '--minvia 5 --maxodd 3 --top 10',
   },
   pom: {
     module: 'pom.mjs',
     arg: '--pom <pom.xml> --tree <deptree.txt> [...]',
-    opis: 'Martwy wpis w dependencyManagement. Wymaga drzewa z mvn dependency:tree.',
-    opcje: '(drzewo musi pochodzić z TEJ SAMEJ rewizji pom.xml i tego samego zestawu profili)',
+    opisKey: 'cmdPom',
+    opcje: null,
   },
   sql: {
     module: 'sql.mjs',
-    arg: '<katalog-migracji>',
-    opis: 'revoke bez grant execute w tej samej migracji.',
+    arg: '<migrations-dir>',
+    opisKey: 'cmdSql',
     opcje: '--minconv 3',
   },
   js: {
     module: 'js.mjs',
-    arg: '<katalog-projektu-web>',
-    opis: 'JavaScript i TypeScript: nazwa wolana jak funkcja, ktorej strona nie zna.',
+    arg: '<web-project-dir>',
+    opisKey: 'cmdJs',
     opcje: '--top 20',
   },
   diff: {
     module: null,
-    arg: '<poprzedni.json> <biezacy.json>',
-    opis: 'Roznica miedzy dwoma przebiegami: co doszlo, co zniknelo, co zmienilo sile dowodu.',
-    opcje: '--all (pokaz takze zgloszenia bez zmian)',
+    arg: '<previous.json> <current.json>',
+    opisKey: 'cmdDiff',
+    opcje: '--all (also show unchanged findings)',
   },
   rank: {
     module: null,
-    arg: '<zapis.json> [wiecej.json...]',
-    opis: 'Jeden ranking ponad detektorami — co czytac pierwsze.',
-    opcje: '--top 20  --wiek <katalog-repo>  --stabilnosc  (oba domyslnie WYLACZONE)',
+    arg: '<snapshot.json> [more.json...]',
+    opisKey: 'cmdRank',
+    opcje: '--top 20  --wiek <repo-dir>  --stabilnosc  (both OFF by default)',
   },
 };
 
-function usage(code = 0) {
-  const out = code === 0 ? console.log : console.error;
-  out('odd-one-out — szuka odstępstw od konwencji panującej w projekcie.');
-  out('');
-  out('  Zasada: N razy tak, raz inaczej. Narzędzie nie ma progów z sufitu —');
-  out('  porównuje kod do reszty TEGO projektu. Nie zmienia plików: pokazuje');
-  out('  gotową poprawkę do wklejenia.');
-  out('');
-  out('UŻYCIE');
-  out('  odd-one-out <polecenie> [argumenty]');
-  out('');
-  out('JEZYK / LANGUAGE');
-  out('  --lang en   (domyslnie) angielski / English');
-  out('  --lang pl   polski');
-  out('');
-  out('POLECENIA');
-  for (const [name, c] of Object.entries(COMMANDS)) {
-    out('  ' + name.padEnd(6) + c.arg);
-    out('         ' + c.opis);
-    out('         opcje: ' + c.opcje);
-  }
-  out('');
-  out('PRZYKŁADY');
-  out('  odd-one-out java  ./src/main/java --only setOnError');
-  out('  odd-one-out deps  ./src/main/java');
-  out('  odd-one-out sql   ./supabase/migrations');
-  out('  odd-one-out pom   --pom ./pom.xml --tree ./deptree.txt');
-  out('');
-  out('JAK CZYTAĆ WYNIK');
-  out('  sup=8/10 conf=80% odd=2  — 10 miejsc ma poprzednik, 8 z nich ma też');
-  out('  następnik; 2 odstają. Im wyższe sup i conf, tym mocniejsza konwencja.');
-  out('  Zgłoszenie z odd=1 przy sup>=8 jest najmocniejszym sygnałem.');
-  out('  Trafność referencyjna tej klasy narzędzi (PR-Miner): 18,1% — szum jest');
-  out('  oczekiwany i nie jest porażką.');
-  process.exit(code);
-}
+const { pomoc } = await import(new URL('./usage.mjs', import.meta.url).href);
+const usage = (kod = 0) => pomoc(COMMANDS, kod);
 
 const [cmd, ...rest] = process.argv.slice(2);
 
@@ -102,12 +69,12 @@ if (cmd === '--version' || cmd === '-v') {
   process.exit(0);
 }
 if (!COMMANDS[cmd]) {
-  console.error('Nieznane polecenie: ' + cmd);
+  console.error(t('unknownCommand', cmd));
   console.error('');
   usage(2);
 }
 if (rest.length === 0) {
-  console.error('Brak argumentu dla polecenia "' + cmd + '": ' + COMMANDS[cmd].arg);
+  console.error(t('inputMissingArg', cmd + ' ' + COMMANDS[cmd].arg));
   process.exit(2);
 }
 
@@ -122,7 +89,7 @@ if (cmd === 'diff') {
     files.push(rest[i]);
   }
   if (files.length !== 2) {
-    console.error('diff wymaga dwoch plikow: <poprzedni.json> <biezacy.json>');
+    console.error(t('diffNeedsTwo'));
     process.exit(2);
   }
   const d = printDiff(readSnapshot(files[0]), readSnapshot(files[1]),
@@ -150,7 +117,7 @@ if (cmd === 'rank') {
     files.push(rest[i]);
   }
   if (files.length === 0) {
-    console.error('rank wymaga co najmniej jednego pliku zapisu');
+    console.error(t('rankNeedsOne'));
     process.exit(2);
   }
   await printRanking(files.map(readSnapshot), { top, wiek, stabilnosc: rest.includes('--stabilnosc') });

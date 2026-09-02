@@ -64,6 +64,11 @@ if (!SCOPES[SCOPE]) {
 const FUNC_LIKE = SCOPES[SCOPE];
 
 const files = javaFiles(ROOT);
+{
+  const { brakZrodel } = await import('./populacja.mjs');
+  const brak = brakZrodel(files.length, '.java', ROOT);
+  if (brak) { console.log(brak); process.exit(0); }
+}
 const units = new Map();
 const parseErrors = [];
 let parsed = 0;
@@ -461,10 +466,12 @@ const rel = f => path.relative(ROOT, f).replace(/\\/g, '/');
 // ---- zapis przebiegu ----
 const { przygotuj, naglowekRoznicy } = await import('./snapshot.mjs');
 const snapFindings = [];
-let taken = 0;
+// ZAPIS ZAWIERA WSZYSTKO, --top ogranicza WYLACZNIE WYDRUK.
+// Wczesniej zapis byl przycinany tym samym progiem co raport, przez co
+// zawartosc pliku — a wiec i roznica miedzy przebiegami, i ranking — zalezala
+// od flagi wyswietlania. Dwa przebiegi z roznym --top dawaly rozne "nowe
+// odstepstwa" przy nietknietym kodzie.
 for (const r of rules) {
-  if (taken >= TOP) break;
-  taken++;
   // Miejsca ZGODNE z wzorcem — potrzebne, zeby porownac wiek odstepstwa
   // z wiekiem reszty. Bez nich sygnal wieku nie ma punktu odniesienia.
   const wzorzec = [];
@@ -505,24 +512,42 @@ console.log(t('root') + ROOT);
 console.log(t('javaStats', parsed, parseErrors.length, all.length, supA.size, frequent.size));
 if (parseErrors.length) console.log(t('javaParseErrors', parseErrors.slice(0, 5).map(rel).join(', ')));
 if (ODSIEJ.size) console.log(t('javaSieve', [...ODSIEJ].join(',')));
+const { zaMaloDanych } = await import('./populacja.mjs');
 naglowekRoznicy(w);
+if ([...supA.keys()].some(k => k.startsWith('?#'))) console.log(t('legendUnknownType'));
 console.log(t('javaRules', SCOPE, MINSUP, MINCONF, MAXVIOL, rules.length));
 console.log('');
 
+// Brak populacji: jeden osad dla wszystkich detektorow (src/populacja.mjs).
+const brak = zaMaloDanych(frequent.size, MINSUP);
+if (brak) { console.log(brak); }
+
+// NAGLOWEK DOPIERO, GDY WIADOMO, ZE COS POD NIM BEDZIE.
+// Wczesniej naglowek szedl na wyjscie od razu, a miejsca dopiero pod nim — gdy
+// wszystkie zostaly odsiane albo odpadly przy roznicy, na ekranie zostawal sam
+// naglowek. Na cudzym repozytorium dawalo to dziesiec pustych sekcji z rzedu,
+// co wyglada na zepsute narzedzie, a nie na brak wynikow. Regula bez ani jednego
+// miejsca nie zajmuje tez slotu w TOP — inaczej pusta regula wypychala z listy
+// te, ktora ma tresc.
 let shown = 0;
 for (const r of rules) {
   if (shown >= TOP) break;
-  shown++;
-  console.log(t('javaRuleHead', shown, r.A, r.B, r.sup, r.supA, (r.conf * 100).toFixed(0), r.viol) +
-    (r.stab === null ? '' : t('javaStab', r.stab, r.stabOpis)));
+
+  const linie = [];
   for (const u of all) {
     if (!u.items.has(r.A) || u.items.has(r.B)) continue;
     if (odsiane(r, u)) { odsianych++; continue; }
     if (!pokaz.has((r.A + '->' + r.B) + '|' + rel(u.file) + '|' + u.items.get(r.A)[0])) continue;
-    console.log('   ' + rel(u.file) + ':' + u.items.get(r.A)[0] + '  recv=' + u.recv +
+    linie.push('   ' + rel(u.file) + ':' + u.items.get(r.A)[0] + '  recv=' + u.recv +
       '  in ' + u.unitKind + '@' + u.unitLine);
-    console.log(t('javaCallsHere', [...u.items.keys()].join(', ')));
+    linie.push(t('javaCallsHere', [...u.items.keys()].join(', ')));
   }
+  if (linie.length === 0) continue;
+
+  shown++;
+  console.log(t('javaRuleHead', shown, r.A, r.B, r.sup, r.supA, (r.conf * 100).toFixed(0), r.viol) +
+    (r.stab === null ? '' : t('javaStab', r.stab, r.stabOpis)));
+  for (const l of linie) console.log(l);
   console.log('');
 }
 

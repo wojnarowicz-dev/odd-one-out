@@ -167,6 +167,11 @@ function analizuj(tree, src) {
 
 // ---- przebieg ----
 const pliki = zbierz(ROOT);
+{
+  const { brakZrodel } = await import('./populacja.mjs');
+  const brak = brakZrodel(pliki.html.length + pliki.skrypt.length, '.html/.js/.ts', ROOT);
+  if (brak) { console.log(brak); process.exit(0); }
+}
 const rel = f => path.relative(ROOT, f).replace(/\\/g, '/');
 
 // globalne wystawiane przez pliki skryptowe (window.X = ..., funkcje najwyzszego poziomu)
