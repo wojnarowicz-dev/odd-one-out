@@ -98,6 +98,35 @@ Domyślny zasięg został przy `lambda` — różnica 22% vs 20% na jednym proje
 i jednej rodzinie reguł to za cienki dowód, żeby zmieniać zachowanie. Do
 przeglądu warto uruchomić `--scope file`.
 
+## Wiek odstępstwa — zmierzony, nie pomógł, domyślnie wyłączony
+
+`odd-one-out rank ... --wiek <katalog-repo>`
+
+Sygnał: odstępstwo nowsze niż linie zgodne z wzorcem jest podejrzane —
+najstarsze jest zwykle oryginałem, od którego reszta odeszła świadomie.
+Działa **wyłącznie jako podbicie oceny** (×1,3); nic nie jest na tej podstawie
+usuwane ani obniżane.
+
+Zmierzone na tym samym zbiorze:
+
+| | bez wieku | z wiekiem |
+|---|---|---|
+| pozycja `Loading.java:397` (zweryfikowane) | 3 | **3** |
+| pozycja `Loading.java:411` (zweryfikowane) | 4 | **4** |
+| pozycja `VideoAnalyzerPro.java:9861` (szum) | 2 | **1** |
+
+**Nie ruszyło prawdziwych trafień, a wypromowało jedno fałszywe.** Przyczyna
+jest ta sama, przed którą ostrzega zastrzeżenie o `git blame`, tylko w wersji
+skrajnej: repozytorium ma 235 commitów, ale **wszystkie 1116 linii
+`Loading.java` noszą datę jednego commitu importującego projekt**. Wiek mierzy
+wtedy moment wrzucenia kodu do gita, a nie moment jego napisania — prawdziwe
+odstępstwa mają dokładnie tę samą datę co wzorzec i nie dostają podbicia, a
+przypadkowo dotknięte później linie dostają.
+
+Dlatego `--wiek` **zostaje wyłączone domyślnie**. Ma szansę działać w repozytorium
+z ciągłą historią, gdzie kod powstawał w gicie od początku — tu nie działa i nie
+udaję, że działa.
+
 ## Wykluczenia i wyciszenia
 
 Dwie **różne** rzeczy, celowo rozdzielone:

@@ -46,7 +46,7 @@ const COMMANDS = {
     module: null,
     arg: '<zapis.json> [wiecej.json...]',
     opis: 'Jeden ranking ponad detektorami — co czytac pierwsze.',
-    opcje: '--top 20',
+    opcje: '--top 20  --wiek <katalog-repo> (podbicie za mlodsze odstepstwo, domyslnie WYLACZONE)',
   },
 };
 
@@ -121,11 +121,15 @@ if (cmd === 'rank') {
   const { printRanking } = await import(mod('rank.mjs'));
   // Flagi z wartością zjadają następny token — bez tego `--top 8` wstawia "8"
   // na listę plików.
-  const FLAGI_Z_WARTOSCIA = new Set(['--top']);
+  const FLAGI_Z_WARTOSCIA = new Set(['--top', '--wiek']);
   const files = [];
-  let top = 20;
+  let top = 20, wiek = null;
   for (let i = 0; i < rest.length; i++) {
-    if (FLAGI_Z_WARTOSCIA.has(rest[i])) { if (rest[i] === '--top') top = +rest[i + 1]; i++; continue; }
+    if (FLAGI_Z_WARTOSCIA.has(rest[i])) {
+      if (rest[i] === '--top') top = +rest[i + 1];
+      if (rest[i] === '--wiek') wiek = rest[i + 1];
+      i++; continue;
+    }
     if (rest[i].startsWith('--')) continue;
     files.push(rest[i]);
   }
@@ -133,7 +137,7 @@ if (cmd === 'rank') {
     console.error('rank wymaga co najmniej jednego pliku zapisu');
     process.exit(2);
   }
-  printRanking(files.map(readSnapshot), { top });
+  await printRanking(files.map(readSnapshot), { top, wiek });
   process.exit(0);
 }
 

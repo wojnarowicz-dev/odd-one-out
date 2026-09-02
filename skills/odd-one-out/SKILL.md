@@ -83,6 +83,18 @@ a wąski zasięg tego nie widzi i zgłasza brak. Do przeglądu proponuj
 (9 zamiast 15). Zasięg `method` jest najgorszy z trzech — gubi zgłoszenia,
 bo dzieli populację tak, że reguły tracą wsparcie.
 
+## Wiek odstępstwa
+
+`--wiek <katalog-repo>` przy `rank` podbija ocenę odstępstw nowszych niż linie
+zgodne z wzorcem. **Domyślnie wyłączone i zwykle tak zostaw.**
+
+Zmierzone na projekcie autora: nie ruszyło pozycji prawdziwych trafień, za to
+wypromowało jedno fałszywe. `git blame` pokazuje ostatnią rękę, nie autora
+treści — w repozytorium założonym jednym commitem importującym cały kod
+wszystkie linie mają tę samą datę i sygnał nie niesie informacji. Włączaj tylko
+tam, gdzie kod od początku powstawał w gicie, i nigdy nie traktuj wieku jako
+podstawy do odrzucenia zgłoszenia.
+
 ## Ranking
 
 Przy kilku detektorach naraz **nie pokazuj użytkownikowi czterech list** — scal

@@ -71,7 +71,7 @@ export function rankSnapshots(snapshots) {
       if (kind && NIE_ZGLOSZENIE.has(kind)) continue;
       const detector = f.detector || s.detector;
       const k = unitKey(f, detector);
-      const rec = { ...f, detector, score: score(f.meta), comp: components(f.meta) };
+      const rec = { ...f, detector, root: s.root, score: score(f.meta), comp: components(f.meta) };
       const prev = grupy.get(k);
       if (!prev) { grupy.set(k, { ...rec, takze: [] }); continue; }
       // zostaje najmocniejsza regula; slabsze ida obok
@@ -83,8 +83,29 @@ export function rankSnapshots(snapshots) {
   return out;
 }
 
-export function printRanking(snapshots, { top = 20 } = {}) {
+export async function printRanking(snapshots, { top = 20, wiek = null } = {}) {
   const ranked = rankSnapshots(snapshots);
+
+  // WIEK — sygnal opcjonalny, domyslnie wylaczony. Wylacznie podbicie oceny;
+  // nic nie jest na tej podstawie usuwane ani obnizane (patrz src/age.mjs).
+  let wiekOpis = null;
+  if (wiek) {
+    const { ageSignal, isGitRepo } = await import('./age.mjs');
+    if (!isGitRepo(wiek)) {
+      wiekOpis = '!! ' + wiek + ' nie jest repozytorium git — sygnal wieku pominiety';
+    } else {
+      let podbitych = 0;
+      for (const f of ranked) {
+        const a = ageSignal(f, f.root, wiek);
+        f.wiek = a;
+        if (a.mnoznik !== 1) podbitych++;
+        f.score = Math.round(f.score * a.mnoznik);
+      }
+      ranked.sort((a, b) => b.score - a.score || a.file.localeCompare(b.file));
+      wiekOpis = 'sygnal wieku: podbitych ' + podbitych + ' z ' + ranked.length +
+        ' (odstepstwo nowsze niz mediana linii zgodnych z wzorcem)';
+    }
+  }
   const pominiete = snapshots.reduce((n, s) =>
     n + s.findings.filter(f => f.meta && NIE_ZGLOSZENIE.has(f.meta.kind)).length, 0);
 
@@ -94,6 +115,7 @@ export function printRanking(snapshots, { top = 20 } = {}) {
     (pominiete ? '  pominietych stanow niebedacych zgloszeniem=' + pominiete : ''));
   console.log('');
   console.log('ocena = 100 x konwencja x populacja x rzadkosc  (porzadkowa, nie procent)');
+  if (wiekOpis) console.log(wiekOpis);
   console.log('');
 
   ranked.slice(0, top).forEach((f, i) => {
@@ -106,6 +128,7 @@ export function printRanking(snapshots, { top = 20 } = {}) {
       '  odstajacych=' + c.odd);
     if (f.takze && f.takze.length)
       console.log('       to samo miejsce narusza takze: ' + f.takze.join(', '));
+    if (f.wiek) console.log('       wiek: ' + f.wiek.opis);
   });
 
   if (ranked.length > top) console.log('\n   ... i ' + (ranked.length - top) + ' dalszych');

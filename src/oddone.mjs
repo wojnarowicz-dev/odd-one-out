@@ -163,6 +163,14 @@ let taken = 0;
 for (const r of rules) {
   if (taken >= TOP) break;
   taken++;
+  // Miejsca ZGODNE z wzorcem — potrzebne, zeby porownac wiek odstepstwa
+  // z wiekiem reszty. Bez nich sygnal wieku nie ma punktu odniesienia.
+  const wzorzec = [];
+  for (const u of all) {
+    if (!u.items.has(r.A) || !u.items.has(r.B)) continue;
+    wzorzec.push({ file: rel(u.file), line: u.items.get(r.B)[0] });
+    if (wzorzec.length >= 5) break;
+  }
   for (const u of all) {
     if (!u.items.has(r.A) || u.items.has(r.B)) continue;
     snapFindings.push({
@@ -171,7 +179,11 @@ for (const r of rules) {
       anchor: u.unitKind + '|' + u.recv,
       line: u.items.get(r.A)[0],
       label: r.A + ' -> ' + r.B + '   (recv=' + u.recv + ', ' + u.unitKind + ')',
-      meta: { sup: r.sup, supA: r.supA, conf: +r.conf.toFixed(2), viol: r.viol, unit: u.unitKind + '@' + u.unitLine },
+      meta: {
+        sup: r.sup, supA: r.supA, conf: +r.conf.toFixed(2), viol: r.viol,
+        unit: u.unitKind + '@' + u.unitLine,
+        wzorzec,
+      },
     });
   }
 }
