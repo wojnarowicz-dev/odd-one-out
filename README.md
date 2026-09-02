@@ -99,6 +99,47 @@ Dwie rzeczy, o których trzeba wiedzieć:
   wyjdzie jako `NOWE` + `ZNIKNĘŁO`. Świadomy kompromis — odcisk bez ścieżki
   zlewałby ze sobą różne miejsca.
 
+## Odsiewanie „setter obok settera" — włączone domyślnie
+
+Mechaniczne współwystąpienia wywołań konfiguracyjnych zajmowały pierwsze
+dwanaście pozycji rankingu: `setMinHeight -> setMinWidth`,
+`initModality -> initOwner`, `setCycleCount -> play`. Kolejność i komplet są tam
+przypadkowe, a brak jednego z nich nie jest błędem.
+
+Trzy sygnały, każdy włączany osobno (`--odsiej 1`, `--odsiej 1,3`,
+`--odsiej none`):
+
+1. **obie strony to zwykłe settery** — `set[A-Z]`, ale **nie** `setOn[A-Z]`;
+2. **odbiornik powstał w tej samej jednostce** (`new X()` obok);
+3. **obie ustawiają stan** — żadna nie jest zdarzeniowa ani czynnością cyklu
+   życia (`play`, `stop`, `dispose`, `close`, …).
+
+Granica jest tu istotna: `setOnError` zaczyna się od `set`, ale **podpina obsługę
+zdarzenia**, a nie ustawia wartość, więc nie jest setterem dla żadnego z sygnałów.
+
+| sygnał | zgłoszeń (odkrywanie) | pozycja `Loading.java:397/411` |
+|---|---|---|
+| brak | 1086 | 88 / 89 z 99 |
+| 1 | 645 | 56 / 57 |
+| 2 | 708 | 70 / 71 |
+| 3 | 220 | 16 / 17 z 52 |
+| **1,2,3** | **161** | **13 / 14 z 30** |
+
+**Żaden sygnał nie zabrał ani jednej znanej odpowiedzi.**
+`MediaPlayer#dispose -> MediaPlayer#setOnError`, `Loading.java:397`, `:411`,
+`Menu.java:5753/5754` przeżywają wszystkie trzy i ich złożenie.
+
+W trybie zawężonym `--only setOnError`: **14 → 12 zgłoszeń, trafność 29% → 33%**.
+Usunięte to `Menu.java:2690` i `Preview.java:498` — oba wcześniej ocenione jako
+fałszywe, oba złapane sygnałem 2 (kompletna konfiguracja świeżo utworzonego
+`MediaPlayer`).
+
+Trafność w pierwszej dziesiątce przy odkrywaniu: **1 na 10** (pozycja 10,
+`Menu.java:5754`) wobec 0 na 10 przed odsianiem. Ujawnia to osobną słabość
+raportu: nagłówek scalonej pozycji wybierany jest po ocenie, więc regułą
+wiodącą została szumowa `dispose -> getStatus`, a prawdziwa
+`dispose -> setOnError` stoi w liście „także".
+
 ## Odkrywanie par — zmierzone, szum zalewa wynik
 
 Detektor `java` **domyślnie odkrywa pary sam**: dla każdego typu odbiornika
@@ -342,12 +383,12 @@ Zmierzone na projekcie autora (114 plików Javy, 21 migracji SQL):
 
 | detektor | zgłoszeń | prawdziwych | trafność |
 |---|---|---|---|
-| `java` (pary `setOn*`, ustawienia domyślne) | 14 | 4 | **29%** |
+| `java` (pary `setOn*`, ustawienia domyślne) | 12 | 4 | **33%** |
 | `deps` | 0 (z 51 przed odsianiem) | brak podstaw do zgłoszenia | n/d |
 | `pom` | 1 | 1 — trafiona znana odpowiedź | 100% |
 | `sql` | 1 | 1 — trafiona znana odpowiedź | 100% |
 
-`java` startował z **20%** i doszedł do 29% dzięki **typowi odbiornika**
+`java` startował z **20%**, doszedł do 29% dzięki **typowi odbiornika**, a do 33% dzięki **odsiewaniu setterów**
 (włączonemu domyślnie). Druga próba — **aliasy** — trafność obniżyła
 (29% → 21%) i jest **domyślnie wyłączona**; obie zmierzone w sekcji
 [Typ odbiornika i aliasy](#typ-odbiornika-i-aliasy).

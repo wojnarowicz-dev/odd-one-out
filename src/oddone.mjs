@@ -220,6 +220,36 @@ for (const file of files) {
     return x;
   };
 
+  // ODBIORNIK UTWORZONY W TEJ SAMEJ JEDNOSTCE (sygnal 2). Zbierane przed
+  // glownym przebiegiem, bo `new X()` moze stac po wywolaniach albo przed nimi.
+  const noweWJednostce = new Map();   // "linia:rodzaj" -> Set(nazw)
+  {
+    const zbierzNowe = (node, unit) => {
+      if (FUNC_LIKE.has(node.type)) {
+        const nn = node.childForFieldName ? node.childForFieldName('name') : null;
+        unit = (node.startPosition.row + 1) + ':' +
+          (node.type === 'lambda_expression' ? 'lambda' : (nn ? nn.text : node.type));
+      }
+      const zapamietaj = (nazwa) => {
+        const k = unit || 'top';
+        if (!noweWJednostce.has(k)) noweWJednostce.set(k, new Set());
+        noweWJednostce.get(k).add(nazwa);
+      };
+      if (node.type === 'variable_declarator') {
+        const n = node.childForFieldName('name');
+        const v = node.childForFieldName('value');
+        if (n && v && v.type === 'object_creation_expression') zapamietaj(n.text);
+      } else if (node.type === 'assignment_expression') {
+        const l = node.childForFieldName('left');
+        const r = node.childForFieldName('right');
+        if (l && r && l.type === 'identifier' && r.type === 'object_creation_expression')
+          zapamietaj(l.text);
+      }
+      for (let i = 0; i < node.childCount; i++) zbierzNowe(node.child(i), unit);
+    };
+    zbierzNowe(tree.rootNode, null);
+  }
+
   const typOdbiornika = (obj, recvText) => {
     if (!TYPY) return null;
     if (!obj) return null;
@@ -260,6 +290,8 @@ for (const file of files) {
             unitLine: unitDlaWywolania ? unitDlaWywolania.line : 0,
             unitKind: unitDlaWywolania ? unitDlaWywolania.kind : 'top',
             recv, typ: typOdbiornika(obj, recv), items: new Map(),
+            swiezy: (noweWJednostce.get(
+              (unitDlaWywolania ? unitDlaWywolania.line + ':' + unitDlaWywolania.kind : 'top')) || new Set()).has(recv),
           };
           units.set(key, u);
         }
@@ -361,6 +393,60 @@ for (const r of rules) {
       prefiksyTrzyma + '/' + prefiksy + ' narastajaco';
 }
 
+// ---- odsiewanie klasy "setter obok settera" ----
+//
+// Mechaniczne wspolwystapienia wywolan konfiguracyjnych zajmowaly pierwsze
+// dwanascie pozycji rankingu przy odkrywaniu par: setMinHeight -> setMinWidth,
+// initModality -> initOwner, setCycleCount -> play. Kolejnosc i komplet sa tam
+// przypadkowe, a brak jednego z nich nie jest bledem.
+//
+// Trzy sygnaly, kazdy wlaczany osobno (--odsiej 1 / 2 / 3 / 1,3), zeby dalo sie
+// zmierzyc, ktory co usuwa. Odsiewanie dziala na REGULACH i ZGLOSZENIACH —
+// populacja, na ktorej wydobyto reguly, zostaje nietknieta.
+//
+// UWAGA na granice: `setOnError` zaczyna sie od "set", ale PODPINA OBSLUGE
+// ZDARZENIA, a nie ustawia wartosc. Musi przezyc kazdy z sygnalow, inaczej
+// tracimy znana odpowiedz MediaPlayer#dispose -> MediaPlayer#setOnError.
+// DOMYSLNIE WLACZONE wszystkie trzy — zmierzone, nie zabiera zadnej znanej
+// odpowiedzi, a poprawia oba tryby:
+//   odkrywanie par: zweryfikowane trafienia z pozycji 88/89 na 13/14 (z 30)
+//   --only setOnError: 14 -> 12 zgloszen, trafnosc 29% -> 33%; usuniete dwa
+//   to Menu.java:2690 i Preview.java:498, oba wczesniej ocenione jako falszywe
+// `--odsiej none` wylacza.
+const ODSIEJ_SUROWY = String(flag('odsiej', '1,2,3'));
+const ODSIEJ = new Set(
+  /^(none|off|brak)$/i.test(ODSIEJ_SUROWY) ? []
+    : ODSIEJ_SUROWY.split(',').map(s => s.trim()).filter(Boolean));
+
+const nazwaMetody = s => (s.includes('#') ? s.slice(s.indexOf('#') + 1) : s);
+// setter = ustawia wartosc; setOnX NIE jest setterem, tylko podpieciem zdarzenia
+const jestSetter = s => /^set[A-Z]/.test(nazwaMetody(s)) && !/^setOn[A-Z]/.test(nazwaMetody(s));
+// reaguje na zdarzenie albo je podpina
+const jestZdarzeniowa = s => /^(setOn[A-Z]|addEventHandler|addEventFilter|addListener|removeListener|on[A-Z])/
+  .test(nazwaMetody(s));
+// czynnosc cyklu zycia — ma porzadek w czasie, wiec para z nia NIE jest przypadkowa
+const CZYNNOSCI = new Set(['play', 'stop', 'start', 'pause', 'dispose', 'close', 'open', 'show',
+  'hide', 'shutdown', 'cancel', 'commit', 'rollback', 'release', 'acquire', 'lock', 'unlock',
+  'flush', 'run', 'execute', 'submit', 'seek', 'load', 'reload', 'refresh', 'await', 'join']);
+const jestCzynnoscia = s => CZYNNOSCI.has(nazwaMetody(s));
+
+// sygnal 1: obie strony to zwykle settery
+const s1 = r => jestSetter(r.A) && jestSetter(r.B);
+// sygnal 3: obie ustawiaja stan — zadna nie jest zdarzeniowa ani czynnoscia
+const s3 = r => !jestZdarzeniowa(r.A) && !jestZdarzeniowa(r.B) &&
+  !jestCzynnoscia(r.A) && !jestCzynnoscia(r.B);
+// sygnal 2 dziala na ZGLOSZENIU: odbiornik powstal w tej samej jednostce
+const s2 = u => u.swiezy === true;
+
+function odsiane(r, u) {
+  if (ODSIEJ.has('1') && s1(r)) return 'setter obok settera';
+  if (ODSIEJ.has('3') && s3(r)) return 'obie ustawiaja stan';
+  if (ODSIEJ.has('2') && u && s2(u)) return 'odbiornik utworzony w tej jednostce';
+  return null;
+}
+
+let odsianych = 0;
+
 // ---- report ----
 const rel = f => path.relative(ROOT, f).replace(/\\/g, '/');
 console.log('# odd-one-out');
@@ -368,6 +454,7 @@ console.log('root=' + ROOT);
 console.log('files=' + parsed + ' parseErrors=' + parseErrors.length + ' units=' + all.length +
   ' distinctItems=' + supA.size + ' frequent=' + frequent.size);
 if (parseErrors.length) console.log('  !! parse errors in: ' + parseErrors.slice(0, 5).map(rel).join(', '));
+if (ODSIEJ.size) console.log('odsiewanie: sygnaly [' + [...ODSIEJ].join(',') + ']');
 console.log('scope=' + SCOPE + '  rules(minsup=' + MINSUP + ' minconf=' + MINCONF + ' maxviol=' + MAXVIOL + ')=' + rules.length);
 console.log('');
 
@@ -380,6 +467,7 @@ for (const r of rules) {
     (r.stab === null ? '' : ' stab=' + r.stab + ' (' + r.stabOpis + ')'));
   for (const u of all) {
     if (!u.items.has(r.A) || u.items.has(r.B)) continue;
+    if (odsiane(r, u)) { odsianych++; continue; }
     console.log('   ' + rel(u.file) + ':' + u.items.get(r.A)[0] + '  recv=' + u.recv +
       '  in ' + u.unitKind + '@' + u.unitLine);
     console.log('      calls here: ' + [...u.items.keys()].join(', '));
@@ -404,6 +492,7 @@ for (const r of rules) {
   }
   for (const u of all) {
     if (!u.items.has(r.A) || u.items.has(r.B)) continue;
+    if (odsiane(r, u)) continue;
     snapFindings.push({
       rule: r.A + '->' + r.B,
       file: rel(u.file),

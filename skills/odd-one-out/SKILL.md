@@ -72,6 +72,17 @@ naprawa jednego odstępstwa potrafi wygenerować nowe (zmienia populację, do
 której wszystko jest porównywane), a przeniesienie klasy do innego pakietu
 wychodzi jako `NOWE` + `ZNIKNĘŁO`.
 
+## Odsiewanie „setter obok settera"
+
+Włączone domyślnie (`--odsiej none` wyłącza). Odsiewa mechaniczne
+współwystąpienia wywołań konfiguracyjnych, które zajmowały czoło rankingu
+(`setMinHeight -> setMinWidth`, `initModality -> initOwner`). `setOnError` **nie**
+jest traktowane jak setter — podpina obsługę zdarzenia, nie ustawia wartości.
+
+Zmierzone: nie zabiera żadnej znanej odpowiedzi; przy odkrywaniu par
+zweryfikowane trafienia idą z pozycji 88/89 na 13/14, przy `--only setOnError`
+trafność rośnie z 29% na 33%.
+
 ## Odkrywanie par kontra zawężanie
 
 Detektor `java` domyślnie odkrywa pary sam — `--only <nazwy>` to filtr, nie
@@ -178,7 +189,7 @@ Trafność referencyjna tej klasy narzędzi (PR-Miner, 2005) to **18,1%**. Szum
 jest oczekiwany i nie jest porażką.
 
 Zmierzone na projekcie autora: detektory wąskie (`sql`, `pom`) trafiały 1/1,
-szeroki `java` — **29%** (4 prawdziwe na 14 zgłoszeń) przy ustawieniach
+szeroki `java` — **33%** (4 prawdziwe na 12 zgłoszeń) przy ustawieniach
 domyślnych. Podniósł ją **typ odbiornika** (z 20%, włączony domyślnie); próba
 z **aliasami** ją obniżyła (do 21%) i dlatego jest **domyślnie wyłączona**.
 
