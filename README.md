@@ -99,6 +99,50 @@ Dwie rzeczy, o których trzeba wiedzieć:
   wyjdzie jako `NOWE` + `ZNIKNĘŁO`. Świadomy kompromis — odcisk bez ścieżki
   zlewałby ze sobą różne miejsca.
 
+## Odkrywanie par — zmierzone, szum zalewa wynik
+
+Detektor `java` **domyślnie odkrywa pary sam**: dla każdego typu odbiornika
+zbiera wszystkie wołane na nim metody i liczy każdą parę. `--only <nazwy>` jest
+filtrem zawężającym do wybranej rodziny, nie warunkiem działania.
+
+| próg | reguł | zgłoszeń | pozycji w rankingu | czas |
+|---|---|---|---|---|
+| `--minsup 5` | 327 | **711** | 99 | 2,1 s |
+| `--minsup 3` (domyślny) | 615 | 1086 | — | 2,1 s |
+
+**Koszt nie jest problemem** — 2,1 sekundy na 11 581 jednostkach. Obawa
+o dziesiątki tysięcy par się nie potwierdziła.
+
+**Szum jest problemem.** Pierwsze dwanaście pozycji rankingu to w całości
+mechaniczne współwystąpienia setterów JavaFX:
+
+```
+ 1. [97] Button#setMinHeight -> Button#setMinWidth     konwencja=97% populacja=36
+ 2. [97] Stage#getIcons      -> Stage#setScene         konwencja=97% populacja=28
+ 5. [96] Timeline#setCycleCount -> Timeline#play
+ 7. [96] Stage#initModality  -> Stage#initOwner
+```
+
+Zweryfikowane trafienia `Loading.java:397` i `:411` lądują na pozycjach
+**73 i 74 ze 99**. Trafność w pierwszej dziesiątce: **0%**. Pozycja 1 ma przy
+sobie 36 innych naruszonych reguł — jako zgłoszenie dla człowieka to nie jest
+czytelne.
+
+Progów **nie dostrajałem** pod ten pomiar. Wniosek jest inny: odkrywanie par
+jest dobre do **znalezienia rodzin reguł**, których się nie znało (327 par
+z typem odbiornika to materiał do przejrzenia), a nie do czytania zgłoszeń.
+Do przeglądu zawężaj `--only`.
+
+### Znana para przy progu 5 znika
+
+`MediaPlayer#dispose -> MediaPlayer#setOnError` **nie znajduje się** wśród
+odkrytych przy `--minsup 5` — jej wsparcie wynosi 3. Pojawia się dopiero przy
+domyślnym `--minsup 3` i wskazuje wtedy `Menu.java:5754` oraz `Loading.java:974`.
+Przy progu 5 znikają też oba prawdziwe zgłoszenia z `Menu.java`.
+
+Innymi słowy: próg pięciu wystąpień, choć brzmi ostrożniej, **kosztuje jedno
+z czterech znanych prawdziwych trafień**. Domyślny próg pozostaje 3.
+
 ## Typ odbiornika i aliasy
 
 Dwie próby podniesienia trafności detektora `java`, obie zmierzone na tym samym

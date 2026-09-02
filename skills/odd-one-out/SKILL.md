@@ -72,6 +72,19 @@ naprawa jednego odstępstwa potrafi wygenerować nowe (zmienia populację, do
 której wszystko jest porównywane), a przeniesienie klasy do innego pakietu
 wychodzi jako `NOWE` + `ZNIKNĘŁO`.
 
+## Odkrywanie par kontra zawężanie
+
+Detektor `java` domyślnie odkrywa pary sam — `--only <nazwy>` to filtr, nie
+warunek działania. Zmierzone: bez filtra 327 reguł i **711 zgłoszeń**, a czoło
+rankingu w całości zajmują mechaniczne współwystąpienia setterów JavaFX
+(`Button#setMinHeight -> Button#setMinWidth`). Zweryfikowane trafienia lądują
+na pozycjach 73–74 z 99. **Trafność w pierwszej dziesiątce: 0%.**
+
+Dlatego: do **przeglądu** zawsze zawężaj `--only` do rodziny, która interesuje
+użytkownika. Pełne odkrywanie pokazuj wtedy, gdy pytanie brzmi „jakie w ogóle
+konwencje panują w tym kodzie" — to materiał do przejrzenia, nie lista
+zgłoszeń do naprawy.
+
 ## Typ odbiornika
 
 Włączony domyślnie (`--typy off` wyłącza): pozycje niosą typ odbiornika, więc
