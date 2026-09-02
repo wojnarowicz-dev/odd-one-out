@@ -72,6 +72,37 @@ Dwie rzeczy, o których trzeba wiedzieć:
   wyjdzie jako `NOWE` + `ZNIKNĘŁO`. Świadomy kompromis — odcisk bez ścieżki
   zlewałby ze sobą różne miejsca.
 
+## Typ odbiornika i aliasy
+
+Dwie próby podniesienia trafności detektora `java`, obie zmierzone na tym samym
+zbiorze (111 plików, reguła `setOn*`, zasięg `lambda`):
+
+| wariant | zgłoszeń | prawdziwych | trafność | `Loading.java:397/411` |
+|---|---|---|---|---|
+| baza | 15 | 3 | 20% | poz. 3 / 4 |
+| **+ typ odbiornika** | 14 | **4** | **29%** | poz. 4 / 5 |
+| + typ + aliasy | 14 | 3 | 21% | poz. 4 / 5 |
+
+**Typ odbiornika — zostaje włączony** (`--typy off` wyłącza). Bez niego
+`mediaControl.setOnEndOfMedia()` (klasa projektu, metoda bezargumentowa)
+i `mediaPlayer.setOnEndOfMedia(Runnable)` liczą się jako ta sama pozycja.
+Usunęło dokładnie te dwa fałszywe alarmy i wypromowało prawdziwe zgłoszenie
+`Menu.java:5753` z pozycji 10 na 3.
+
+Rozpoznawanie typu ma dwa źródła: deklaracje w pliku oraz mapę
+**wyrażenie → typ** zbieraną z całego projektu (`MediaPlayer player =
+mediaView.getMediaPlayer();` uczy, że to wyrażenie ma typ `MediaPlayer`).
+Drugie źródło jest konieczne — bez niego odbiorniki będące wywołaniem metody
+zostają nierozpoznane i wypadają z populacji **razem z prawdziwymi
+odstępstwami**.
+
+**Aliasy — zmierzone, pogarszają wynik, domyślnie wyłączone** (`--aliasy on`
+włącza). Idea jest słuszna: `final MediaPlayer toDispose = player;` to ten sam
+obiekt. Poprawka usuwa dokładnie ten fałszywy alarm, dla którego powstała
+(`Loading.java:974`), ale przypisanie wywołań do jednostki deklaracji scala też
+wywołania niezwiązane i tworzy nowe reguły na metodach zapytujących
+(`setOnError -> getStatus`). Bilans: −1 fałszywy alarm, +2 nowe.
+
 ## Zasięg pary
 
 Jak blisko siebie muszą stać dwa wywołania, żeby liczyć się jako para.

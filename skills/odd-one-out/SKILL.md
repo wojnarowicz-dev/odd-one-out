@@ -71,6 +71,16 @@ naprawa jednego odstępstwa potrafi wygenerować nowe (zmienia populację, do
 której wszystko jest porównywane), a przeniesienie klasy do innego pakietu
 wychodzi jako `NOWE` + `ZNIKNĘŁO`.
 
+## Typ odbiornika
+
+Włączony domyślnie (`--typy off` wyłącza): pozycje niosą typ odbiornika, więc
+`MediaControl#setOnEndOfMedia` nie miesza się z `MediaPlayer#setOnEndOfMedia`.
+Zmierzone: trafność 20% → 29%.
+
+`--aliasy on` (domyślnie wyłączone) scala wywołania na aliasach tej samej
+zmiennej. Zmierzone: pogarsza wynik (29% → 21%) — usuwa jeden fałszywy alarm,
+tworzy dwa nowe na metodach zapytujących. Nie włączaj bez pomiaru.
+
 ## Zasięg pary
 
 `--scope file|method|lambda` (domyślnie `lambda`) ustala, jak blisko siebie muszą

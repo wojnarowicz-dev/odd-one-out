@@ -67,11 +67,169 @@ const units = new Map();
 const parseErrors = [];
 let parsed = 0;
 
+// TYP ODBIORNIKA. Bez niego `mediaControl.setOnEndOfMedia()` (MediaControl,
+// metoda bezargumentowa klasy projektu) i `mediaPlayer.setOnEndOfMedia(...)`
+// (javafx.MediaPlayer) licza sie jako ta sama pozycja — bo regula patrzy na
+// nazwe metody, a nie na to, na czym jest wolana.
+//
+// Rozwiazywanie typu jest celowo plytkie i ma dwa zrodla:
+//   1. deklaracje zmiennych, pol i parametrow w pliku (nazwa -> typ),
+//   2. mapa WYRAZENIE -> TYP zbierana z calego projektu z deklaracji
+//      z inicjalizatorem: `MediaPlayer player = mediaView.getMediaPlayer();`
+//      uczy, ze `mediaView.getMediaPlayer()` ma typ MediaPlayer.
+// Drugie zrodlo jest tu kluczowe: bez niego odbiorniki bedace wywolaniem
+// metody zostaja nierozpoznane i wypadaja z populacji razem z prawdziwymi
+// odstepstwami.
+//
+// Zakres jest plikowy, nie blokowy — przeslanianie nazw (`shadowing`) jest
+// rzadkie i swiadomie je pomijam; bledne rozpoznanie typu daje ten sam wynik
+// co brak rozpoznania, czyli pozycje "?".
+const TYPY = String(flag('typy', 'on')) !== 'off';
+const exprTypes = new Map();   // znormalizowane wyrazenie -> typ (caly projekt)
+
+const czystyTyp = t => String(t).replace(/<.*/s, '').replace(/\[\]/g, '').trim();
+const norm = s => s.replace(/\s+/g, '');
+
+// pierwszy przebieg: mapa wyrazenie -> typ z calego projektu
+if (TYPY) {
+  for (const file of files) {
+    const src = fs.readFileSync(file, 'utf8');
+    const tree = parser.parse(src);
+    const zbierz = (node) => {
+      if (node.type === 'local_variable_declaration' || node.type === 'field_declaration') {
+        const t = node.childForFieldName('type');
+        if (t && t.text !== 'var') {
+          for (let i = 0; i < node.childCount; i++) {
+            const d = node.child(i);
+            if (d.type !== 'variable_declarator') continue;
+            const val = d.childForFieldName('value');
+            if (val && (val.type === 'method_invocation' || val.type === 'field_access'))
+              exprTypes.set(norm(val.text), czystyTyp(t.text));
+          }
+        }
+      }
+      for (let i = 0; i < node.childCount; i++) zbierz(node.child(i));
+    };
+    zbierz(tree.rootNode);
+  }
+}
+
 for (const file of files) {
   const src = fs.readFileSync(file, 'utf8');
   const tree = parser.parse(src);
   parsed++;
   if (tree.rootNode.hasError) parseErrors.push(file);
+
+  // deklaracje w tym pliku: nazwa -> typ
+  const varTypes = new Map();
+  if (TYPY) {
+    const zbierzDekl = (node) => {
+      if (node.type === 'local_variable_declaration' || node.type === 'field_declaration') {
+        const t = node.childForFieldName('type');
+        if (t && t.text !== 'var')
+          for (let i = 0; i < node.childCount; i++) {
+            const d = node.child(i);
+            if (d.type === 'variable_declarator') {
+              const n = d.childForFieldName('name');
+              if (n) varTypes.set(n.text, czystyTyp(t.text));
+            }
+          }
+      } else if (node.type === 'formal_parameter' || node.type === 'catch_formal_parameter') {
+        const t = node.childForFieldName('type');
+        const n = node.childForFieldName('name');
+        if (t && n && t.text !== 'var') varTypes.set(n.text, czystyTyp(t.text));
+      }
+      for (let i = 0; i < node.childCount; i++) zbierzDekl(node.child(i));
+    };
+    zbierzDekl(tree.rootNode);
+  }
+
+  // ALIASY. `final MediaPlayer toDispose = player;` a linijke pozniej
+  // `toDispose.dispose()` w lambdzie — to ten sam obiekt, ale dla detektora byly
+  // to dwa rozne odbiorniki w dwoch roznych jednostkach, wiec `dispose` wygladal
+  // na osamotniony. Zgloszenie powstawalo wylacznie ze zmiany nazwy zmiennej.
+  //
+  // Dwa kroki, oba potrzebne:
+  //   1. kanonizacja nazwy: x = y  =>  wywolania na x licza sie jak na y;
+  //   2. przypisanie wywolania do jednostki, w ktorej zmienna zostala
+  //      ZADEKLAROWANA, a nie w ktorej stoi wywolanie. Bez tego alias w lambdzie
+  //      dalej siedzi w osobnej jednostce niz reszta zycia obiektu.
+  // DOMYSLNIE WYLACZONE — zmierzone, pogarsza wynik. Poprawia dokladnie ten
+  // falszywy alarm, dla ktorego powstalo (Loading.java:974, alias toDispose),
+  // ale przypisanie wywolan do jednostki deklaracji scala tez wywolania
+  // niezwiazane i tworzy nowe reguly na metodach zapytujacych
+  // (setOnError -> getStatus). Bilans na projekcie autora: -1 falszywy alarm,
+  // +2 nowe. Trafnosc 29% -> 21%. Zostaje jako opcja: w kodzie, ktory czesciej
+  // przepisuje uchwyty miedzy zmiennymi, bilans moze byc odwrotny.
+  const ALIASY = String(flag('aliasy', 'off')) === 'on';
+  const alias = new Map();       // nazwa -> nazwa kanoniczna
+  const deklaracje = new Map();  // nazwa -> [{unit, start, end}]
+
+  // ZAKRESY, NIE SAMA NAZWA. Mapa "nazwa -> jednostka" na caly plik jest bledna:
+  // `player` bywa zadeklarowany w trzech metodach i wtedy wszystkie wywolania
+  // trafialyby do ostatniej z nich. Zapisujemy wiec zasieg funkcji, w ktorej
+  // deklaracja stoi, i przy wywolaniu wybieramy ten, ktory je obejmuje.
+  if (ALIASY) {
+    const zbierzAliasy = (node, unit, span) => {
+      if (FUNC_LIKE.has(node.type)) {
+        const nn = node.childForFieldName ? node.childForFieldName('name') : null;
+        unit = {
+          line: node.startPosition.row + 1,
+          kind: node.type === 'lambda_expression' ? 'lambda' : (nn ? nn.text : node.type),
+        };
+        span = { start: node.startIndex, end: node.endIndex };
+      }
+      if (node.type === 'local_variable_declaration') {
+        for (let i = 0; i < node.childCount; i++) {
+          const d = node.child(i);
+          if (d.type !== 'variable_declarator') continue;
+          const n = d.childForFieldName('name');
+          const v = d.childForFieldName('value');
+          if (!n) continue;
+          if (v && v.type === 'identifier') alias.set(n.text, v.text);
+          if (unit && span) {
+            if (!deklaracje.has(n.text)) deklaracje.set(n.text, []);
+            deklaracje.get(n.text).push({ unit, start: span.start, end: span.end });
+          }
+        }
+      } else if (node.type === 'assignment_expression') {
+        const l = node.childForFieldName('left');
+        const r = node.childForFieldName('right');
+        if (l && r && l.type === 'identifier' && r.type === 'identifier') alias.set(l.text, r.text);
+      }
+      for (let i = 0; i < node.childCount; i++) zbierzAliasy(node.child(i), unit, span);
+    };
+    zbierzAliasy(tree.rootNode, null, null);
+  }
+
+  // deklaracja obejmujaca dane wywolanie; przy kilku wybieramy najwezsza
+  const declUnitDla = (nazwa, poz) => {
+    const lista = deklaracje.get(nazwa);
+    if (!lista) return null;
+    let best = null;
+    for (const d of lista) {
+      if (poz < d.start || poz > d.end) continue;
+      if (!best || (d.end - d.start) < (best.end - best.start)) best = d;
+    }
+    return best ? best.unit : null;
+  };
+
+  const kanon = (n) => {
+    let x = n, i = 0;
+    while (alias.has(x) && i++ < 8) x = alias.get(x);   // licznik chroni przed cyklem x=y, y=x
+    return x;
+  };
+
+  const typOdbiornika = (obj, recvText) => {
+    if (!TYPY) return null;
+    if (!obj) return null;
+    if (obj.type === 'identifier') {
+      if (varTypes.has(obj.text)) return varTypes.get(obj.text);
+      if (/^[A-Z]/.test(obj.text)) return obj.text;      // wywolanie statyczne
+      return null;
+    }
+    return exprTypes.get(recvText) || null;
+  };
 
   const walk = (node, unit) => {
     if (FUNC_LIKE.has(node.type)) {
@@ -85,15 +243,31 @@ for (const file of files) {
       const obj = node.childForFieldName('object');
       const nm = node.childForFieldName('name');
       if (nm) {
-        const recv = obj ? obj.text.replace(/\s+/g, '') : 'this';
-        const key = file + ' ' + (unit ? unit.line + ':' + unit.kind : 'top') + ' ' + recv;
+        let recv = obj ? obj.text.replace(/\s+/g, '') : 'this';
+        // odbiornik bedacy prosta nazwa sprowadzamy do nazwy kanonicznej,
+        // a wywolanie przypisujemy do jednostki, w ktorej ta nazwa powstala
+        let unitDlaWywolania = unit;
+        if (ALIASY && obj && obj.type === 'identifier') {
+          recv = kanon(obj.text);
+          const d = declUnitDla(recv, node.startIndex);
+          if (d) unitDlaWywolania = d;
+        }
+        const key = file + ' ' + (unitDlaWywolania ? unitDlaWywolania.line + ':' + unitDlaWywolania.kind : 'top') + ' ' + recv;
         let u = units.get(key);
         if (!u) {
-          u = { file, unitLine: unit ? unit.line : 0, unitKind: unit ? unit.kind : 'top', recv, items: new Map() };
+          u = {
+            file,
+            unitLine: unitDlaWywolania ? unitDlaWywolania.line : 0,
+            unitKind: unitDlaWywolania ? unitDlaWywolania.kind : 'top',
+            recv, typ: typOdbiornika(obj, recv), items: new Map(),
+          };
           units.set(key, u);
         }
-        if (!u.items.has(nm.text)) u.items.set(nm.text, []);
-        u.items.get(nm.text).push(nm.startPosition.row + 1);
+        // Pozycja niesie typ odbiornika: MediaPlayer#setOnError to co innego
+        // niz MediaControl#setOnEndOfMedia. Nierozpoznany typ daje "?".
+        const item = TYPY ? (u.typ || '?') + '#' + nm.text : nm.text;
+        if (!u.items.has(item)) u.items.set(item, []);
+        u.items.get(item).push(nm.startPosition.row + 1);
       }
     }
     for (let i = 0; i < node.childCount; i++) walk(node.child(i), unit);
@@ -122,7 +296,9 @@ for (const [k, ab] of supAB) {
   if (ab < MINSUP) continue;
   const [x, y] = k.split(' ');
   for (const [A, B] of [[x, y], [y, x]]) {
-    if (ONLY && ONLY.indexOf(A) < 0 && ONLY.indexOf(B) < 0) continue;
+    // --only podaje NAZWY metod; pozycje moga miec prefiks typu (Typ#nazwa)
+    const nazwa = s => s.includes('#') ? s.slice(s.indexOf('#') + 1) : s;
+    if (ONLY && ONLY.indexOf(nazwa(A)) < 0 && ONLY.indexOf(nazwa(B)) < 0) continue;
     const conf = ab / supA.get(A);
     const viol = supA.get(A) - ab;
     if (conf < MINCONF || viol < 1 || viol > MAXVIOL) continue;
