@@ -353,10 +353,27 @@ const ACCESSOR_EXACT = new Set([
 ]);
 const ACCESSORS = String(flag('accessors', 'drop'));
 const itemName = s => (s.includes('#') ? s.slice(s.indexOf('#') + 1) : s);
+// TWO SIBLING PREDICATES ARE THE EXCEPTION. Forgetting to read one of two
+// fields is not a defect; forgetting one of two sibling STATE CHECKS is a
+// whole class of them. Measured on the author's project, the first version of
+// this filter removed `Duration#isUnknown -> Duration#isIndefinite` at
+// VideoAnalyzerPro.java:877, where the code guards isUnknown() and the same
+// file guards both twenty lines further down. For media of indefinite length
+// toMillis() is infinite, the `<= 0` guard does not catch it, and the (int)
+// cast yields 2147483647 seconds instead of -1. That is a real defect and the
+// filter was eating it.
+//
+// So a pair is dropped when both sides are reads, UNLESS both sides are
+// boolean predicates. `getName -> isNew` is still dropped: a value read next
+// to a predicate carries no obligation either way.
+const PREDICATE_PREFIX = /^(is|has)([A-Z]|$)/;
+const isPredicate = s => PREDICATE_PREFIX.test(itemName(s));
 const isAccessor = s => {
   const m = itemName(s);
   return ACCESSOR_PREFIX.test(m) || ACCESSOR_EXACT.has(m);
 };
+const bothPureReads = (A, B) =>
+  isAccessor(A) && isAccessor(B) && !(isPredicate(A) && isPredicate(B));
 
 const rules = [];
 let droppedAccessorRules = 0;
@@ -367,7 +384,7 @@ for (const [k, ab] of supAB) {
     // --only takes METHOD NAMES; items may carry a type prefix (Type#name)
     const name = s => s.includes('#') ? s.slice(s.indexOf('#') + 1) : s;
     if (ONLY && ONLY.indexOf(name(A)) < 0 && ONLY.indexOf(name(B)) < 0) continue;
-    if (ACCESSORS !== 'keep' && isAccessor(A) && isAccessor(B)) { droppedAccessorRules++; continue; }
+    if (ACCESSORS !== 'keep' && bothPureReads(A, B)) { droppedAccessorRules++; continue; }
     const conf = ab / supA.get(A);
     const viol = supA.get(A) - ab;
     if (conf < MINCONF || viol < 1 || viol > MAXVIOL) continue;
