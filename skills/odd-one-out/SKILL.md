@@ -150,8 +150,12 @@ błędu. Pusty wynik jest poprawnym wynikiem.
 ## Czego się spodziewać po trafności
 
 Trafność referencyjna tej klasy narzędzi (PR-Miner, 2005) to **18,1%**. Szum
-jest oczekiwany i nie jest porażką. Zmierzone na projekcie autora: detektory
-wąskie (`sql`, `pom`) trafiały 1/1, szeroki `java` — 1–2 na 10.
+jest oczekiwany i nie jest porażką.
+
+Zmierzone na projekcie autora: detektory wąskie (`sql`, `pom`) trafiały 1/1,
+szeroki `java` — **29%** (4 prawdziwe na 14 zgłoszeń) przy ustawieniach
+domyślnych. Podniósł ją **typ odbiornika** (z 20%, włączony domyślnie); próba
+z **aliasami** ją obniżyła (do 21%) i dlatego jest **domyślnie wyłączona**.
 
 Podawaj użytkownikowi liczby, nie przymiotniki: ile zgłoszeń, ile prawdziwych.
 

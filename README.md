@@ -118,6 +118,11 @@ Zmierzone na 111 plikach, regule `setOn*`. „Prawdziwe" = defekty, które prze�
 w kodzie: brak zwolnienia playera w `Loading` (dwa miejsca) i `dispose()` bez
 zerowania handlerów w `Menu`.
 
+> Ta tabela pochodzi **sprzed** wprowadzenia typu odbiornika — jest punktem
+> wyjścia, nie stanem bieżącym. Domyślny zasięg `lambda` daje dziś 29%, a nie
+> 20%. Porównanie trzech zasięgów między sobą pozostaje ważne, bo wszystkie
+> trzy zmierzono na tej samej wersji.
+
 **Zwężanie zasięgu nie poprawia trafności — poprawia ją poszerzanie.** Fałszywe
 alarmy tej klasy biorą się stąd, że obsługa stoi o poziom wyżej niż wywołanie;
 wąski zasięg tego nie widzi i zgłasza brak. Zasięg `file` znajduje **te same
@@ -227,16 +232,21 @@ miejscach (z przykładem i ścieżką), gotowa poprawka.
 Trafność referencyjna tej klasy narzędzi — **PR-Miner (2005): 18,1%**.
 Zmierzone na projekcie autora (114 plików Javy, 21 migracji SQL):
 
-| detektor | zgłoszeń | prawdziwych |
-|---|---|---|
-| `java` (pary `setOn*`) | 10 | 1 pewne + 1 prawdopodobne |
-| `deps` | 0 (z 51 przed odsianiem) | brak podstaw do zgłoszenia |
-| `pom` | 1 | 1 — trafiona znana odpowiedź |
-| `sql` | 1 | 1 — trafiona znana odpowiedź |
+| detektor | zgłoszeń | prawdziwych | trafność |
+|---|---|---|---|
+| `java` (pary `setOn*`, ustawienia domyślne) | 14 | 4 | **29%** |
+| `deps` | 0 (z 51 przed odsianiem) | brak podstaw do zgłoszenia | n/d |
+| `pom` | 1 | 1 — trafiona znana odpowiedź | 100% |
+| `sql` | 1 | 1 — trafiona znana odpowiedź | 100% |
+
+`java` startował z **20%** i doszedł do 29% dzięki **typowi odbiornika**
+(włączonemu domyślnie). Druga próba — **aliasy** — trafność obniżyła
+(29% → 21%) i jest **domyślnie wyłączona**; obie zmierzone w sekcji
+[Typ odbiornika i aliasy](#typ-odbiornika-i-aliasy).
 
 Zastrzeżenie: `pom` i `sql` to wąskie detektory jednoregułowe na małym zbiorze —
-łatwiejsze zadanie niż `java`, który mieli 11 581 jednostek i tam trafność spada
-do poziomu PR-Minera. Szum jest oczekiwany i nie jest porażką.
+łatwiejsze zadanie niż `java`, który mieli 11 tysięcy jednostek. Szum jest
+oczekiwany i nie jest porażką.
 
 ## Nisza: tam, gdzie skanery regułowe są bezradne
 
