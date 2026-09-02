@@ -20,6 +20,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { t } from './lang.mjs';
 import { makeFlag } from './args.mjs';
+import { readSource, reportNonUtf8 } from './input.mjs';
 import { Parser, Language } from 'web-tree-sitter';
 import { createRequire } from 'node:module';
 
@@ -174,7 +175,7 @@ const rel = f => path.relative(ROOT, f).replace(/\\/g, '/');
 // globals exposed by script files (window.X = ..., top-level functions)
 const globalsFromFile = new Map();   // pathArg relPath -> Set(nazw)
 for (const f of sources.script) {
-  const src = fs.readFileSync(f, 'utf8');
+  const src = readSource(f);
   const a = analyse(parser.parse(src), src);
   globalsFromFile.set(rel(f), new Set([...a.definitions]));
 }
@@ -183,7 +184,7 @@ const findings = [];
 let pagesScanned = 0, inlineBlocks = 0;
 
 for (const f of sources.html) {
-  const src = fs.readFileSync(f, 'utf8');
+  const src = readSource(f);
   const blocks = scriptsFromHtml(src);
   const inline = blocks.filter(b => b.content !== undefined);
   if (inline.length === 0) continue;
@@ -229,7 +230,7 @@ for (const f of sources.html) {
 // slad po niedokonczonym usunieciu funkcji
 findings.sort((a, b) => a.callCount - b.callCount || a.file.localeCompare(b.file));
 
-const { prepare, diffHeader } = await import('./snapshot.mjs');
+const { prepare, diffHeader, resultExit } = await import('./snapshot.mjs');
 const w = prepare(argv, {
   detector: 'js', root: ROOT, args: argv.slice(1), cfg,
   counts: { stron: pagesScanned, blokowInline: inlineBlocks, plikowSkryptowych: sources.script.length, sierot: findings.length },
@@ -267,4 +268,8 @@ w.toShow.slice(0, TOP).forEach((f, i) => {
   console.log('');
 });
 
-process.exitCode = w.newCount ? 1 : 0;
+resultExit(w.newCount ? 1 : 0);
+
+// One sentence if any source was not valid UTF-8. Printed last, so it is the
+// line left on screen rather than something scrolled past.
+reportNonUtf8(rel);

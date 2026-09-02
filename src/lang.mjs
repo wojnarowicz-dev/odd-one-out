@@ -23,6 +23,34 @@ const S = {
   'root': { en: 'root=', pl: 'root=' },
   'settings': { en: 'settings: ', pl: 'ustawienia: ' },
   'savedRun': { en: 'run snapshot saved: {0}  (findings: {1})', pl: 'zapis przebiegu: {0}  (zgloszen: {1})' },
+  'snapshotNeedsPath': {
+    en: '!! --json needs the path of a file to write.',
+    pl: '!! --json wymaga sciezki pliku do zapisania.',
+  },
+  'snapshotUnreadable': {
+    en: '!! The previous run at {0} could not be read ({1}).',
+    pl: '!! Poprzedniego przebiegu z {0} nie da sie odczytac ({1}).',
+  },
+  'snapshotUnreadableHint': {
+    en: '   Everything below is reported as new, because there is nothing to compare with.',
+    pl: '   Wszystko ponizej jest zgloszone jako nowe, bo nie ma z czym porownac.',
+  },
+  'snapshotBadVersion': {
+    en: 'snapshot version {0}, expected {1}',
+    pl: 'zapis w wersji {0}, oczekiwano {1}',
+  },
+  'snapshotWriteFailed': {
+    en: '!! Could not write the run to {0}: {1}',
+    pl: '!! Nie udalo sie zapisac przebiegu do {0}: {1}',
+  },
+  'snapshotWriteHintDir': {
+    en: '   --json takes the path of a FILE to write, and that is a directory.',
+    pl: '   --json przyjmuje sciezke PLIKU do zapisania, a to jest katalog.',
+  },
+  'nonUtf8Files': {
+    en: 'Note: {0} file(s) held bytes outside UTF-8 and were read with those bytes replaced, so the result may be incomplete: {1}',
+    pl: 'Uwaga: {0} plik(ow) zawieral bajty spoza UTF-8 i zostal wczytany z ich podmiana, wiec wynik moze byc niepelny: {1}',
+  },
   'mutedByComment': { en: 'muted by comment: {0}', pl: 'wyciszone komentarzem: {0}' },
   'mutedByConfig': { en: 'muted by config file: {0}', pl: 'wyciszone plikiem konfiguracyjnym: {0}' },
   'diffVsPrevious': { en: 'diff vs previous run: NEW={0}  GONE={1}  CHANGED={2}  unchanged={3}   (--all shows the full list)', pl: 'diff wobec poprzedniego przebiegu: NOWE={0}  ZNIKNELO={1}  ZMIENIONE={2}  bez zmian={3}   (--all pokazuje cala liste)' },
@@ -39,13 +67,13 @@ const S = {
 
   // ---------- help ----------
   'helpTagline': { en: 'odd-one-out — finds places that deviate from the convention of THIS project.', pl: 'odd-one-out — szuka odstepstw od konwencji panujacej w TYM projekcie.' },
-  'helpPrinciple': { en: '  Principle: N times this way, once differently. No thresholds pulled from thin air — the code is compared to the rest of this repository. It never changes files: it shows a ready-made fix to paste.', pl: '  Zasada: N razy tak, raz inaczej. Zadnych progow z sufitu — code jest porownywany do reszty tego repozytorium. Nie zmienia plikow: pokazuje gotowa poprawke do wklejenia.' },
+  'helpPrinciple': { en: '  Principle: N times this way, once differently. No thresholds pulled from thin air — the code is compared to the rest of this repository. It never changes files: it shows a ready-made fix to paste.', pl: '  Zasada: N razy tak, raz inaczej. Zadnych progow z sufitu — kod jest porownywany do reszty tego repozytorium. Nie zmienia plikow: pokazuje gotowa poprawke do wklejenia.' },
   'helpUsage': { en: 'USAGE', pl: 'UZYCIE' },
   'helpLangSec': { en: 'LANGUAGE', pl: 'JEZYK' },
   'helpLangEn': { en: '  --lang en   English (default)', pl: '  --lang en   angielski (domyslnie)' },
   'helpLangPl': { en: '  --lang pl   Polish', pl: '  --lang pl   polski' },
   'helpCommands': { en: 'COMMANDS', pl: 'POLECENIA' },
-  'helpOptions': { en: '         options: {0}', pl: '         options: {0}' },
+  'helpOptions': { en: '         options: {0}', pl: '         opcje: {0}' },
   'helpStart': { en: 'START HERE', pl: 'OD CZEGO ZACZAC' },
   'helpStart1': { en: '  1. Scan and save the run:', pl: '  1. Przeskanuj i zapisz przebieg:' },
   'helpStart2': { en: '  2. Read the merged, ranked list (this is the readable output):', pl: '  2. Przeczytaj scalona liste w kolejnosci sily dowodu (to czytelne wyjscie):' },
@@ -56,18 +84,18 @@ const S = {
   'helpReading2': { en: '  have the consequent; 2 deviate. odd=1 with a high sup is the strongest signal.', pl: '  nastepnik; 2 odstaja. odd=1 przy wysokim sup to najmocniejszy sygnal.' },
   'helpReading3': { en: '  Type#method — the receiver type. "?" means the type could not be resolved.', pl: '  Typ#metoda — typ odbiornika. "?" znaczy, ze typu nie udalo sie ustalic.' },
   'helpReading4': { en: '  Reference accuracy for this class of tool (PR-Miner): 18.1% — noise is expected.', pl: '  Trafnosc referencyjna tej klasy narzedzi (PR-Miner): 18,1% — szum jest oczekiwany.' },
-  'cmdJava': { en: 'Call pairs on the same receiver (PR-Miner). Rule A->B; a deviation has A but not B.', pl: 'Pary callCount na tym samym odbiorniku (PR-Miner). Regula A->B, odstepstwo = ma A, nie ma B.' },
+  'cmdJava': { en: 'Call pairs on the same receiver (PR-Miner). Rule A->B; a deviation has A but not B.', pl: 'Pary wywolan na tym samym odbiorniku (PR-Miner). Regula A->B, odstepstwo = ma A, nie ma B.' },
   'cmdDeps': { en: 'Dependencies spread inconsistently: N classes via a shared layer, K directly.', pl: 'Zaleznosci rozlozone niespojnie: N klas przez warstwe wspolna, K bezposrednio.' },
   'cmdPom': { en: 'Dead entry in dependencyManagement. Needs a tree from mvn dependency:tree.', pl: 'Martwy wpis w dependencyManagement. Wymaga drzewa z mvn dependency:tree.' },
   'cmdSql': { en: 'revoke without grant execute in the same migration.', pl: 'revoke bez grant execute w tej samej migracji.' },
-  'cmdJs': { en: 'JavaScript and TypeScript: a name called like a function that the page does not know.', pl: 'JavaScript i TypeScript: name wolana jak funkcja, ktorej strona nie known.' },
+  'cmdJs': { en: 'JavaScript and TypeScript: a name called like a function that the page does not know.', pl: 'JavaScript i TypeScript: nazwa wolana jak funkcja, ktorej strona nie zna.' },
   'cmdDiff': { en: 'Diff between two saved runs: what appeared, what is gone, what changed.', pl: 'Roznica miedzy dwoma zapisami: co doszlo, co zniknelo, co sie zmienilo.' },
   'cmdRank': { en: 'One ranked list across detectors — what to read first.', pl: 'Jeden ranking ponad detektorami — co czytac pierwsze.' },
   'optPomNote': { en: '(the tree must come from THE SAME pom.xml revision and profile set)', pl: '(drzewo musi pochodzic z TEJ SAMEJ rewizji pom.xml i tego samego zestawu profili)' },
   // ---------- input validation ----------
   'inputNoSuchPath': { en: 'Path does not exist: {0}', pl: 'Sciezka nie istnieje: {0}' },
   'inputNotDir': { en: 'Not a directory: {0}', pl: 'To nie jest katalog: {0}' },
-  'inputNotFile': { en: 'Not a file: {0}', pl: 'To nie jest file: {0}' },
+  'inputNotFile': { en: 'Not a file: {0}', pl: 'To nie jest plik: {0}' },
   'inputUnreadable': { en: 'Cannot read: {0} ({1})', pl: 'Nie da sie odczytac: {0} ({1})' },
   'inputMissingArg': { en: 'Missing argument: {0}', pl: 'Brak argumentu: {0}' },
   'inputHintPath': { en: '  Check the path. Run "odd-one-out --help" for usage.', pl: '  Sprawdz sciezke. Uzycie: "odd-one-out --help".' },
@@ -83,8 +111,8 @@ const S = {
   'saveDenied': { en: '  No permission to write there.', pl: '  Brak uprawnien do zapisu.' },
 
   // ---------- populacja ----------
-  'tooLittleData': { en: 'Too little code to speak of a convention: {0} occurrences, threshold {1}.', pl: 'Za malo kodu, by mowic o konwencji: {0} wystapien, threshold {1}.' },
-  'tooLittleDataHint': { en: '  Nothing is reported — the tool compares code to the rest of THIS project, and there is not enough of it yet. Come back when there are {0}.', pl: '  Nic nie zglaszam — narzedzie porownuje code do reszty TEGO projektu, a jeszcze go za malo. Wroc, gdy bedzie ich {0}.' },
+  'tooLittleData': { en: 'Too little code to speak of a convention: {0} occurrences, threshold {1}.', pl: 'Za malo kodu, by mowic o konwencji: {0} wystapien, prog {1}.' },
+  'tooLittleDataHint': { en: '  Nothing is reported — the tool compares code to the rest of THIS project, and there is not enough of it yet. Come back when there are {0}.', pl: '  Nic nie zglaszam — narzedzie porownuje kod do reszty TEGO projektu, a jeszcze go za malo. Wroc, gdy bedzie ich {0}.' },
   'noSourcesFound': { en: 'No {0} files found in: {1}', pl: 'Nie znalazlem plikow {0} w: {1}' },
   'noSourcesHint': { en: '  Supported: Java (java, deps), JavaScript/TypeScript and HTML (js), SQL migrations (sql), Maven pom.xml (pom). Other languages are not read.', pl: '  Obslugiwane: Java (java, deps), JavaScript/TypeScript i HTML (js), migracje SQL (sql), pom.xml Mavena (pom). Innych jezykow nie czytam.' },
 
@@ -106,12 +134,12 @@ const S = {
   'rankAge': { en: '       age: {0}', pl: '       wiek: {0}' },
   'rankStability': { en: '       stability: {0}  ({1})', pl: '       stabilnosc: {0}  ({1})' },
   'stabApplied': { en: 'stability component: applied to {0} of {1}', pl: 'skladnik stabilnosci: zastosowany do {0} z {1}' },
-  'ageSignal': { en: 'age signal: boosted {0} of {1} (deviation newer than the median of conforming lines)', pl: 'sygnal wieku: podbitych {0} z {1} (odstepstwo newer niz median linii zgodnych z wzorcem)' },
+  'ageSignal': { en: 'age signal: boosted {0} of {1} (deviation newer than the median of conforming lines)', pl: 'sygnal wieku: podbitych {0} z {1} (odstepstwo nowsze niz mediana linii zgodnych z wzorcem)' },
   'ageNotRepo': { en: '!! {0} is not a git repository — age signal skipped', pl: '!! {0} nie jest repozytorium git — sygnal wieku pominiety' },
   'ageNoData': { en: 'no age data', pl: 'missing danych o wieku' },
-  'ageDesc': { en: 'deviation {0}, pattern (median of {1}) {2}{3}', pl: 'odstepstwo {0}, pattern (median z {1}) {2}{3}' },
+  'ageDesc': { en: 'deviation {0}, pattern (median of {1}) {2}{3}', pl: 'odstepstwo {0}, wzorzec (mediana z {1}) {2}{3}' },
   'ageNewer': { en: '  -> NEWER, boost x{0}', pl: '  -> NOWSZE, podbicie x{0}' },
-  'ageNotNewer': { en: '  -> not newer, no boost', pl: '  -> nie newer, bez podbicia' },
+  'ageNotNewer': { en: '  -> not newer, no boost', pl: '  -> nie nowsze, bez podbicia' },
 
   // ---------- różnica ----------
   'diffTitle': { en: '# odd-one-out / diff between runs', pl: '# odd-one-out / diff miedzy uruchomieniami' },
@@ -121,7 +149,7 @@ const S = {
   'diffWarnThresholds': { en: '!! WARNING: different thresholds — [{0}] vs [{1}]. The difference may come from the thresholds, not the code.', pl: '!! UWAGA: rozne progi — [{0}] vs [{1}]. Roznica moze pochodzic z progow, nie z kodu.' },
   'diffCounts': { en: 'NEW={0}  GONE={1}  CHANGED={2}  unchanged={3}', pl: 'NOWE={0}  ZNIKNELO={1}  ZMIENIONE={2}  bez zmian={3}' },
   'diffSecNew': { en: '## NEW — appeared since the previous run', pl: '## NOWE — doszly od ostatniego przebiegu' },
-  'diffSecGone': { en: '## GONE — fixed or code removed', pl: '## ZNIKNELO — poprawione albo code usuniety' },
+  'diffSecGone': { en: '## GONE — fixed or code removed', pl: '## ZNIKNELO — poprawione albo kod usuniety' },
   'diffSecChanged': { en: '## CHANGED — same site, different strength of evidence', pl: '## ZMIENIONE — to samo miejsce, inna sila dowodu' },
   'diffSecUnchanged': { en: '## UNCHANGED', pl: '## BEZ ZMIAN' },
   'diffNoChange': { en: 'No change since the previous run.', pl: 'Bez zmian wzgledem poprzedniego przebiegu.' },
@@ -131,18 +159,22 @@ const S = {
   'javaStats': { en: 'files={0} parseErrors={1} units={2} distinctItems={3} frequent={4}', pl: 'plikow={0} bledowParsowania={1} jednostek={2} roznychPozycji={3} czestych={4}' },
   'javaParseErrors': { en: '  !! parse errors in: {0}', pl: '  !! bledy parsowania w: {0}' },
   'javaSieve': { en: 'sieve: signals [{0}]', pl: 'odsiewanie: sygnaly [{0}]' },
+  'javaAccessorsDropped': {
+    en: 'accessor pairs skipped: {0} rules (reading two things next to each other is not a convention; --accessors keep restores them)',
+    pl: 'odsiane pary akcesorow: {0} regul (czytanie dwoch rzeczy obok siebie to nie konwencja; --accessors keep je przywraca)',
+  },
   'javaRules': { en: 'scope={0}  rules(minsup={1} minconf={2} maxviol={3})={4}', pl: 'zasieg={0}  regul(minsup={1} minconf={2} maxviol={3})={4}' },
   'javaRuleHead': { en: '## [{0}] {1} -> {2}   sup={3}/{4} conf={5}% odd={6}', pl: '## [{0}] {1} -> {2}   sup={3}/{4} conf={5}% odd={6}' },
   'javaStab': { en: ' stab={0} ({1})', pl: ' stab={0} ({1})' },
   'javaStabDesc': { en: '{0}/{1} subsets, {2}/{3} cumulative', pl: '{0}/{1} podzbiorow, {2}/{3} narastajaco' },
-  'javaCallsHere': { en: '      calls here: {0}', pl: '      calls tutaj: {0}' },
+  'javaCallsHere': { en: '      calls here: {0}', pl: '      wolania tutaj: {0}' },
 
   // ---------- sql detector ----------
   'sqlTitle': { en: '# odd-one-out / SQL: revoke without grant execute in the same migration', pl: '# odd-one-out / SQL: revoke bez grant execute w tej samej migracji' },
   'sqlDir': { en: 'directory={0}', pl: 'katalog={0}' },
   'sqlStats': { en: 'migrations={0}  GRANT/REVOKE statements={1}', pl: 'migracji={0}  instrukcji GRANT/REVOKE={1}' },
   'sqlPairs': { en: '(migration, function) pairs with revoke+grant in the same file={0} (distinct functions: {1})  WITHOUT GRANT={2}', pl: 'par (migracja, funkcja) z revoke+grant w tym samym pliku={0} (roznych funkcji: {1})  BEZ GRANTU={2}' },
-  'sqlTooFew': { en: 'Too few revoke+grant pairs ({0}, threshold={1}) to call it a convention. Reporting nothing.', pl: 'Za malo wystapien pary revoke+grant ({0}, threshold={1}), by mowic o konwencji. Nie zglaszam nic.' },
+  'sqlTooFew': { en: 'Too few revoke+grant pairs ({0}, threshold={1}) to call it a convention. Reporting nothing.', pl: 'Za malo wystapien pary revoke+grant ({0}, prog={1}), by mowic o konwencji. Nie zglaszam nic.' },
   'sqlNoDeviations': { en: 'No deviations — every migration that revokes also grants EXECUTE.', pl: 'Brak odstepstw — kazda migracja odbierajaca uprawnienia nadaje tez EXECUTE.' },
   'sqlBody1': { en: '     {0}:{1} revokes permissions and stops there:', pl: '     {0}:{1} odbiera uprawnienia i na tym konczy:' },
   'sqlBody2': { en: '     Postgres grants EXECUTE to role `public` when a function is created, so', pl: '     Postgres nadaje EXECUTE roli `public` przy tworzeniu funkcji, wiec' },
@@ -183,7 +215,7 @@ const S = {
   'pomFix3': { en: '     //   in the same profile (without <version> — dependencyManagement supplies it).', pl: '     //   w tym samym profilu (bez <version> — wersje da dependencyManagement).' },
 
   // ---------- js detector ----------
-  'jsTitle': { en: '# odd-one-out / js: a name called like a function, defined nowhere', pl: '# odd-one-out / js: name wolana jak funkcja, nigdzie niezdefiniowana' },
+  'jsTitle': { en: '# odd-one-out / js: a name called like a function, defined nowhere', pl: '# odd-one-out / js: nazwa wolana jak funkcja, nigdzie niezdefiniowana' },
   'jsStats': { en: 'pages with inline scripts={0}  inline blocks={1}  script files={2}', pl: 'stron ze skryptami inline={0}  blokow inline={1}  plikow skryptowych={2}' },
   'jsRule': { en: 'rule={0}  {1}', pl: 'regula={0}  {1}' },
   'jsOrphans': { en: 'ORPHANS={0}{1}', pl: 'SIEROT={0}{1}' },
@@ -201,7 +233,7 @@ const S = {
   'depsCounts': { en: 'divergences={0}  migrations in progress={1}  too little data={2}', pl: 'rozjazdow={0}  migracji w toku={1}  za malo danych={2}' },
   'depsNoDivergence': { en: '\n-> No divergence at these thresholds. What follows are NOT deviations —\n   they are states in which the tool has no grounds to report anything.', pl: '\n-> Zadnego rozjazdu przy tych progach. Ponizej to NIE sa odstepstwa —\n   to stany, w ktorych narzedzie nie ma podstaw, by cokolwiek zglosic.' },
   'depsHead': { en: '## [{0}] {1} — {2}: {3} classes via {4}, {5} directly', pl: '## [{0}] {1} — {2}: {3} klas przez {4}, {5} bezposrednio' },
-  'depsTooFew': { en: '     Too few occurrences to speak of a convention ({0} via the layer, threshold={1}). Come back when there are {1}.', pl: '     Za malo wystapien, by mowic o konwencji ({0} przez warstwe, threshold={1}). Wroc, gdy bedzie ich {1}.' },
+  'depsTooFew': { en: '     Too few occurrences to speak of a convention ({0} via the layer, threshold={1}). Come back when there are {1}.', pl: '     Za malo wystapien, by mowic o konwencji ({0} przez warstwe, prog={1}). Wroc, gdy bedzie ich {1}.' },
   'depsMigration': { en: '     Both routes are common — there is nothing to call a deviation.', pl: '     Obie drogi sa liczne — nie ma czego nazwac odstepstwem.' },
   'depsMigration2': { en: '     This is not a bug to fix in one place, but an unfinished move to {0}.', pl: '     To nie blad do poprawienia punktowo, tylko niedokonczone przejscie na {0}.' },
   'depsBody': { en: '     {0}.{1} is called directly in {2} class(es), although {3} others go via {4}.', pl: '     {0}.{1} jest wolane wprost w {2} klasie/ach, choc {3} innych idzie przez {4}.' },
@@ -209,6 +241,11 @@ const S = {
   'depsCheckReturn': { en: '     // check the return type — {0}', pl: '     // sprawdz zwracany typ — {0}' },
   'depsAddImport': { en: '     // add the import: import {0};', pl: '     // dolóz import: import {0};' },
 };
+
+// Exported for test/lang-check.mjs, which compares the two languages key by
+// key. It reads the dictionary itself rather than matching the file with a
+// regular expression, so what is checked is exactly what ships.
+export const messages = S;
 
 export function t(key, ...args) {
   const wpis = S[key];

@@ -11,11 +11,12 @@
 // deviation this tool looks for.
 import fs from 'node:fs';
 import { javaParser } from './parser.mjs';
+import { readSource, reportNonUtf8 } from './input.mjs';
 
 const p = await javaParser();
 
 for (const f of process.argv.slice(2)) {
-  const src = fs.readFileSync(f, 'utf8');
+  const src = readSource(f);
   const t = p.parse(src);
   const errs = [];
   const w = n => {

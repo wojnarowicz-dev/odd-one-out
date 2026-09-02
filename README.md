@@ -27,6 +27,12 @@ directory**: `SKILL.md` is not a Claude Code-only format — Cursor, Codex and
 Gemini CLI read the same directories. The engine is a plain npm package and runs
 without any of them.
 
+> **A note on names.** The measurements below come from the author's private
+> repositories. Project and file names taken from them are replaced with
+> neutral ones (`Screen.java`, `app.html`); line numbers, counts, positions
+> and true/false verdicts are the measured ones, unchanged. Names that are
+> already generic (`Loading.java`, `Menu.java`) are as they are.
+
 ## Use
 
 ```bash
@@ -97,7 +103,7 @@ loads, so it cannot be stated without knowing the project.
 | before the fix (`c45f7a6^`) | 88 | **1** | 1 | **100%** |
 | current | 88 | 0 | — | negative control |
 
-The orphan found is `closeAiReqLightbox` in `VideoAnalyzerPro.html:9464` —
+The orphan found is `closeAiReqLightbox` in `app.html:9464` —
 exactly the line removed by commit `c45f7a6`.
 
 The first run produced 5 findings, 4 of them false. The cause was in the script
@@ -192,6 +198,37 @@ Two things worth knowing:
   as `NEW` + `GONE`. A deliberate trade-off — a fingerprint without the path
   would merge different sites together.
 
+## Pairs of pure accessors — dropped, on by default
+
+The mining does not know what a method does, so `getName` followed by
+`getBirthDate` looked exactly like `stop` followed by `dispose`. Reading one
+field and not the other is not a defect; failing to release a player is.
+
+A rule is dropped only when BOTH sides are pure reads. `hasNext -> next` and
+`getInputStream -> close` stay: a read paired with something that acts is
+exactly the shape worth reporting.
+
+This was invisible on the author's own project and obvious on somebody else's,
+which is the reason the regression suite runs on three foreign codebases:
+
+| project | before | after | removed |
+|---|---|---|---|
+| spring-petclinic (annotation-driven, mostly reads) | 7 | 2 | 71% |
+| JSON-java (small, plain) | 31 | 17 | 45% |
+| netty/common (low-level) | 100 | 79 | 21% |
+| the author's project (full of state changes) | 462 | 387 | 16% |
+
+Nothing real was lost. All five known answers still pass, the top four of the
+ranking are unchanged, and the one entry that left the top five was
+`MediaView#getFitHeight -> getFitWidth` inside a method called `zoomBaseH()` —
+reading the height and not the width, in a method whose whole job is the
+height. `--accessors keep` restores the old behaviour.
+
+**A→B and B→A are both reported, and that is correct.** It looks like
+duplication and is not: "has A but not B" and "has B but not A" describe
+different places. Measured across all four projects, the number of sites
+reported twice for the same pair is **zero** — in netty, `error -> info` flags
+line 89 and `info -> error` flags line 79.
 ## The "setter next to setter" sieve — on by default
 
 Mechanical co-occurrences of configuration calls used to occupy the first twelve
@@ -211,7 +248,7 @@ The boundary matters: `setOnError` begins with `set` but **attaches an event
 handler** rather than setting a value, so it is not a setter for any of the
 signals.
 
-| signal | findings (discovery mode, VideoAudioAnalyzer) | position of `Loading.java:397` |
+| signal | findings (discovery mode, the author's project) | position of `Loading.java:397` |
 |---|---|---|
 | none | 1086 | 88 of 99 |
 | 1 | 645 | 56 |
@@ -351,8 +388,8 @@ the population the detector *works on* makes results worse — measured with sco
 
 | entry | without `--stability` | with `--stability` | `stab` |
 |---|---|---|---|
-| `VideoAnalyzerPro.java:1496` (noise) | 1 | **1** | 1.00 |
-| `VideoAnalyzerPro.java:9861` (noise) | 2 | **2** | 1.00 |
+| `Screen.java:1496` (noise) | 1 | **1** | 1.00 |
+| `Screen.java:9861` (noise) | 2 | **2** | 1.00 |
 | `Menu.java:5753` (true) | 3 | **5** | 0.71 |
 | `Loading.java:397` (verified) | 4 | **3** | 0.83 |
 | `Loading.java:411` (verified) | 5 | **4** | 0.83 |
@@ -379,7 +416,7 @@ basis.
 |---|---|---|
 | `Loading.java:397` (verified) | 3 | **3** |
 | `Loading.java:411` (verified) | 4 | **4** |
-| `VideoAnalyzerPro.java:9861` (noise) | 2 | **1** |
+| `Screen.java:9861` (noise) | 2 | **1** |
 
 **It did not move the true findings, and it promoted a false one.** The cause is
 the `git blame` caveat in its extreme form: the repository has 235 commits, but
@@ -481,7 +518,7 @@ An empty result is a correct result.
 list.** Whole-list accuracy is misleading because nobody reads the whole list;
 what counts is how many true findings you see before you stop reading.
 
-`odd-one-out java <src> --only setOnError` on VideoAudioAnalyzer, default
+`odd-one-out java <src> --only setOnError` on the author's project, default
 settings — the ranking has **7 entries** (12 findings merged by site):
 
 | measure | result |
@@ -491,12 +528,12 @@ settings — the ranking has **7 entries** (12 findings merged by site):
 
 | position | site | verdict |
 |---|---|---|
-| 1 | `VideoAnalyzerPro.java:1496` | false |
-| 2 | `VideoAnalyzerPro.java:9861` | false |
+| 1 | `Screen.java:1496` | false |
+| 2 | `Screen.java:9861` | false |
 | **3** | **`Menu.java:5753` + `:5754`** | **true** |
 | **4** | **`Loading.java:397`** | **true (verified)** |
 | **5** | **`Loading.java:411`** | **true (verified)** |
-| 6 | `VideoAnalyzerPro.java:2121` | false |
+| 6 | `Screen.java:2121` | false |
 | 7 | `Loading.java:974` | false |
 
 **All four known answers fall in the top five.** Above them stand exactly two
@@ -526,7 +563,7 @@ three of six first-contact defects were invisible on the author's code.
 
 ### Known limitation: handling one level above the call
 
-Positions 1 and 2 (`VideoAnalyzerPro.java:1496` and `:9861`) are false for the
+Positions 1 and 2 (`Screen.java:1496` and `:9861`) are false for the
 same reason: **the error handling sits one level above the call**.
 `bindPlayButtonToPlayerStatus` binds a button's status and the error is handled
 by whoever called it. A pair counted within the unit scope cannot see that and
@@ -615,6 +652,6 @@ presenting them as bugs is the fastest way to lose a user's trust.
 - **Two parallel runs writing one snapshot file**: the later writer wins,
   silently. There is no lock and the write is not atomic.
 - Browser scripts communicating through `window` are outside the reach of `deps`,
-  which is built on the import graph (in VideoAnalyzerProWeb none of the 85 `.js`
+  which is built on the import graph (in the author's web project none of the 85 `.js`
   files uses `import` or `require`).
 - Not tested on an account whose name contains non-ASCII characters.

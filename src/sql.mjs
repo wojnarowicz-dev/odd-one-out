@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { makeFlag } from './args.mjs';
 import { t } from './lang.mjs';
+import { readSource, reportNonUtf8 } from './input.mjs';
 
 const argv = process.argv.slice(2);
 const DIR = argv[0];
@@ -78,7 +79,7 @@ const files = fs.readdirSync(DIR).filter(f => f.endsWith('.sql') && !cfg.isExclu
 }
 const perFile = [];
 for (const f of files) {
-  const sql = fs.readFileSync(path.join(DIR, f), 'utf8');
+  const sql = readSource(path.join(DIR, f));
   const acls = [];
   for (const st of statements(sql)) {
     const a = acl(st.text);
@@ -116,15 +117,29 @@ const distinct = new Set(both.map(b => b.name)).size;
 console.log(t('sqlPairs', both.length, distinct, onlyRevoke.length));
 console.log('');
 
+// BELOW THE THRESHOLD NOTHING IS REPORTED — INCLUDING IN THE SNAPSHOT.
+//
+// This used to be enforced only where the report is printed, so the run said
+// "Too few revoke+grant pairs (1, threshold=3) to call it a convention.
+// Reporting nothing." and wrote the finding to the snapshot anyway. `rank` then
+// listed it as an ordinary result, and `rank` is what the help calls the
+// readable output — so the tool declined to report something and showed it in
+// the same breath. The java detector never had this split; found by
+// test/amplify.mjs, thinning the fixture's convention below its threshold.
+//
+// The COUNTS below still describe the whole population. "Too little data" is a
+// statement about the evidence, not a reason to hide how much of it there was.
+const reported = both.length < MINCONV ? [] : onlyRevoke;
+
 // ---- run snapshot and diff ----
-const { prepare, diffHeader } = await import('./snapshot.mjs');
+const { prepare, diffHeader, resultExit } = await import('./snapshot.mjs');
 const w = prepare(argv, {
   detector: 'sql',
   root: DIR,
   cfg,
   args: argv.slice(1),
   counts: { migracje: files.length, parRevokeGrant: both.length, funkcjiZWzorcem: distinct, bezGrantu: onlyRevoke.length },
-  findings: onlyRevoke.map(o => ({
+  findings: reported.map(o => ({
     rule: 'revoke-bez-grant-execute',
     file: o.file,
     anchor: o.name,
@@ -136,7 +151,7 @@ const w = prepare(argv, {
 const visible = new Set(w.toShow.map(f => f.file + ':' + f.line));
 diffHeader(w);
 console.log('');
-process.exitCode = w.newCount ? 1 : 0;
+resultExit(w.newCount ? 1 : 0);
 
 if (both.length < MINCONV) {
   console.log(t('sqlTooFew', both.length, MINCONV));
@@ -176,3 +191,6 @@ if (both.length < MINCONV) {
   });
 }
 
+// One sentence if any source was not valid UTF-8. Printed last, so it is the
+// line left on screen rather than something scrolled past.
+reportNonUtf8(rel);

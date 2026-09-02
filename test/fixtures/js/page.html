@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+  <body>
+    <button id="go">go</button>
+    <script>
+      function openPanel() { document.getElementById('go').hidden = false; }
+      function closePanel() { document.getElementById('go').hidden = true; }
+      function togglePanel() { openPanel(); closePanel(); }
+
+      document.getElementById('go').addEventListener('click', function () {
+        togglePanel();
+        openPanel();
+        closePanel();
+        // Planted deviation: this one is called but defined nowhere on the page.
+        resetPanelState();
+      });
+    </script>
+  </body>
+</html>

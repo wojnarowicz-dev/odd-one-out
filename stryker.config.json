@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Read by 'npm run full' via test/mutation.mjs. Stryker is not a dependency of this project; install it with 'npm install --no-save @stryker-mutator/core' when you want to run it. The detectors are separate scripts rather than an importable API, so the command runner is the right fit: every mutant is judged by whether the real suites still pass.",
+  "testRunner": "command",
+  "commandRunner": {
+    "command": "node test/golden.mjs && node test/resilience.mjs && node test/lang-check.mjs && node test/amplify.mjs"
+  },
+  "mutate": [
+    "src/*.mjs",
+    "!src/lang.mjs",
+    "!src/smoke.mjs",
+    "!src/parsecheck.mjs"
+  ],
+  "reporters": [
+    "progress",
+    "clear-text"
+  ],
+  "thresholds": {
+    "high": 80,
+    "low": 60,
+    "break": null
+  },
+  "timeoutMS": 60000,
+  "concurrency": 2,
+  "disableTypeChecks": false,
+  "_comment_disableTypeChecks": "MUST STAY false. Stryker otherwise inserts a // @ts-nocheck header into every file matching {test,src,lib}/**/*.{js,ts,html,...}, which rewrote test/fixtures/js/page.html in its sandbox and shifted the reported line from 15 to 17. The golden tests then failed on the initial dry run and no mutant was ever generated.",
+  "_comment_judge": "ALL FOUR SUITES JUDGE THE MUTANTS. The first measurement used golden alone and scored 23.42% on src/snapshot.mjs (316 mutants, 72 killed, 2 timeouts, 242 survived, 1m57s). Most survivors were in printed output, which golden cannot see: it compares the JSON snapshot, not the text. resilience and lang-check read the text, amplify reads the counts.",
+  "_comment_thresholds": "ONLY break MATTERS HERE, AND IT IS null ON PURPOSE. high/low merely colour the report and Stryker's schema refuses null for them, so they keep its own defaults. The 70/50/40 that stood here were invented, not measured; the first real measurement of src/snapshot.mjs came out at 23.42% with only the golden tests judging, so a break threshold set from thin air would have failed the build on a number nobody had checked. Record measurements here and set a floor once there are several.",
+  "_comment_measurements": "MEASURED ON src/snapshot.mjs, 316 mutants both times. Judged by golden alone: 23.42% (72 killed, 2 timeouts, 242 survived) in 1m57s. Judged by all four suites: 31.65% (82 killed, 18 timeouts, 216 survived) in 118m41s. The stronger judge is worth 8 points and costs sixty times the wall clock, because resilience alone spawns 22 processes that each load the tree-sitter wasm. ONE FILE takes two hours; the whole of src/ would be most of a day. This is an occasional, deliberate run, not something to reach for while working."
+}

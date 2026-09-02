@@ -61,7 +61,36 @@ export function hasFlag(argv, name) {
   return argv.includes('--' + name);
 }
 
-/** The first positional argument (the scanned path), ignoring every `--flag`. */
-export function firstPositional(argv) {
-  return argv.find(a => !a.startsWith('--'));
+/**
+ * Every flag that consumes the token after it. The dispatcher needs this to
+ * tell a value from a path.
+ *
+ * WHY A LIST AND NOT A GUESS. "The first argument that does not start with --"
+ * looked like a fine definition of the scanned path, and it was wrong three
+ * times in a row: `--top 8` made `8` the path, `--lang pl` made `pl` the path,
+ * and `--wrapper name` made `name` the path. Every one of those failed as a
+ * usage error on stderr, so no count in any report moved and the mistake was
+ * invisible in the numbers. A new value-taking flag MUST be added here.
+ */
+export const VALUE_FLAGS = new Set([
+  'json', 'lang', 'config', 'only', 'top', 'scope', 'filter', 'types', 'aliases',
+  'wrapper', 'rule', 'age', 'subsets',
+  'minsup', 'minconf', 'maxviol', 'minvia', 'maxodd', 'minconv',
+  'pom', 'tree',
+]);
+
+/**
+ * The first positional argument (the scanned path): the first token that is
+ * neither a flag nor the value of a value-taking flag.
+ */
+export function firstPositional(argv, valueFlags = VALUE_FLAGS) {
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a.startsWith('--')) {
+      if (valueFlags.has(a.slice(2))) i++;   // skip its value
+      continue;
+    }
+    return a;
+  }
+  return undefined;
 }

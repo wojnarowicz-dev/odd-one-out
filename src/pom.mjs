@@ -16,6 +16,7 @@
 import fs from 'node:fs';
 import { flagAll as allValues } from './args.mjs';
 import { t } from './lang.mjs';
+import { readSource, reportNonUtf8 } from './input.mjs';
 
 const argv = process.argv.slice(2);
 const flagAll = (n) => allValues(argv, n);
@@ -29,7 +30,7 @@ if (!POM || TREES.length === 0) {
 const { loadConfig } = await import('./config.mjs');
 const cfg = loadConfig(argv, POM.replace(/[^\/]+$/, ''));
 
-const xml = fs.readFileSync(POM, 'utf8');
+const xml = readSource(POM);
 
 // --- properties, żeby rozwinąć ${...} w wersjach ---
 const props = new Map();
@@ -82,7 +83,7 @@ for (const m of xml.matchAll(/<dependencies>([\s\S]*?)<\/dependencies>/g)) {
 // --- artefakty z drzewa ---
 const inTree = new Set();
 for (const f of TREES) {
-  const txt = fs.readFileSync(f, 'utf8');
+  const txt = readSource(f);
   for (const line of txt.split('\n')) {
     const m = line.match(/([A-Za-z0-9_.\-]+):([A-Za-z0-9_.\-]+):[a-z-]+:([^:\s]+)(:[a-z]+)?\s*$/);
     if (m) inTree.add(m[1] + ':' + m[2]);
@@ -116,7 +117,7 @@ console.log(t('pomCounts', managed.length, live.length, dead.length, suspect.len
 console.log('');
 
 // ---- run snapshot and diff ----
-const { prepare, diffHeader } = await import('./snapshot.mjs');
+const { prepare, diffHeader, resultExit } = await import('./snapshot.mjs');
 const w = prepare(argv, {
   detector: 'pom',
   root: POM,
@@ -141,7 +142,7 @@ const w = prepare(argv, {
 const visible = new Set(w.toShow.map(f => f.anchor));
 diffHeader(w);
 console.log('');
-process.exitCode = w.newCount ? 1 : 0;
+resultExit(w.newCount ? 1 : 0);
 
 for (const s of suspect.filter(x => visible.has(x.key))) {
   console.log(t('pomSuspect1', s.key));
@@ -184,3 +185,6 @@ if (dead.length === 0) {
   });
 }
 
+// One sentence if any source was not valid UTF-8. Printed last, so it is the
+// line left on screen rather than something scrolled past.
+reportNonUtf8();

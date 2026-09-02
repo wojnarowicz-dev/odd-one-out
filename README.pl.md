@@ -24,6 +24,12 @@ npm start          # wypisuje pomoc
 wyłącznie Claude Code — Cursor, Codex i Gemini CLI czytają te same katalogi.
 Silnik jest zwykłą paczką npm i działa bez żadnego z nich.
 
+> **Uwaga o nazwach.** Pomiary poniżej pochodzą z prywatnych repozytoriów
+> autora. Nazwy projektów i plików z nich wzięte są zastąpione neutralnymi
+> (`Screen.java`, `app.html`); numery linii, liczby, pozycje i werdykty
+> prawda/fałsz są te zmierzone, bez zmian. Nazwy, które i tak są ogólne
+> (`Loading.java`, `Menu.java`), zostały jak były.
+
 ## Użycie
 
 ```bash
@@ -63,7 +69,7 @@ zgłasza rozjazd poprawnie. Dwa ograniczenia zmierzone przy okazji:
   długimi złożeniami, więc warunek rzadko bywa spełniony. Ta sama próbka
   kontrolna przechodzi dopiero po przemianowaniu opakowania na
   `readFileSyncWithRetry`.
-- **Skrypty przeglądarkowe są poza zasięgiem.** W VideoAnalyzerProWeb **żaden
+- **Skrypty przeglądarkowe są poza zasięgiem.** W webowym projekcie autora **żaden
   z 85 plików `.js` nie używa `import` ani `require`** — komunikują się przez
   `window`. `deps` stoi na grafie importów, więc nie ma tam czego zbudować:
   0 zgłoszeń.
@@ -102,7 +108,7 @@ z listy dobrych praktyk** — wynik zależy od tego, które pliki dana strona
 | przed naprawą (`c45f7a6^`) | 88 | **1** | 1 | **100%** |
 | bieżąca | 88 | 0 | — | kontrola negatywna |
 
-Znaleziona sierota to `closeAiReqLightbox` w `VideoAnalyzerPro.html:9464` —
+Znaleziona sierota to `closeAiReqLightbox` w `app.html:9464` —
 dokładnie ta linia, którą usunął commit `c45f7a6`.
 
 Pierwszy przebieg dał 5 zgłoszeń, z czego 4 fałszywe. Przyczyna była w moim
@@ -195,6 +201,38 @@ Dwie rzeczy, o których trzeba wiedzieć:
   wyjdzie jako `NOWE` + `ZNIKNĘŁO`. Świadomy kompromis — odcisk bez ścieżki
   zlewałby ze sobą różne miejsca.
 
+## Pary czystych akcesorów — odsiewane, włączone domyślnie
+
+Kopanie reguł nie wie, co metoda robi, więc `getName` obok `getBirthDate`
+wyglądało dokładnie jak `stop` obok `dispose`. Przeczytanie jednego pola bez
+drugiego nie jest wadą; niezwolnienie odtwarzacza jest.
+
+Reguła wypada tylko wtedy, gdy OBIE strony są czystym czytaniem. `hasNext ->
+next` i `getInputStream -> close` zostają: czytanie w parze z czymś, co działa,
+to właśnie kształt wart zgłoszenia.
+
+Na własnym kodzie tego nie było widać, na cudzym rzucało się w oczy — i po to
+właśnie zestaw regresyjny chodzi po trzech obcych projektach:
+
+| projekt | przed | po | usunięte |
+|---|---|---|---|
+| spring-petclinic (adnotacje, głównie czytanie) | 7 | 2 | 71% |
+| JSON-java (mały, zwykły) | 31 | 17 | 45% |
+| netty/common (niskopoziomowy) | 100 | 79 | 21% |
+| projekt autora (pełen zmian stanu) | 462 | 387 | 16% |
+
+Nic prawdziwego nie przepadło. Pięć znanych odpowiedzi nadal przechodzi, czwórka
+na czele rankingu bez zmian, a jedyny wpis, który wypadł z piątki, to
+`MediaView#getFitHeight -> getFitWidth` w metodzie `zoomBaseH()` — czytanie
+wysokości bez szerokości w metodzie, która z definicji liczy wysokość.
+`--accessors keep` przywraca stare zachowanie.
+
+**Reguły A→B i B→A są zgłaszane obie i tak ma być.** Wygląda to na duplikat,
+a nie jest: „ma A, nie ma B" i „ma B, nie ma A" to dwa różne miejsca. Zmierzone
+na wszystkich czterech projektach: miejsc zgłoszonych dwa razy dla tej samej
+pary jest **zero** — w netty `error -> info` wskazuje linię 89, a `info ->
+error` linię 79.
+
 ## Odsiewanie „setter obok settera" — włączone domyślnie
 
 Mechaniczne współwystąpienia wywołań konfiguracyjnych zajmowały pierwsze
@@ -213,7 +251,7 @@ Trzy sygnały, każdy włączany osobno (`--odsiej 1`, `--odsiej 1,3`,
 Granica jest tu istotna: `setOnError` zaczyna się od `set`, ale **podpina obsługę
 zdarzenia**, a nie ustawia wartość, więc nie jest setterem dla żadnego z sygnałów.
 
-| sygnał | zgłoszeń (odkrywanie, VideoAudioAnalyzer) | pozycja `Loading.java:397` |
+| sygnał | zgłoszeń (odkrywanie, projekt autora) | pozycja `Loading.java:397` |
 |---|---|---|
 | brak | 1086 | 88 z 99 |
 | 1 | 645 | 56 |
@@ -371,8 +409,8 @@ Zmierzone:
 
 | pozycja | bez `--stabilnosc` | z `--stabilnosc` | `stab` |
 |---|---|---|---|
-| `VideoAnalyzerPro.java:1496` (szum) | 1 | **1** | 1,00 |
-| `VideoAnalyzerPro.java:9861` (szum) | 2 | **2** | 1,00 |
+| `Screen.java:1496` (szum) | 1 | **1** | 1,00 |
+| `Screen.java:9861` (szum) | 2 | **2** | 1,00 |
 | `Menu.java:5753` (prawdziwe) | 3 | **5** | 0,71 |
 | `Loading.java:397` (zweryfikowane) | 4 | **3** | 0,83 |
 | `Loading.java:411` (zweryfikowane) | 5 | **4** | 0,83 |
@@ -402,7 +440,7 @@ Zmierzone na tym samym zbiorze:
 |---|---|---|
 | pozycja `Loading.java:397` (zweryfikowane) | 3 | **3** |
 | pozycja `Loading.java:411` (zweryfikowane) | 4 | **4** |
-| pozycja `VideoAnalyzerPro.java:9861` (szum) | 2 | **1** |
+| pozycja `Screen.java:9861` (szum) | 2 | **1** |
 
 **Nie ruszyło prawdziwych trafień, a wypromowało jedno fałszywe.** Przyczyna
 jest ta sama, przed którą ostrzega zastrzeżenie o `git blame`, tylko w wersji
@@ -489,7 +527,7 @@ Zmierzone na projekcie autora (114 plików Javy, 21 migracji SQL):
 jest myląca, bo nikt całej listy nie czyta — liczy się, ile prawdziwych trafień
 zobaczysz, zanim przestaniesz czytać.
 
-`odd-one-out java <src> --only setOnError` na VideoAudioAnalyzer, ustawienia
+`odd-one-out java <src> --only setOnError` na projekcie autora, ustawienia
 domyślne — ranking ma **7 pozycji** (12 zgłoszeń scalonych po miejscu):
 
 | miara | wynik |
@@ -499,12 +537,12 @@ domyślne — ranking ma **7 pozycji** (12 zgłoszeń scalonych po miejscu):
 
 | pozycja | miejsce | ocena |
 |---|---|---|
-| 1 | `VideoAnalyzerPro.java:1496` | fałszywe |
-| 2 | `VideoAnalyzerPro.java:9861` | fałszywe |
+| 1 | `Screen.java:1496` | fałszywe |
+| 2 | `Screen.java:9861` | fałszywe |
 | **3** | **`Menu.java:5753` + `:5754`** | **prawdziwe** |
 | **4** | **`Loading.java:397`** | **prawdziwe (zweryfikowane)** |
 | **5** | **`Loading.java:411`** | **prawdziwe (zweryfikowane)** |
-| 6 | `VideoAnalyzerPro.java:2121` | fałszywe |
+| 6 | `Screen.java:2121` | fałszywe |
 | 7 | `Loading.java:974` | fałszywe |
 
 **Wszystkie cztery znane odpowiedzi mieszczą się w pierwszej piątce.** Nad nimi
@@ -513,7 +551,7 @@ ograniczenie opisane niżej.
 
 ### Znane ograniczenie: obsługa o poziom wyżej niż wywołanie
 
-Pozycje 1 i 2 (`VideoAnalyzerPro.java:1496` i `:9861`) są fałszywe z tej samej
+Pozycje 1 i 2 (`Screen.java:1496` i `:9861`) są fałszywe z tej samej
 przyczyny: **obsługa błędu stoi tam o poziom wyżej niż wywołanie**.
 `bindPlayButtonToPlayerStatus` wiąże status przycisku, a błąd obsługuje ten, kto
 ją wywołał. Para liczona w zasięgu jednostki tego nie widzi i zgłasza brak.

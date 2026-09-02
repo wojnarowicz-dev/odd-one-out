@@ -102,17 +102,64 @@ export function buildSnapshot({ detector, root, args, counts, findings, cfg }) {
   };
 }
 
+// A FAILED WRITE IS A USAGE ERROR, NOT A CRASH. `--json` pointing at an
+// existing directory used to throw EISDIR out of the top level of an async
+// module; Node printed the stack and then libuv aborted the process
+// ("Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)"), exit 3221226505.
+// Nothing about that told anyone their --json argument was a directory.
+// Missing parent directories are still created — that case was already right.
+// THE WRITE IS IN TWO PHASES. A single writeFileSync onto the snapshot means an
+// interrupted run — Ctrl+C, a full disk, a killed terminal — leaves a half
+// written file where the baseline used to be. The next run cannot read it, and
+// until the fix above it did not even say so. Writing beside the target and
+// renaming into place makes the swap atomic: after any interruption the file on
+// disk is either the whole previous snapshot or the whole new one, never a
+// prefix of either. Rename is only atomic within one directory, so the
+// temporary file is a sibling, never in the system temp folder.
+//
+// THE BYTES ARE UNCHANGED. `JSON.stringify(snap, null, 2) + '\n'` is the same
+// expression as before, deliberately untouched: this is the layer where
+// removing a NUL byte once silently changed every finding id. Verified after
+// the change by comparing whole snapshot files byte for byte, not just their
+// fingerprints.
 export function writeSnapshot(file, snap) {
-  const dir = path.dirname(path.resolve(file));
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(file, JSON.stringify(snap, null, 2) + '\n');
+  const target = path.resolve(file);
+  const dir = path.dirname(target);
+  const tmp = path.join(dir, '.' + path.basename(target) + '.tmp-' + process.pid);
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    // Checked before writing anything: renaming ONTO a directory fails with a
+    // platform-dependent code, and the hint below has to stay accurate.
+    if (fs.existsSync(target) && fs.statSync(target).isDirectory()) {
+      const e = new Error('cannot write over a directory');
+      e.code = 'EISDIR';
+      throw e;
+    }
+    fs.writeFileSync(tmp, JSON.stringify(snap, null, 2) + '\n');
+    fs.renameSync(tmp, target);
+  } catch (e) {
+    try { fs.rmSync(tmp, { force: true }); } catch { /* nothing else to do */ }
+    console.error('');
+    console.error(t('snapshotWriteFailed', file, e.code || e.message));
+    if (e.code === 'EISDIR') console.error(t('snapshotWriteHintDir'));
+    // NOT process.exit(2). By this point the tree-sitter wasm module is loaded
+    // and holds async handles; exiting from under them aborts the process on
+    // Windows with "Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)",
+    // which replaced a clean exit 2 with a 3221226505 crash — the message above
+    // printed and then the process died anyway. Setting the code and letting
+    // the run finish on its own reaches the same exit status without the abort.
+    // Early exits (a missing path, a missing argument) are safe because they
+    // happen before any parser is loaded.
+    process.exitCode = 2;
+    return null;
+  }
   return file;
 }
 
 export function readSnapshot(file) {
   const s = JSON.parse(fs.readFileSync(file, 'utf8'));
   if (s.version !== SNAPSHOT_VERSION)
-    throw new Error('Niezgodna wersja zapisu: ' + s.version + ' (oczekiwano ' + SNAPSHOT_VERSION + ')');
+    throw new Error(t('snapshotBadVersion', s.version, SNAPSHOT_VERSION));
   return s;
 }
 
@@ -204,6 +251,15 @@ export function printDiff(oldSnap, newSnap, { showUnchanged = false } = {}) {
  * Returns { snap, toShow, diff, mutedByCommentList, newCount }.
  * `newCount` drives the exit code: 0 = no new deviations, 1 = there are some.
  */
+// THE RESULT CODE MUST NOT OVERWRITE AN INPUT ERROR. Detectors finish with
+// "1 if there are new findings, else 0", and that assignment ran after a
+// failed --json write had already set 2 — the run reported the problem and
+// then exited 1, which reads as an ordinary result. 2 wins once it is set.
+export function resultExit(code) {
+  if (process.exitCode === 2) return;
+  process.exitCode = code;
+}
+
 export function prepare(argv, payload) {
   const cfg = payload.cfg;
   const file = valueOf(argv, 'json');
@@ -228,7 +284,19 @@ export function prepare(argv, payload) {
 
   let poprzedni = null;
   if (file) {
-    try { if (fs.existsSync(file)) poprzedni = readSnapshot(file); } catch { poprzedni = null; }
+    // AN UNREADABLE PREVIOUS RUN IS SAID OUT LOUD. This used to swallow the
+    // error, and the only trace was the ABSENCE of the "diff vs previous run"
+    // line — the full list came back as if this were the first run ever, and
+    // the damaged file was then overwritten. Losing the baseline showed up as
+    // one missing line of output, which nobody notices.
+    try {
+      if (fs.existsSync(file)) poprzedni = readSnapshot(file);
+    } catch (e) {
+      poprzedni = null;
+      console.error('');
+      console.error(t('snapshotUnreadable', file, e.code || e.message));
+      console.error(t('snapshotUnreadableHint'));
+    }
   }
 
   const diff = poprzedni ? diffSnapshots(poprzedni, snap) : null;
@@ -264,11 +332,15 @@ export function maybeWriteSnapshot(argv, payload) {
   if (!hasFlag(argv, 'json')) return null;
   const file = valueOf(argv, 'json');
   if (!file) {
-    console.error('--json wymaga sciezki pliku');
-    process.exit(2);
+    // Same reasoning as in writeSnapshot: this runs at the end of a detector,
+    // with the parser already loaded, so exiting here would abort rather than
+    // exit. (The message also used to bypass the dictionary.)
+    console.error(t('snapshotNeedsPath'));
+    process.exitCode = 2;
+    return null;
   }
   const snap = buildSnapshot(payload);
-  writeSnapshot(file, snap);
+  if (!writeSnapshot(file, snap)) return null;   // it said why, and set the code
   console.log('');
   console.log(t('savedRun', file, snap.findings.length));
   if (payload.cfg) console.log(t('settings') + payload.cfg.describe());

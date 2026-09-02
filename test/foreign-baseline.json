@@ -1,0 +1,26 @@
+{
+  "netty/java": {
+    "count": 79,
+    "ids": "004fae53b893,092400ee0a78,1329a4ce62a5,1361b4cc2fde,1578f2e8d7b8,169526368eee,17956154414c,1dd498d87ee6,1f8be23e2fe7,206fe3da4935,206fe3da4935~2,23a23b86af4b,27852b95d0eb,29801e5b88a7,2ccf326e4752,3604b9b63f68,3a3d7a906d9b,45a6a10240b6,471ffe7b69d1,49f42223899c,4b08361e9ef3,4c9262b88bce,4d9419ee8589,4d9df9bc6538,529e7b79bc9e,5576ac683b79,564078af6af0,62de0bab58f5,65b6e09fafa9,66dbb291380e,695dc01e84dc,6f3eb9930d72,6f3eb9930d72~2,75f01c4da4eb,75ff92b36d38,77f12125af06,78ccd63d7c49,7ac11b57e33c,7d8dd56c3307,8159707b48ba,82c42539c8a6,82ec25eec0d2,854a51e0d446,866d4dbb5cc3,8951d5aaccc2,911c801dcd3f,911c801dcd3f~2,9367f007faf7,95f723997f6d,a00906dfa35b,a0a76d17988f,a40f65eff74d,a74b028ca575,a74b028ca575~2,abcb607d3cbd,ac786941e4dd,b14e6e50b73c,b513cd09b665,b513cd09b665~2,b9fc3274b874,bb05f69b37e5,cb13e15f93b7,cb6534f919de,cbfc4cc45bf8,d082bfeafeae,d1bb3f3bea0a,d2a9daf754b8,d5c8dd4a6a65,e0c8fd8af6ca,e23ef8ceae4d,e3eeff4614ce,ea59c3705396,eff4726810f0,f1f599d926a3,f4c5712cf25a,f7f13a3f00ed,f979ac8f360f,fa84695daf0e,fea6a5e09f59"
+  },
+  "netty/deps": {
+    "count": 4,
+    "ids": "2f4de0866e0e,31366e1a9a6d,64813f67faa4,aa17642cc330"
+  },
+  "json-java/java": {
+    "count": 17,
+    "ids": "11649db7a9b4,1ea60f4d9ce1,1f069052b18a,3d142dce56f8,62267f20a224,6c6daaa8eea6,6e7b38b53608,6f9a5f547948,7760d45a2d6d,7b30c5d51e28,81a8c06b950d,82e54c19a081,96e893ceb59e,9f5f13ea70d6,bb351984fdce,c4e8759cab72,f335658e191d"
+  },
+  "json-java/deps": {
+    "count": 0,
+    "ids": ""
+  },
+  "petclinic/java": {
+    "count": 2,
+    "ids": "751bab9392a3,ba0f0e00930e"
+  },
+  "petclinic/deps": {
+    "count": 0,
+    "ids": ""
+  }
+}

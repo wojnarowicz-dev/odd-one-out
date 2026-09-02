@@ -1,0 +1,37 @@
+{
+  "mutedCount": 0,
+  "version": 1,
+  "tool": "odd-one-out",
+  "detector": "js",
+  "args": [
+    "--config",
+    "test/fixtures/golden.config.json",
+    "--lang",
+    "en"
+  ],
+  "counts": {
+    "stron": 1,
+    "blokowInline": 1,
+    "plikowSkryptowych": 0,
+    "sierot": 1
+  },
+  "findings": [
+    {
+      "id": "efc00de1e80c",
+      "detector": "js",
+      "rule": "sierota",
+      "file": "page.html",
+      "anchor": "resetPanelState",
+      "line": 15,
+      "label": "resetPanelState — wolane 1x, nigdzie niezdefiniowane",
+      "meta": {
+        "sup": 3,
+        "odd": 1,
+        "conf": 1,
+        "callCount": 1
+      },
+      "unitId": "6b8647e11794"
+    }
+  ],
+  "root": "test/fixtures/js"
+}

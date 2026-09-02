@@ -1,0 +1,93 @@
+# odd-one-out — technical terms allowed to stay English in Polish messages.
+#
+# test/lang-check.mjs compares every dictionary key: if the Polish string
+# contains a word that also appears in the English string, that word is a
+# leak from translation unless it is listed here.
+#
+# THE LIST IS DATA, NOT CODE, on purpose. Deciding what counts as a technical
+# term is an editorial judgement that changes as messages change, and burying
+# it in a script makes it invisible to whoever writes the next message. Add a
+# line, with a reason if it is not obvious.
+#
+# One term per line. Everything after # is a comment. Entries are split on
+# non-letters, so "pom.xml" allows both "pom" and "xml".
+
+# --- the tool's own name and output scaffolding
+odd
+one
+out
+root
+ranking
+help
+
+# --- file formats and standards
+JSON
+SARIF
+XML
+HTML
+UTF
+pom.xml
+SQL
+
+# --- languages, platforms, products
+Java
+JavaScript
+TypeScript
+Postgres
+Supabase
+Maven
+mvn
+git
+npm
+node
+PR-Miner
+
+# --- command names, printed verbatim so they can be copied into a shell
+deps
+
+# --- flag names, printed verbatim so they can be copied into a shell
+accessors
+keep
+minsup
+minconf
+maxviol
+minvia
+maxodd
+minconv
+lang
+top
+all
+diff
+rank
+scope
+config
+
+# --- Maven and pom vocabulary that appears in the XML itself
+dependencyManagement
+dependencies
+dependency
+activeByDefault
+version
+tree
+management
+profile
+
+# --- SQL keywords, quoted from the statements being reported
+revoke
+grant
+execute
+public
+from
+service
+role
+
+# --- metric names printed in the report line
+sup
+conf
+odd
+via
+stab
+
+# --- words Polish uses unchanged
+import
+inline

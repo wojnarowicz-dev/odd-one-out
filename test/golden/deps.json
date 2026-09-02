@@ -1,0 +1,50 @@
+{
+  "mutedCount": 0,
+  "version": 1,
+  "tool": "odd-one-out",
+  "detector": "deps",
+  "args": [
+    "--config",
+    "test/fixtures/golden.config.json",
+    "--lang",
+    "en"
+  ],
+  "counts": {
+    "klasy": 8,
+    "operacjeOpakowane": 1,
+    "rozjazdy": 1
+  },
+  "findings": [
+    {
+      "id": "113fb00c00c4",
+      "detector": "deps",
+      "rule": "java.nio.file.Files.readAllLines",
+      "file": "Direct1.java",
+      "anchor": "fixture.io.Fs",
+      "line": 12,
+      "label": "DIVERGENCE — Files.readAllLines wprost, zamiast przez fixture.io.Fs",
+      "meta": {
+        "kind": "DIVERGENCE",
+        "via": 5,
+        "odd": 2
+      },
+      "unitId": "90063f9d60ce"
+    },
+    {
+      "id": "420f508f2b11",
+      "detector": "deps",
+      "rule": "java.nio.file.Files.readAllLines",
+      "file": "Direct2.java",
+      "anchor": "fixture.io.Fs",
+      "line": 12,
+      "label": "DIVERGENCE — Files.readAllLines wprost, zamiast przez fixture.io.Fs",
+      "meta": {
+        "kind": "DIVERGENCE",
+        "via": 5,
+        "odd": 2
+      },
+      "unitId": "6722daa80b52"
+    }
+  ],
+  "root": "test/fixtures/deps"
+}

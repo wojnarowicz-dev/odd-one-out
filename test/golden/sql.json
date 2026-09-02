@@ -1,0 +1,35 @@
+{
+  "mutedCount": 0,
+  "version": 1,
+  "tool": "odd-one-out",
+  "detector": "sql",
+  "args": [
+    "--config",
+    "test/fixtures/golden.config.json",
+    "--lang",
+    "en"
+  ],
+  "counts": {
+    "migracje": 4,
+    "parRevokeGrant": 3,
+    "funkcjiZWzorcem": 3,
+    "bezGrantu": 1
+  },
+  "findings": [
+    {
+      "id": "6ae52eb41b1d",
+      "detector": "sql",
+      "rule": "revoke-bez-grant-execute",
+      "file": "20260104000000_release_slot.sql",
+      "anchor": "public.release_slot",
+      "line": 12,
+      "label": "public.release_slot — revoke bez grant execute w tej samej migracji",
+      "meta": {
+        "via": 3,
+        "odd": 1
+      },
+      "unitId": "788489070c8e"
+    }
+  ],
+  "root": "test/fixtures/sql"
+}

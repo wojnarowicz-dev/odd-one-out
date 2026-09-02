@@ -1,0 +1,39 @@
+{
+  "mutedCount": 0,
+  "version": 1,
+  "tool": "odd-one-out",
+  "detector": "pom",
+  "args": [
+    "--tree",
+    "test/fixtures/pom/deptree.txt",
+    "--config",
+    "test/fixtures/golden.config.json",
+    "--lang",
+    "en"
+  ],
+  "counts": {
+    "wpisow": 3,
+    "zywych": 2,
+    "martwych": 1,
+    "doSprawdzenia": 0
+  },
+  "findings": [
+    {
+      "id": "759aac862597",
+      "detector": "pom",
+      "rule": "martwy-wpis-dependencyManagement",
+      "file": "test/fixtures/pom/pom.xml",
+      "anchor": "io.thorntail:javafx",
+      "line": 20,
+      "label": "io.thorntail:javafx — przypina wersje, ktorej nikt nie deklaruje",
+      "meta": {
+        "kind": "DEAD",
+        "profil": "(glowny)",
+        "via": 2,
+        "odd": 1
+      },
+      "unitId": "0ffb72a72171"
+    }
+  ],
+  "root": "test/fixtures/pom/pom.xml"
+}

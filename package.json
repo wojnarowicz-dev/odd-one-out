@@ -2,6 +2,8 @@
   "name": "odd-one-out",
   "version": "0.1.0",
   "description": "Finds places that deviate from the convention of the project itself: N times this way, once differently. Java, pom.xml, SQL migrations, JavaScript/TypeScript.",
+  "license": "MIT",
+  "author": "Aleksander Wojnarowicz",
   "type": "module",
   "bin": {
     "odd-one-out": "bin/odd-one-out.mjs"
@@ -13,7 +15,8 @@
     "test",
     "README.md",
     "README.pl.md",
-    "LICENSE"
+    "LICENSE",
+    "stryker.config.json"
   ],
   "engines": {
     "node": ">=18"
@@ -22,7 +25,16 @@
     "start": "node bin/odd-one-out.mjs",
     "self-check": "node bin/odd-one-out.mjs js . --json .odd-one-out/self-js.json && node bin/odd-one-out.mjs deps . --json .odd-one-out/self-deps.json",
     "smoke": "node src/smoke.mjs test/Smoke.java",
-    "plugin:validate": "claude plugin validate . --strict"
+    "plugin:validate": "claude plugin validate . --strict",
+    "known-answers": "node test/known-answers.mjs",
+    "golden": "node test/golden.mjs",
+    "test": "node test/golden.mjs && node test/resilience.mjs && node test/lang-check.mjs",
+    "resilience": "node test/resilience.mjs",
+    "lang-check": "node test/lang-check.mjs",
+    "foreign": "node test/foreign.mjs",
+    "amplify": "node test/amplify.mjs",
+    "mutation": "node test/mutation.mjs",
+    "full": "npm test && node test/amplify.mjs && node test/mutation.mjs"
   },
   "keywords": [
     "static-analysis",
@@ -32,7 +44,6 @@
     "java",
     "tree-sitter"
   ],
-  "license": "MIT",
   "dependencies": {
     "tree-sitter-java": "^0.23.5",
     "tree-sitter-typescript": "^0.23.2",

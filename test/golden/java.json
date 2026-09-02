@@ -1,0 +1,55 @@
+{
+  "mutedCount": 0,
+  "version": 1,
+  "tool": "odd-one-out",
+  "detector": "java",
+  "args": [
+    "--config",
+    "test/fixtures/golden.config.json",
+    "--lang",
+    "en"
+  ],
+  "counts": {
+    "sources": 1,
+    "zasieg": "lambda",
+    "bledyParsowania": 0,
+    "jednostki": 4,
+    "regul": 1
+  },
+  "findings": [
+    {
+      "id": "5dae50ea1572",
+      "detector": "java",
+      "rule": "MediaPlayer#stop->MediaPlayer#dispose",
+      "file": "Player.java",
+      "anchor": "openFourth|player",
+      "line": 27,
+      "label": "MediaPlayer#stop -> MediaPlayer#dispose   (recv=player, openFourth)",
+      "meta": {
+        "sup": 3,
+        "supA": 4,
+        "conf": 0.75,
+        "viol": 1,
+        "unit": "openFourth@26",
+        "stab": 1,
+        "stabDesc": "1/1 subsets, 1/1 cumulative",
+        "pattern": [
+          {
+            "file": "Player.java",
+            "line": 13
+          },
+          {
+            "file": "Player.java",
+            "line": 18
+          },
+          {
+            "file": "Player.java",
+            "line": 23
+          }
+        ]
+      },
+      "unitId": "ad0f8ebdbbef"
+    }
+  ],
+  "root": "test/fixtures/java"
+}

@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { t } from './lang.mjs';
 import { makeFlag } from './args.mjs';
+import { readSource, reportNonUtf8 } from './input.mjs';
 
 const argv = process.argv.slice(2);
 const ROOT = argv[0];
@@ -96,7 +97,7 @@ const norm = s => s.replace(/\s+/g, '');
 // first pass: expression -> type map for the whole project
 if (TYPY) {
   for (const file of files) {
-    const src = fs.readFileSync(file, 'utf8');
+    const src = readSource(file);
     const tree = parser.parse(src);
     const collect = (node) => {
       if (node.type === 'local_variable_declaration' || node.type === 'field_declaration') {
@@ -118,7 +119,7 @@ if (TYPY) {
 }
 
 for (const file of files) {
-  const src = fs.readFileSync(file, 'utf8');
+  const src = readSource(file);
   const tree = parser.parse(src);
   parsed++;
   if (tree.rootNode.hasError) parseErrors.push(file);
@@ -326,7 +327,39 @@ for (const u of all) {
     }
 }
 
+// A PAIR OF PURE READS IS NOT A CONVENTION.
+//
+// The mining does not care what a method does, so `getName` followed by
+// `getBirthDate` looked exactly like `stop` followed by `dispose`. Reading one
+// field and not the other is not a defect; failing to release a player is. On
+// the author's own code this barely showed — 15% of findings — because that
+// code is full of calls that change state. On spring-petclinic, where most
+// calls are reads, it was 71% and sat at the top of the list.
+//
+// ONLY WHEN BOTH SIDES ARE READS. `hasNext -> next` and `getInputStream ->
+// close` stay: a read paired with something that acts is exactly the shape
+// worth reporting.
+//
+// The prefixes require the next character to be a capital (or the end), so
+// `toggleX` is not mistaken for a `to...` conversion and `issueX` not for an
+// `is...` test. `--accessors keep` restores the old behaviour for comparison.
+const ACCESSOR_PREFIX = /^(get|is|has|to|as)([A-Z]|$)/;
+const ACCESSOR_EXACT = new Set([
+  'size', 'length', 'count', 'charAt', 'codePointAt', 'indexOf', 'lastIndexOf',
+  'contains', 'containsKey', 'containsValue', 'startsWith', 'endsWith',
+  'equals', 'hashCode', 'compareTo', 'name', 'ordinal', 'value', 'values',
+  'keySet', 'entrySet', 'iterator', 'stream', 'substring', 'trim', 'split',
+  'elementAt', 'peek', 'first', 'last',
+]);
+const ACCESSORS = String(flag('accessors', 'drop'));
+const itemName = s => (s.includes('#') ? s.slice(s.indexOf('#') + 1) : s);
+const isAccessor = s => {
+  const m = itemName(s);
+  return ACCESSOR_PREFIX.test(m) || ACCESSOR_EXACT.has(m);
+};
+
 const rules = [];
+let droppedAccessorRules = 0;
 for (const [k, ab] of supAB) {
   if (ab < MINSUP) continue;
   const [x, y] = k.split(' ');
@@ -334,6 +367,7 @@ for (const [k, ab] of supAB) {
     // --only takes METHOD NAMES; items may carry a type prefix (Type#name)
     const name = s => s.includes('#') ? s.slice(s.indexOf('#') + 1) : s;
     if (ONLY && ONLY.indexOf(name(A)) < 0 && ONLY.indexOf(name(B)) < 0) continue;
+    if (ACCESSORS !== 'keep' && isAccessor(A) && isAccessor(B)) { droppedAccessorRules++; continue; }
     const conf = ab / supA.get(A);
     const viol = supA.get(A) - ab;
     if (conf < MINCONF || viol < 1 || viol > MAXVIOL) continue;
@@ -462,7 +496,7 @@ let sievedCount = 0;
 const rel = f => path.relative(ROOT, f).replace(/\\/g, '/');
 
 // ---- run snapshot ----
-const { prepare, diffHeader } = await import('./snapshot.mjs');
+const { prepare, diffHeader, resultExit } = await import('./snapshot.mjs');
 const snapFindings = [];
 // THE SNAPSHOT HOLDS EVERYTHING; --top limits THE PRINTOUT ONLY.
 // The snapshot used to be truncated by the same threshold as the report, so the
@@ -503,7 +537,7 @@ const w = prepare(argv, {
   findings: snapFindings,
 });
 const visible = new Set(w.toShow.map(f => f.rule + '|' + f.file + '|' + f.line));
-process.exitCode = w.newCount ? 1 : 0;
+resultExit(w.newCount ? 1 : 0);
 
 // ---- report ----
 console.log(t('javaTitle'));
@@ -515,6 +549,7 @@ const { notEnoughData } = await import('./population.mjs');
 diffHeader(w);
 if ([...supA.keys()].some(k => k.startsWith('?#'))) console.log(t('legendUnknownType'));
 console.log(t('javaRules', SCOPE, MINSUP, MINCONF, MAXVIOL, rules.length));
+if (droppedAccessorRules > 0) console.log(t('javaAccessorsDropped', droppedAccessorRules));
 console.log('');
 
 // No population: one judgement shared by all detectors (src/population.mjs).
@@ -550,3 +585,6 @@ for (const r of rules) {
   console.log('');
 }
 
+// One sentence if any source was not valid UTF-8. Printed last, so it is the
+// line left on screen rather than something scrolled past.
+reportNonUtf8(rel);

@@ -8,7 +8,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { t } from '../src/lang.mjs';
-import { valueOf, flagAll as allValues } from '../src/args.mjs';
+import { valueOf, flagAll as allValues, firstPositional } from '../src/args.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.join(HERE, '..', 'src');
@@ -138,7 +138,7 @@ if (cmd === 'rank') {
     if (trees.length === 0) requireFile(null, '--tree <deptree.txt>');
     for (const tr of trees) requireFile(tr, '--tree');
   } else {
-    requireDirectory(rest.find(a => !a.startsWith('--')), COMMANDS[cmd].arg);
+    requireDirectory(firstPositional(rest), COMMANDS[cmd].arg);
   }
 }
 

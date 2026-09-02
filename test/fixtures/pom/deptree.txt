@@ -1,0 +1,16 @@
+[INFO] Scanning for projects...
+[INFO]
+[INFO] ------------------------< fixture:sample >------------------------
+[INFO] Building sample 1.0-SNAPSHOT
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- dependency:3.7.0:tree (default-cli) @ sample ---
+[INFO] fixture:sample:jar:1.0-SNAPSHOT
+[INFO] +- org.slf4j:slf4j-api:jar:2.0.13:compile
+[INFO] +- com.google.guava:guava:jar:33.2.0-jre:compile
+[INFO] |  +- com.google.guava:failureaccess:jar:1.0.2:compile
+[INFO] |  +- org.checkerframework:checker-qual:jar:3.42.0:compile
+[INFO] |  +- com.google.errorprone:error_prone_annotations:jar:2.26.1:compile
+[INFO] |  +- com.google.code.findbugs:jsr305:jar:3.0.2:compile
+[INFO] |  +- com.google.j2objc:j2objc-annotations:jar:3.0.0:compile
+[INFO] BUILD SUCCESS

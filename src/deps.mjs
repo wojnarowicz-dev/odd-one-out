@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { t } from './lang.mjs';
 import { makeFlag } from './args.mjs';
+import { readSource, reportNonUtf8 } from './input.mjs';
 
 const argv = process.argv.slice(2);
 const ROOT = argv[0];
@@ -71,7 +72,7 @@ if (sources.js.length) {
 const classes = new Map();
 
 for (const file of sources.java) {
-  const src = fs.readFileSync(file, 'utf8');
+  const src = readSource(file);
   const tree = parser.parse(src);
 
   let pkg = '';
@@ -135,7 +136,7 @@ for (const file of sources.java) {
 
 // ---- JavaScript / TypeScript adapter ----
 for (const file of sources.js) {
-  const src = fs.readFileSync(file, 'utf8');
+  const src = readSource(file);
   const tree = parserJs.parse(src);
 
   const relPath = path.relative(ROOT, file).replace(/\\/g, '/');
@@ -297,16 +298,70 @@ for (const c of classes.values()) {
 const NAME_MIN = 4;      // krótsze nazwy (get, put, of) są za pospolite, by cokolwiek znaczyć
 const MAX_OTHER_OPS = 6; // count innych operacji zewn. metoda może wołać, wciąż będąc opakowaniem
 
+// A SECOND WAY TO RECOGNISE A WRAPPER, and the measurement that forced it.
+//
+// The name rule above missed a real deviation in this very repository:
+// `parser.mjs` exports `javaParser()`, which wraps `Language.load(...)` from
+// web-tree-sitter, while `parsecheck.mjs` called `Language.load` directly with a
+// path relative to the working directory. That is exactly "N through the layer,
+// K directly" — and the detector stayed silent, because `javaParser` ⊅ `load`.
+// Proven by experiment: renaming it to `loadJavaParser` and changing nothing
+// else made the detector report `src/parsecheck.mjs:4` immediately.
+//
+// So a wrapper is also recognised when EVERY external operation it calls comes
+// from ONE external module and there are at most three of them — a function
+// that touches a single library and nothing else is a layer over that library
+// whatever it is called. `javaParser` calls only `Parser.init` and
+// `Language.load`, both from web-tree-sitter.
+//
+// MEASURED, AND NOT ADOPTED AS THE DEFAULT. The module criterion was tried as
+// the default and it is too wide. On the author's project it turned 3 recognised
+// wrappers into 25, and what it added is led by `Platform.runLater` (111
+// entries): `runLater` is called from everywhere, so every short method that
+// happens to touch only JavaFX was counted as a layer over it. That is the same
+// false-wrapper mistake as `resolveAnchorVideoMediaPath` "wrapping"
+// `readAllLines`, arrived at from the other side.
+//
+//   project                --wrapper name         --wrapper both
+//   the author's project    3 wrappers,  15 recs   25 wrappers, 211 recs
+//   netty (common)          6 wrappers,   4 recs   34 wrappers,  42 recs
+//   odd-one-out itself      0 wrappers             9 wrappers
+//
+// Divergences stayed at 0 on all three projects, so none of it became a finding
+// at default thresholds — but migrations on the author's project went 2 -> 10 and
+// the saved run went from 15 records to 211, changing every fingerprint in it.
+//
+// So the default stays `name` and THE PARSECHECK GAP STAYS OPEN AND KNOWN.
+// `--wrapper both --minvia 2` does report it — the layer has only three users,
+// below the default of five — but nobody runs that by accident. A wrapper test
+// that is both tighter and name-independent is the real fix, and is not written.
+const WRAPPER_MODE = String(flag('wrapper', 'name'));
+const MAX_SINGLE_MODULE_OPS = 3;
+
 const wrappers = new Map();     // "T#m" -> [{facade, method, sig, line}]
 for (const c of classes.values()) {
   for (const m of c.methods) {
     if (!m.isPublic) continue;
     const distinctOps = new Set(m.calls.map(x => x.type + '#' + x.method));
+    // which external modules does this method touch at all?
+    const externalTargets = new Set();
+    for (const call of m.calls) {
+      const tg = resolve(c, call.type);
+      if (tg && !isProject(tg)) externalTargets.add(tg);
+    }
+    const singleModuleThin = externalTargets.size === 1 &&
+      [...distinctOps].length <= MAX_SINGLE_MODULE_OPS;
+
     for (const call of m.calls) {
       const target = resolve(c, call.type);
       if (!target || isProject(target)) continue;
       if (call.method.length < NAME_MIN) continue;
-      if (!m.name.toLowerCase().includes(call.method.toLowerCase())) continue;
+      const byName = m.name.toLowerCase().includes(call.method.toLowerCase());
+      const byModule = singleModuleThin;
+      const ok = WRAPPER_MODE === 'name' ? byName
+        : WRAPPER_MODE === 'module' ? byModule
+          : (byName || byModule);
+      if (!ok) continue;
       if (distinctOps.size > MAX_OTHER_OPS) continue;
       const k = target + '#' + call.method;
       if (!wrappers.has(k)) wrappers.set(k, []);
@@ -448,3 +503,7 @@ maybeWriteSnapshot(argv, {
   counts: { klasy: classes.size, operacjeOpakowane: wrappers.size, rozjazdy: findings.filter(f => f.kind === 'DIVERGENCE').length },
   findings: snapFindings,
 });
+
+// One sentence if any source was not valid UTF-8. Printed last, so it is the
+// line left on screen rather than something scrolled past.
+reportNonUtf8(rel);

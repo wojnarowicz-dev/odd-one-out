@@ -1,4 +1,8 @@
 node_modules/
 *.log
 deptree*.txt
+# ...except the recorded fixture the golden tests read.
+!test/fixtures/pom/deptree.txt
+.stryker-tmp/
+reports/
 .odd-one-out/
