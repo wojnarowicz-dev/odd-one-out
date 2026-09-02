@@ -71,6 +71,14 @@ naprawa jednego odstępstwa potrafi wygenerować nowe (zmienia populację, do
 której wszystko jest porównywane), a przeniesienie klasy do innego pakietu
 wychodzi jako `NOWE` + `ZNIKNĘŁO`.
 
+## Zasieg pary
+
+`--scope file|method|lambda` (domyslnie `lambda`) ustala, jak blisko siebie musza
+stac dwa wywolania, zeby liczyc sie jako para. Zmierzone: **zwezanie zasiegu NIE
+poprawia trafnosci** — falszywe alarmy biora sie stad, ze obsluga stoi o poziom
+wyzej niz wywolanie. Do przegladu proponuj `--scope file`: te same defekty przy
+okolo 40% mniejszej liczbie zgloszen.
+
 ## Ranking
 
 Przy kilku detektorach naraz **nie pokazuj użytkownikowi czterech list** — scal

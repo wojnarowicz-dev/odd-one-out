@@ -72,6 +72,32 @@ Dwie rzeczy, o których trzeba wiedzieć:
   wyjdzie jako `NOWE` + `ZNIKNĘŁO`. Świadomy kompromis — odcisk bez ścieżki
   zlewałby ze sobą różne miejsca.
 
+## Zasięg pary
+
+Jak blisko siebie muszą stać dwa wywołania, żeby liczyć się jako para.
+`--scope file|method|lambda` (domyślnie `lambda`).
+
+| zasięg | jednostka | zgłoszeń | prawdziwych | trafność |
+|---|---|---|---|---|
+| `file` | plik + odbiornik | **9** | 2 | **22%** |
+| `method` | metoda/konstruktor + odbiornik | 14 | 1 | 7% |
+| `lambda` | najgłębsza funkcja + odbiornik | 15 | 2 (w 3 zgłoszeniach) | 20% |
+
+Zmierzone na 111 plikach, regule `setOn*`. „Prawdziwe" = defekty, które prześledziłem
+w kodzie: brak zwolnienia playera w `Loading` (dwa miejsca) i `dispose()` bez
+zerowania handlerów w `Menu`.
+
+**Zwężanie zasięgu nie poprawia trafności — poprawia ją poszerzanie.** Fałszywe
+alarmy tej klasy biorą się stąd, że obsługa stoi o poziom wyżej niż wywołanie;
+wąski zasięg tego nie widzi i zgłasza brak. Zasięg `file` znajduje **te same
+defekty przy 40% mniejszej liczbie zgłoszeń**. Zasięg `method` jest najgorszy:
+gubi `Menu.java:5754` całkowicie, bo reguła `dispose->setOnError` traci przy tym
+podziale wsparcie.
+
+Domyślny zasięg został przy `lambda` — różnica 22% vs 20% na jednym projekcie
+i jednej rodzinie reguł to za cienki dowód, żeby zmieniać zachowanie. Do
+przeglądu warto uruchomić `--scope file`.
+
 ## Wykluczenia i wyciszenia
 
 Dwie **różne** rzeczy, celowo rozdzielone:

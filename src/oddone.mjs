@@ -35,10 +35,32 @@ function javaFiles(dir, acc = []) {
 
 const parser = await javaParser();
 
-const FUNC_LIKE = new Set([
-  'method_declaration', 'constructor_declaration', 'compact_constructor_declaration',
-  'lambda_expression', 'static_initializer',
-]);
+// ZASIEG PARY — jak blisko siebie musza stac dwa wywolania, zeby liczyc sie
+// jako para. Trzy poziomy, od najszerszego:
+//
+//   file    — gdziekolwiek w pliku na tym samym odbiorniku. Obsluga stojaca
+//             w innej metodzie tego samego pliku ZOSTANIE zauwazona, wiec
+//             miejsce nie bedzie zglaszane. Najmniej falszywych alarmow tej
+//             klasy, ale i najslabsze pojecie "pary" — dwa wywolania oddalone
+//             o tysiac linii nie sa para w zadnym sensownym znaczeniu.
+//   method  — w obrebie metody lub konstruktora; lambdy licza sie do metody,
+//             w ktorej siedza.
+//   lambda  — w obrebie najglebszej funkcji, lambda wlacznie (domyslny).
+//             Najostrzejsze pojecie pary; jednoczesnie kazda obsluga
+//             przeniesiona o jeden poziom w gore wyglada na brak.
+const SCOPES = {
+  lambda: new Set(['method_declaration', 'constructor_declaration',
+    'compact_constructor_declaration', 'lambda_expression', 'static_initializer']),
+  method: new Set(['method_declaration', 'constructor_declaration',
+    'compact_constructor_declaration', 'static_initializer']),
+  file: new Set(),
+};
+const SCOPE = String(flag('scope', 'lambda'));
+if (!SCOPES[SCOPE]) {
+  console.error('Nieznany zasieg: ' + SCOPE + '. Dozwolone: file, method, lambda.');
+  process.exit(2);
+}
+const FUNC_LIKE = SCOPES[SCOPE];
 
 const files = javaFiles(ROOT);
 const units = new Map();
@@ -116,7 +138,7 @@ console.log('root=' + ROOT);
 console.log('files=' + parsed + ' parseErrors=' + parseErrors.length + ' units=' + all.length +
   ' distinctItems=' + supA.size + ' frequent=' + frequent.size);
 if (parseErrors.length) console.log('  !! parse errors in: ' + parseErrors.slice(0, 5).map(rel).join(', '));
-console.log('rules(minsup=' + MINSUP + ' minconf=' + MINCONF + ' maxviol=' + MAXVIOL + ')=' + rules.length);
+console.log('scope=' + SCOPE + '  rules(minsup=' + MINSUP + ' minconf=' + MINCONF + ' maxviol=' + MAXVIOL + ')=' + rules.length);
 console.log('');
 
 let shown = 0;
@@ -155,6 +177,6 @@ for (const r of rules) {
 }
 maybeWriteSnapshot(argv, {
   detector: 'java', root: ROOT, args: argv.slice(1), cfg,
-  counts: { pliki: parsed, bledyParsowania: parseErrors.length, jednostki: all.length, regul: rules.length },
+  counts: { pliki: parsed, zasieg: SCOPE, bledyParsowania: parseErrors.length, jednostki: all.length, regul: rules.length },
   findings: snapFindings,
 });
