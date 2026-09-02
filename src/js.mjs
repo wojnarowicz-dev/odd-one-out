@@ -221,35 +221,12 @@ for (const f of pliki.html) {
 }
 
 // ---- raport ----
-console.log('# odd-one-out / js: nazwa wolana jak funkcja, nigdzie niezdefiniowana');
-console.log('root=' + ROOT);
-console.log('stron ze skryptami inline=' + stronBadanych + '  blokow inline=' + skryptowInline +
-  '  plikow skryptowych=' + pliki.skrypt.length);
-console.log('regula=' + REGULA + '  ' + cfg.opis());
-console.log('SIEROT=' + zgloszenia.length);
-console.log('');
-
 // najpierw te wolane RAZ — pojedyncze wywolanie osieroconej nazwy to typowy
 // slad po niedokonczonym usunieciu funkcji
 zgloszenia.sort((a, b) => a.wywolan - b.wywolan || a.plik.localeCompare(b.plik));
 
-zgloszenia.slice(0, TOP).forEach((z, i) => {
-  console.log('## [' + (i + 1) + '] ' + z.nazwa + '  —  ' + z.plik + ':' + z.linia);
-  console.log('');
-  console.log('   CO JEST NIESPOJNE');
-  console.log('     Nazwa wolana jak funkcja (' + z.wywolan + ' raz/y na tej stronie), ale strona');
-  console.log('     jej nie zna: nie ma definicji w jej skryptach inline, nie wystawia jej zaden');
-  console.log('     z ladowanych plikow <script src>, nie jest wbudowana.');
-  console.log('     Strona definiuje ' + z.definicjiNaStronie + ' innych nazw i te sa rozpoznane.');
-  console.log('');
-  console.log('   GOTOWA POPRAWKA (nie zastosowana)');
-  console.log('     Usun wywolanie albo przywroc definicje. Jesli to pozostalosc po usunietej');
-  console.log('     funkcji — usun linie ' + z.plik + ':' + z.linia + '.');
-  console.log('');
-});
-
-const { maybeWriteSnapshot } = await import('./snapshot.mjs');
-maybeWriteSnapshot(argv, {
+const { przygotuj, naglowekRoznicy } = await import('./snapshot.mjs');
+const w = przygotuj(argv, {
   detector: 'js', root: ROOT, args: argv.slice(1), cfg,
   counts: { stron: stronBadanych, blokowInline: skryptowInline, plikowSkryptowych: pliki.skrypt.length, sierot: zgloszenia.length },
   findings: zgloszenia.map(z => ({
@@ -258,6 +235,34 @@ maybeWriteSnapshot(argv, {
     anchor: z.nazwa,
     line: z.linia,
     label: z.nazwa + ' — wolane ' + z.wywolan + 'x, nigdzie niezdefiniowane',
-    meta: { sup: z.definicjiNaStronie, odd: z.wywolan, conf: 1 },
+    meta: { sup: z.definicjiNaStronie, odd: z.wywolan, conf: 1, wywolan: z.wywolan },
   })),
 });
+
+console.log('# odd-one-out / js: nazwa wolana jak funkcja, nigdzie niezdefiniowana');
+console.log('root=' + ROOT);
+console.log('stron ze skryptami inline=' + stronBadanych + '  blokow inline=' + skryptowInline +
+  '  plikow skryptowych=' + pliki.skrypt.length);
+console.log('regula=' + REGULA + '  ' + cfg.opis());
+console.log('SIEROT=' + w.snap.findings.length +
+  (w.roznica && !w.wszystko ? '  (pokazane ponizej: tylko nowe i zmienione)' : ''));
+naglowekRoznicy(w);
+console.log('');
+
+w.doPokazania.slice(0, TOP).forEach((f, i) => {
+  console.log('## [' + (i + 1) + '] ' + f.anchor + '  —  ' + f.file + ':' + f.line);
+  console.log('');
+  console.log('   CO JEST NIESPOJNE');
+  console.log('     Nazwa wolana jak funkcja (' + f.meta.wywolan + ' raz/y na tej stronie), ale strona');
+  console.log('     jej nie zna: nie ma definicji w jej skryptach inline, nie wystawia jej zaden');
+  console.log('     z ladowanych plikow <script src>, nie jest wbudowana.');
+  console.log('     Strona definiuje ' + f.meta.sup + ' innych nazw i te sa rozpoznane.');
+  console.log('');
+  console.log('   GOTOWA POPRAWKA (nie zastosowana)');
+  console.log('     Usun wywolanie albo przywroc definicje. Jesli to pozostalosc po usunietej');
+  console.log('     funkcji — usun linie ' + f.file + ':' + f.line + '.');
+  console.log('     Jesli to swiadoma decyzja — dopisz obok:  // odd-one-out: ok — powod');
+  console.log('');
+});
+
+process.exitCode = w.nowych ? 1 : 0;

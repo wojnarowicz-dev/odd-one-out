@@ -89,6 +89,7 @@ export function loadConfig(argv = [], root = process.cwd()) {
   }
 
   const norm = p => String(p).replace(/\\/g, '/');
+  const plikiCache = new Map();   // sciezka -> linie pliku (albo null, gdy nieczytelny)
 
   return {
     file,
@@ -102,6 +103,36 @@ export function loadConfig(argv = [], root = process.cwd()) {
     /** czy zgloszenie o tym id ukryc w RAPORCIE (populacja zostaje) */
     isMuted(id) {
       return mute.has(id);
+    },
+    /**
+     * Wyciszenie KOMENTARZEM w kodzie: `// odd-one-out: ok — powod`.
+     *
+     * Plik z wyciszeniami jest dobry do decyzji zbiorczych, ale zmusza do
+     * skakania miedzy kodem a konfiguracja i zapisuje odcisk, ktorego nie da
+     * sie przeczytac w miejscu. Komentarz stoi tam, gdzie decyzja zapadla,
+     * i przechodzi razem z kodem przez przenosiny i scalenia.
+     *
+     * Szukamy w linii zgloszenia i w linii POWYZEJ — obie formy sa naturalne:
+     *     foo.bar();   // odd-one-out: ok — obsluga stoi u wolajacego
+     *     // odd-one-out: ok — jw.
+     *     foo.bar();
+     */
+    mutedByComment(absFile, line) {
+      if (!absFile || !line) return null;
+      let linie = plikiCache.get(absFile);
+      if (linie === undefined) {
+        try { linie = fs.readFileSync(absFile, 'utf8').split(/\r?\n/); }
+        catch { linie = null; }
+        plikiCache.set(absFile, linie);
+      }
+      if (!linie) return null;
+      for (const nr of [line - 1, line - 2]) {
+        const t = linie[nr];
+        if (!t) continue;
+        const m = t.match(/odd-one-out:\s*ok\b[ \t]*[—:-]?[ \t]*(.*)$/i);
+        if (m) return (m[1] || '').replace(/\s*(\*\/|-->)\s*$/, '').trim() || '(bez powodu)';
+      }
+      return null;
     },
     muteReason(id) {
       return mute.get(id) || '';

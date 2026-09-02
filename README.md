@@ -62,21 +62,68 @@ otwarcie bloku i parowałem z zamknięciem sto linii dalej, przez co CSS i proza
 trafiały do parsera jako JavaScript. Komentarze są teraz wygaszane przed
 szukaniem `<script>`, ze spacjami zamiast treści, żeby nie rozjechać numeracji.
 
-## Różnica między uruchomieniami
+## Wyciszanie
 
-Bez tego przy każdym uruchomieniu czyta się te same zgłoszenia od nowa. Pytanie
-brzmi nie „co jest nie tak", tylko **„co jest nie tak od ostatniego razu"**.
+Bez tego przy trzecim uruchomieniu człowiek przewija te same zgłoszenia
+i przestaje uruchamiać narzędzie. Dwie drogi, obie działają równocześnie.
+
+**Komentarz w kodzie** — decyzja stoi tam, gdzie zapadła, i wędruje razem
+z kodem przez przenosiny i scalenia:
+
+```java
+closeAiReqLightbox();   // odd-one-out: ok — celowo, funkcja wraca w następnym wydaniu
+```
+
+Szukany jest w linii zgłoszenia i w linii powyżej, więc obie formy są naturalne.
+Powód po myślniku trafia do raportu, żeby dało się przejrzeć, co zostało
+wyciszone i dlaczego.
+
+**Plik `.odd-one-out.json`** — do decyzji zbiorczych, po `unitId` (całe miejsce)
+albo `id` (pojedyncza reguła); patrz [Wykluczenia i wyciszenia](#wykluczenia-i-wyciszenia).
+
+Wyciszenie **nie usuwa miejsca z populacji** — znika tylko z raportu, więc nie
+osłabia reguły, która je złapała.
+
+## Różnica między uruchomieniami — domyślna
+
+Pytanie brzmi nie „co jest nie tak", tylko **„co jest nie tak od ostatniego
+razu"**. Dlatego różnica jest zachowaniem domyślnym, a nie osobnym poleceniem:
 
 ```bash
-odd-one-out java ./src/main/java --json .odd-one-out/java.json   # zapis przebiegu
+odd-one-out java ./src/main/java --json .odd-one-out/java.json   # 1. raz: pełna lista
 # ...praca nad kodem...
-odd-one-out java ./src/main/java --json .odd-one-out/nowy.json
-odd-one-out diff .odd-one-out/java.json .odd-one-out/nowy.json
+odd-one-out java ./src/main/java --json .odd-one-out/java.json   # 2. raz: tylko nowe
+odd-one-out java ./src/main/java --json .odd-one-out/java.json --all   # cała lista
 ```
+
+Gdy plik wskazany przez `--json` już istnieje, jest czytany jako poprzedni
+przebieg, a raport pokazuje **tylko nowe i zmienione** zgłoszenia. Nagłówek
+podaje pełny bilans:
+
+```
+roznica wobec poprzedniego przebiegu: NOWE=0  ZNIKNELO=0  ZMIENIONE=0  bez zmian=12
+```
+
+`--all` przywraca pełną listę. Osobne polecenie `odd-one-out diff <a> <b>`
+zostaje do porównywania dwóch dowolnych zapisów.
+
+## Kod wyjścia
+
+`0` — brak nowych odstępstw. `1` — są nowe. Dotyczy każdego detektora, nie tylko
+polecenia `diff`, więc nadaje się wprost do CI:
+
+```bash
+odd-one-out java ./src/main/java --json .odd-one-out/java.json || echo "nowe odstępstwa"
+```
+
+Przy pierwszym uruchomieniu (brak zapisu) wszystkie zgłoszenia są nowe, więc kod
+to `1`. Przy kolejnym bez zmian w kodzie — `0`.
+
+### Szczegóły różnicy
 
 Wyjście dzieli się na **NOWE**, **ZNIKNĘŁO**, **ZMIENIONE** (to samo miejsce,
 inna siła dowodu — np. `sup: 8 -> 9, conf: 0.8 -> 0.9, viol: 2 -> 1`) i bez
-zmian. Kod wyjścia `1`, gdy są nowe zgłoszenia — do użycia w CI.
+zmian.
 
 **Odcisk zgłoszenia nie zawiera numeru linii.** To jedyna decyzja, która tu
 naprawdę waży: numery przesuwają się przy każdej niezwiązanej edycji, więc
@@ -404,7 +451,25 @@ domyślne — ranking ma **7 pozycji** (12 zgłoszeń scalonych po miejscu):
 | 7 | `Loading.java:974` | fałszywe |
 
 **Wszystkie cztery znane odpowiedzi mieszczą się w pierwszej piątce.** Nad nimi
-stoją dokładnie dwa fałszywe alarmy.
+stoją dokładnie dwa fałszywe alarmy — i to nie jest przypadek, tylko znane
+ograniczenie opisane niżej.
+
+### Znane ograniczenie: obsługa o poziom wyżej niż wywołanie
+
+Pozycje 1 i 2 (`VideoAnalyzerPro.java:1496` i `:9861`) są fałszywe z tej samej
+przyczyny: **obsługa błędu stoi tam o poziom wyżej niż wywołanie**.
+`bindPlayButtonToPlayerStatus` wiąże status przycisku, a błąd obsługuje ten, kto
+ją wywołał. Para liczona w zasięgu jednostki tego nie widzi i zgłasza brak.
+
+To nie jest usterka implementacji, tylko granica metody. Ta sama klasa fałszywych
+alarmów jest wymieniana przez lintery Fluttera przy sprzątaniu delegowanym do
+metody pomocniczej: reguła widzi, że `dispose()` nie stoi obok utworzenia
+kontrolera, choć stoi w metodzie, którą `dispose()` woła.
+
+Poszerzenie zasięgu do `--scope file` część takich alarmów usuwa — kosztem
+osłabienia samego pojęcia pary (patrz [Zasięg pary](#zasięg-pary)). Wyciszenie
+komentarzem `// odd-one-out: ok — obsługa u wołającego` załatwia je na stałe
+w konkretnym miejscu.
 
 Pozostałe detektory, każdy na parze ze znaną odpowiedzią:
 

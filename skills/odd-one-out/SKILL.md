@@ -53,18 +53,40 @@ profili. `mvn -P X` wyłącza profile `activeByDefault` — drzewo zdjęte z inn
 listą profili generuje fałszywe zgłoszenia. Jeśli Mavena nie da się uruchomić,
 powiedz to wprost i pomiń `pom`; bez drzewa narzędzie zgadywałoby.
 
-## Różnica między uruchomieniami
+## Różnica między uruchomieniami — domyślna
 
-Gdy projekt był już skanowany, **nie czytaj całej listy od nowa** — pokaż
-użytkownikowi, co doszło od ostatniego razu:
+**Zawsze podawaj `--json <plik>`.** Gdy plik już istnieje, detektor sam pokazuje
+tylko **nowe i zmienione** zgłoszenia, a nagłówek podaje bilans. `--all` daje
+pełną listę.
 
 ```bash
 odd-one-out java ./src/main/java --json .odd-one-out/java.json
-odd-one-out diff .odd-one-out/poprzedni.json .odd-one-out/java.json
 ```
 
-Sekcje: **NOWE**, **ZNIKNĘŁO** (poprawione albo kod usunięty), **ZMIENIONE**
-(to samo miejsce, inna siła dowodu), bez zmian. Kod wyjścia `1` = są nowe.
+Kod wyjścia: `0` = brak nowych odstępstw, `1` = są. Dotyczy każdego detektora.
+
+Osobne `odd-one-out diff <a> <b>` zostaje do porównywania dwóch dowolnych zapisów.
+
+## Wyciszanie
+
+Gdy użytkownik uzna zgłoszenie za świadomą decyzję, **zaproponuj komentarz
+w kodzie**, nie plik konfiguracyjny — decyzja ma stać tam, gdzie zapadła:
+
+```
+// odd-one-out: ok — obsługa błędu stoi u wołającego
+```
+
+Szukany jest w linii zgłoszenia i w linii powyżej; powód po myślniku trafia do
+raportu. Plik `.odd-one-out.json` (po `unitId`) jest do decyzji zbiorczych.
+Wyciszenie nie usuwa miejsca z populacji — znika tylko z raportu.
+
+## Znane ograniczenie, które trzeba nazwać
+
+Fałszywe alarmy tej klasy biorą się stąd, że **obsługa stoi o poziom wyżej niż
+wywołanie** — metoda wiążąca zachowanie obsługuje błąd u wołającego, a para
+liczona w zasięgu jednostki tego nie widzi. To granica metody, nie usterka; tę
+samą klasę wymieniają lintery Fluttera przy sprzątaniu delegowanym do metody
+pomocniczej. Mów o tym wprost zamiast przedstawiać takie zgłoszenie jako szum.
 
 Odcisk zgłoszenia nie zawiera numeru linii, więc przesunięcia w pliku **nie**
 generują fałszywych „nowych". Dwie rzeczy warte powiedzenia użytkownikowi:

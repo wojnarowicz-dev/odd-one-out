@@ -116,13 +116,35 @@ console.log('par (migracja, funkcja) z revoke+grant w tym samym pliku=' + both.l
   ' (roznych funkcji: ' + distinct + ')  BEZ GRANTU=' + onlyRevoke.length);
 console.log('');
 
+// ---- zapis przebiegu i roznica ----
+const { przygotuj, naglowekRoznicy } = await import('./snapshot.mjs');
+const w = przygotuj(argv, {
+  detector: 'sql',
+  root: DIR,
+  cfg,
+  args: argv.slice(1),
+  counts: { migracje: files.length, parRevokeGrant: both.length, funkcjiZWzorcem: distinct, bezGrantu: onlyRevoke.length },
+  findings: onlyRevoke.map(o => ({
+    rule: 'revoke-bez-grant-execute',
+    file: o.file,
+    anchor: o.name,
+    line: o.a.line,
+    label: o.name + ' — revoke bez grant execute w tej samej migracji',
+    meta: { via: distinct, odd: onlyRevoke.length },
+  })),
+});
+const pokaz = new Set(w.doPokazania.map(f => f.file + ':' + f.line));
+naglowekRoznicy(w);
+console.log('');
+process.exitCode = w.nowych ? 1 : 0;
+
 if (both.length < MINCONV) {
   console.log('Za malo wystapien pary revoke+grant (' + both.length + ', prog=' + MINCONV +
     '), by mowic o konwencji. Nie zglaszam nic.');
 } else if (onlyRevoke.length === 0) {
   console.log('Brak odstepstw — kazda migracja odbierajaca uprawnienia nadaje tez EXECUTE.');
 } else {
-  onlyRevoke.forEach((o, i) => {
+  onlyRevoke.filter(o => pokaz.has(o.file + ':' + o.a.line)).forEach((o, i) => {
     const fixed = grantedLater.get(o.name);
     console.log('## [' + (i + 1) + '] ' + o.name + '  —  ' + rel(o.file));
     console.log('');
@@ -155,20 +177,3 @@ if (both.length < MINCONV) {
   });
 }
 
-// ---- zapis przebiegu ----
-const { maybeWriteSnapshot } = await import('./snapshot.mjs');
-maybeWriteSnapshot(argv, {
-  detector: 'sql',
-  root: DIR,
-  cfg,
-  args: argv.slice(1),
-  counts: { migracje: files.length, parRevokeGrant: both.length, funkcjiZWzorcem: distinct, bezGrantu: onlyRevoke.length },
-  findings: onlyRevoke.map(o => ({
-    rule: 'revoke-bez-grant-execute',
-    file: o.file,
-    anchor: o.name,
-    line: o.a.line,
-    label: o.name + ' — revoke bez grant execute w tej samej migracji',
-    meta: { via: distinct, odd: onlyRevoke.length },
-  })),
-});

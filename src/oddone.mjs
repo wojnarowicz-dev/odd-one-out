@@ -447,36 +447,10 @@ function odsiane(r, u) {
 
 let odsianych = 0;
 
-// ---- report ----
 const rel = f => path.relative(ROOT, f).replace(/\\/g, '/');
-console.log('# odd-one-out');
-console.log('root=' + ROOT);
-console.log('files=' + parsed + ' parseErrors=' + parseErrors.length + ' units=' + all.length +
-  ' distinctItems=' + supA.size + ' frequent=' + frequent.size);
-if (parseErrors.length) console.log('  !! parse errors in: ' + parseErrors.slice(0, 5).map(rel).join(', '));
-if (ODSIEJ.size) console.log('odsiewanie: sygnaly [' + [...ODSIEJ].join(',') + ']');
-console.log('scope=' + SCOPE + '  rules(minsup=' + MINSUP + ' minconf=' + MINCONF + ' maxviol=' + MAXVIOL + ')=' + rules.length);
-console.log('');
-
-let shown = 0;
-for (const r of rules) {
-  if (shown >= TOP) break;
-  shown++;
-  console.log('## [' + shown + '] ' + r.A + ' -> ' + r.B +
-    '   sup=' + r.sup + '/' + r.supA + ' conf=' + (r.conf * 100).toFixed(0) + '% odd=' + r.viol +
-    (r.stab === null ? '' : ' stab=' + r.stab + ' (' + r.stabOpis + ')'));
-  for (const u of all) {
-    if (!u.items.has(r.A) || u.items.has(r.B)) continue;
-    if (odsiane(r, u)) { odsianych++; continue; }
-    console.log('   ' + rel(u.file) + ':' + u.items.get(r.A)[0] + '  recv=' + u.recv +
-      '  in ' + u.unitKind + '@' + u.unitLine);
-    console.log('      calls here: ' + [...u.items.keys()].join(', '));
-  }
-  console.log('');
-}
 
 // ---- zapis przebiegu ----
-const { maybeWriteSnapshot } = await import('./snapshot.mjs');
+const { przygotuj, naglowekRoznicy } = await import('./snapshot.mjs');
 const snapFindings = [];
 let taken = 0;
 for (const r of rules) {
@@ -508,8 +482,40 @@ for (const r of rules) {
     });
   }
 }
-maybeWriteSnapshot(argv, {
+const w = przygotuj(argv, {
   detector: 'java', root: ROOT, args: argv.slice(1), cfg,
   counts: { pliki: parsed, zasieg: SCOPE, bledyParsowania: parseErrors.length, jednostki: all.length, regul: rules.length },
   findings: snapFindings,
 });
+const pokaz = new Set(w.doPokazania.map(f => f.rule + '|' + f.file + '|' + f.line));
+process.exitCode = w.nowych ? 1 : 0;
+
+// ---- report ----
+console.log('# odd-one-out');
+console.log('root=' + ROOT);
+console.log('files=' + parsed + ' parseErrors=' + parseErrors.length + ' units=' + all.length +
+  ' distinctItems=' + supA.size + ' frequent=' + frequent.size);
+if (parseErrors.length) console.log('  !! parse errors in: ' + parseErrors.slice(0, 5).map(rel).join(', '));
+if (ODSIEJ.size) console.log('odsiewanie: sygnaly [' + [...ODSIEJ].join(',') + ']');
+naglowekRoznicy(w);
+console.log('scope=' + SCOPE + '  rules(minsup=' + MINSUP + ' minconf=' + MINCONF + ' maxviol=' + MAXVIOL + ')=' + rules.length);
+console.log('');
+
+let shown = 0;
+for (const r of rules) {
+  if (shown >= TOP) break;
+  shown++;
+  console.log('## [' + shown + '] ' + r.A + ' -> ' + r.B +
+    '   sup=' + r.sup + '/' + r.supA + ' conf=' + (r.conf * 100).toFixed(0) + '% odd=' + r.viol +
+    (r.stab === null ? '' : ' stab=' + r.stab + ' (' + r.stabOpis + ')'));
+  for (const u of all) {
+    if (!u.items.has(r.A) || u.items.has(r.B)) continue;
+    if (odsiane(r, u)) { odsianych++; continue; }
+    if (!pokaz.has((r.A + '->' + r.B) + '|' + rel(u.file) + '|' + u.items.get(r.A)[0])) continue;
+    console.log('   ' + rel(u.file) + ':' + u.items.get(r.A)[0] + '  recv=' + u.recv +
+      '  in ' + u.unitKind + '@' + u.unitLine);
+    console.log('      calls here: ' + [...u.items.keys()].join(', '));
+  }
+  console.log('');
+}
+

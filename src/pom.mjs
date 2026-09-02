@@ -120,7 +120,35 @@ console.log('wpisow w dependencyManagement=' + managed.length +
   '  do sprawdzenia=' + suspect.length);
 console.log('');
 
-for (const s of suspect) {
+// ---- zapis przebiegu i roznica ----
+const { przygotuj, naglowekRoznicy } = await import('./snapshot.mjs');
+const w = przygotuj(argv, {
+  detector: 'pom',
+  root: POM,
+  cfg,
+  args: argv.slice(argv.indexOf('--pom') + 2),
+  counts: { wpisow: managed.length, zywych: live.length, martwych: dead.length, doSprawdzenia: suspect.length },
+  findings: [
+    ...dead.map(e => ({
+      rule: 'martwy-wpis-dependencyManagement',
+      file: POM, anchor: e.key, line: e.line,
+      label: e.key + ' — przypina wersje, ktorej nikt nie deklaruje',
+      meta: { kind: 'MARTWY', profil: e.profile || '(glowny)', via: live.length, odd: dead.length },
+    })),
+    ...suspect.map(e => ({
+      rule: 'wpis-nieobecny-w-drzewie',
+      file: POM, anchor: e.key, line: e.line,
+      label: e.key + ' — brak w drzewie, ale zadeklarowany',
+      meta: { kind: 'DO SPRAWDZENIA', profil: e.profile || '(glowny)', via: live.length, odd: suspect.length },
+    })),
+  ],
+});
+const pokaz = new Set(w.doPokazania.map(f => f.anchor));
+naglowekRoznicy(w);
+console.log('');
+process.exitCode = w.nowych ? 1 : 0;
+
+for (const s of suspect.filter(x => pokaz.has(x.key))) {
   console.log('!! DO SPRAWDZENIA (nie zgloszenie): ' + s.key);
   console.log('   Nie ma go w drzewie, ale JEST zadeklarowany w <dependencies> (' + POM + ':' + s.line + ').');
   console.log('   Najpewniej drzewo pochodzi z innej rewizji pom.xml niz badana, albo profil');
@@ -131,7 +159,7 @@ for (const s of suspect) {
 if (dead.length === 0) {
   console.log('Brak martwych wpisow.');
 } else {
-  dead.forEach((e, i) => {
+  dead.filter(e => pokaz.has(e.key)).forEach((e, i) => {
     console.log('## [' + (i + 1) + '] ' + e.key + (e.v ? ':' + e.v : ''));
     console.log('');
     console.log('   CO JEST NIESPOJNE');
@@ -164,26 +192,3 @@ if (dead.length === 0) {
   });
 }
 
-// ---- zapis przebiegu ----
-const { maybeWriteSnapshot } = await import('./snapshot.mjs');
-maybeWriteSnapshot(argv, {
-  detector: 'pom',
-  root: POM,
-  cfg,
-  args: argv.slice(argv.indexOf('--pom') + 2),
-  counts: { wpisow: managed.length, zywych: live.length, martwych: dead.length, doSprawdzenia: suspect.length },
-  findings: [
-    ...dead.map(e => ({
-      rule: 'martwy-wpis-dependencyManagement',
-      file: POM, anchor: e.key, line: e.line,
-      label: e.key + ' — przypina wersje, ktorej nikt nie deklaruje',
-      meta: { kind: 'MARTWY', profil: e.profile || '(glowny)', via: live.length, odd: dead.length },
-    })),
-    ...suspect.map(e => ({
-      rule: 'wpis-nieobecny-w-drzewie',
-      file: POM, anchor: e.key, line: e.line,
-      label: e.key + ' — brak w drzewie, ale zadeklarowany',
-      meta: { kind: 'DO SPRAWDZENIA', profil: e.profile || '(glowny)', via: live.length, odd: suspect.length },
-    })),
-  ],
-});
