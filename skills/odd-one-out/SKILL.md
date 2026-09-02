@@ -80,8 +80,8 @@ współwystąpienia wywołań konfiguracyjnych, które zajmowały czoło ranking
 jest traktowane jak setter — podpina obsługę zdarzenia, nie ustawia wartości.
 
 Zmierzone: nie zabiera żadnej znanej odpowiedzi; przy odkrywaniu par
-zweryfikowane trafienia idą z pozycji 88/89 na 13/14, przy `--only setOnError`
-trafność rośnie z 29% na 33%.
+zweryfikowane trafienia idą z pozycji 88/89 na 13/14, a przy `--only setOnError`
+wszystkie znane odpowiedzi mieszczą się w pierwszej piątce.
 
 ## Odkrywanie par kontra zawężanie
 
@@ -188,12 +188,18 @@ błędu. Pusty wynik jest poprawnym wynikiem.
 Trafność referencyjna tej klasy narzędzi (PR-Miner, 2005) to **18,1%**. Szum
 jest oczekiwany i nie jest porażką.
 
-Zmierzone na projekcie autora: detektory wąskie (`sql`, `pom`) trafiały 1/1,
-szeroki `java` — **33%** (4 prawdziwe na 12 zgłoszeń) przy ustawieniach
-domyślnych. Podniósł ją **typ odbiornika** (z 20%, włączony domyślnie); próba
-z **aliasami** ją obniżyła (do 21%) i dlatego jest **domyślnie wyłączona**.
+**Podawaj trafność w pierwszej piątce i dziesiątce, nie na całej liście.**
+Trafność całej listy jest myląca — nikt całej listy nie czyta. Liczy się, ile
+prawdziwych trafień człowiek zobaczy, zanim przestanie czytać.
 
-Podawaj użytkownikowi liczby, nie przymiotniki: ile zgłoszeń, ile prawdziwych.
+Zmierzone na projekcie autora (`java --only setOnError`, ranking 7 pozycji):
+**3 prawdziwe w pierwszych 5 (60%)**, 3 w pierwszych 10 (43%). Wszystkie cztery
+znane odpowiedzi mieszczą się w pierwszej piątce; nad nimi stoją dwa fałszywe
+alarmy. Detektory `sql`, `pom` i `js` trafiały 1/1 na parach ze znaną
+odpowiedzią.
+
+Podawaj użytkownikowi liczby, nie przymiotniki: ile zgłoszeń, ile prawdziwych,
+na której pozycji.
 
 ## Zasady pracy z wynikiem
 

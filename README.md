@@ -129,7 +129,7 @@ zdarzenia**, a nie ustawia wartość, więc nie jest setterem dla żadnego z syg
 `MediaPlayer#dispose -> MediaPlayer#setOnError`, `Loading.java:397`, `:411`,
 `Menu.java:5753/5754` przeżywają wszystkie trzy i ich złożenie.
 
-W trybie zawężonym `--only setOnError`: **14 → 12 zgłoszeń, trafność 29% → 33%**.
+W trybie zawężonym `--only setOnError`: **14 → 12 zgłoszeń**; ranking skrócił się do 7 pozycji, a wszystkie cztery znane odpowiedzi weszły do pierwszej piątki.
 Usunięte to `Menu.java:2690` i `Preview.java:498` — oba wcześniej ocenione jako
 fałszywe, oba złapane sygnałem 2 (kompletna konfiguracja świeżo utworzonego
 `MediaPlayer`).
@@ -381,17 +381,43 @@ miejscach (z przykładem i ścieżką), gotowa poprawka.
 Trafność referencyjna tej klasy narzędzi — **PR-Miner (2005): 18,1%**.
 Zmierzone na projekcie autora (114 plików Javy, 21 migracji SQL):
 
-| detektor | zgłoszeń | prawdziwych | trafność |
-|---|---|---|---|
-| `java` (pary `setOn*`, ustawienia domyślne) | 12 | 4 | **33%** |
-| `deps` | 0 (z 51 przed odsianiem) | brak podstaw do zgłoszenia | n/d |
-| `pom` | 1 | 1 — trafiona znana odpowiedź | 100% |
-| `sql` | 1 | 1 — trafiona znana odpowiedź | 100% |
+**Mierzymy pierwszą piątkę i dziesiątkę, nie całą listę.** Trafność całej listy
+jest myląca, bo nikt całej listy nie czyta — liczy się, ile prawdziwych trafień
+zobaczysz, zanim przestaniesz czytać.
 
-`java` startował z **20%**, doszedł do 29% dzięki **typowi odbiornika**, a do 33% dzięki **odsiewaniu setterów**
-(włączonemu domyślnie). Druga próba — **aliasy** — trafność obniżyła
-(29% → 21%) i jest **domyślnie wyłączona**; obie zmierzone w sekcji
-[Typ odbiornika i aliasy](#typ-odbiornika-i-aliasy).
+`odd-one-out java <src> --only setOnError` na VideoAudioAnalyzer, ustawienia
+domyślne — ranking ma **7 pozycji** (12 zgłoszeń scalonych po miejscu):
+
+| miara | wynik |
+|---|---|
+| prawdziwych w pierwszych **5** | **3 z 5 — 60%** |
+| prawdziwych w pierwszych **10** | **3 z 7 — 43%** (lista krótsza niż 10) |
+
+| pozycja | miejsce | ocena |
+|---|---|---|
+| 1 | `VideoAnalyzerPro.java:1496` | fałszywe |
+| 2 | `VideoAnalyzerPro.java:9861` | fałszywe |
+| **3** | **`Menu.java:5753` + `:5754`** | **prawdziwe** |
+| **4** | **`Loading.java:397`** | **prawdziwe (zweryfikowane)** |
+| **5** | **`Loading.java:411`** | **prawdziwe (zweryfikowane)** |
+| 6 | `VideoAnalyzerPro.java:2121` | fałszywe |
+| 7 | `Loading.java:974` | fałszywe |
+
+**Wszystkie cztery znane odpowiedzi mieszczą się w pierwszej piątce.** Nad nimi
+stoją dokładnie dwa fałszywe alarmy.
+
+Pozostałe detektory, każdy na parze ze znaną odpowiedzią:
+
+| detektor | zgłoszeń | prawdziwych |
+|---|---|---|
+| `sql` | 1 | 1 — `release_rate_slot` |
+| `pom` | 1 | 1 — `io.thorntail:javafx` |
+| `js` | 1 | 1 — `closeAiReqLightbox` |
+| `deps` | 0 (z 51 przed odsianiem) | brak podstaw do zgłoszenia |
+
+`java` startował z 3 z 5 dopiero po trzech zmierzonych poprawkach: **typ
+odbiornika** i **odsiewanie setterów** (obie włączone domyślnie) oraz **aliasy**,
+które wynik pogorszyły i są **wyłączone**.
 
 Zastrzeżenie: `pom` i `sql` to wąskie detektory jednoregułowe na małym zbiorze —
 łatwiejsze zadanie niż `java`, który mieli 11 tysięcy jednostek. Szum jest
