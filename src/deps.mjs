@@ -30,21 +30,44 @@ const TOP = +flag('top', 10);
 const { loadConfig } = await import('./config.mjs');
 const cfg = loadConfig(argv, ROOT);
 
-function javaFiles(dir, acc = []) {
+// DWIE GRAMATYKI, JEDEN DETEKTOR. Algorytm nizej (warstwa vs uzycie
+// bezposrednie) jest jezykowo niezalezny — rozni sie tylko WYDOBYCIE faktow.
+// Java i JavaScript mowia to samo innym ksztaltem skladni:
+//
+//   Java:  SafeIo.writeStringUtf8(path, txt)   — wywolanie na TYPIE
+//   JS:    import { przygotuj } from './snapshot.mjs';  przygotuj(argv, ...)
+//                                              — wywolanie GOLEJ NAZWY z importu
+//
+// Dlatego adapter JS sprowadza jedno do drugiego: nazwa zaimportowana z modulu
+// dostaje sztuczny "typ" (#nazwa), ktory wskazuje na modul zrodlowy. Od tego
+// miejsca reszta detektora nie wie, w jakim jest jezyku.
+function zrodla(dir, acc = { java: [], js: [] }) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
     if (cfg.isExcluded(p)) continue;
-    if (e.isDirectory()) javaFiles(p, acc);
-    else if (e.name.endsWith('.java')) acc.push(p);
+    if (e.isDirectory()) { zrodla(p, acc); continue; }
+    if (e.name.endsWith('.java')) acc.java.push(p);
+    else if (/\.(js|mjs|cjs|ts|mts)$/i.test(e.name)) acc.js.push(p);
   }
   return acc;
 }
 
 const parser = await javaParser();
+const pliki = zrodla(ROOT);
+
+let parserJs = null;
+if (pliki.js.length) {
+  const { Parser, Language } = await import('web-tree-sitter');
+  const { createRequire } = await import('node:module');
+  const req = createRequire(import.meta.url);
+  await Parser.init();
+  parserJs = new Parser();
+  parserJs.setLanguage(await Language.load(req.resolve('tree-sitter-typescript/tree-sitter-typescript.wasm')));
+}
 
 const classes = new Map();
 
-for (const file of javaFiles(ROOT)) {
+for (const file of pliki.java) {
   const src = fs.readFileSync(file, 'utf8');
   const tree = parser.parse(src);
 
@@ -107,8 +130,126 @@ for (const file of javaFiles(ROOT)) {
   classes.set(fqn, { fqn, simple, pkg, file, src, imports, starPkgs, methods, calls });
 }
 
+// ---- adapter JavaScript / TypeScript ----
+for (const file of pliki.js) {
+  const src = fs.readFileSync(file, 'utf8');
+  const tree = parserJs.parse(src);
+
+  const wzgledna = path.relative(ROOT, file).replace(/\\/g, '/');
+  const targets = new Map();     // "#nazwaLokalna" -> id modulu (projekt) albo specyfikator (zewn.)
+  const eksport = new Map();     // nazwaLokalna -> nazwa eksportowana (przy aliasach)
+  const methods = [];
+  const calls = [];
+
+  // modul projektu rozpoznajemy po specyfikatorze wzglednym; reszta jest zewnetrzna
+  const celImportu = (spec) => {
+    if (!spec.startsWith('.')) return spec;                       // 'node:fs', 'web-tree-sitter'
+    const abs = path.resolve(path.dirname(file), spec);
+    return path.relative(ROOT, abs).replace(/\\/g, '/');
+  };
+
+  const zapiszImport = (lokalna, eksportowana, spec) => {
+    targets.set('#' + lokalna, celImportu(spec));
+    eksport.set(lokalna, eksportowana || lokalna);
+  };
+
+  const zbierzWywolania = (node, sink) => {
+    if (node.type === 'call_expression') {
+      const f = node.childForFieldName('function');
+      if (f && f.type === 'identifier' && targets.has('#' + f.text)) {
+        // gola nazwa z importu — odpowiednik Facade.method() w Javie
+        sink.push({
+          type: '#' + f.text, method: eksport.get(f.text) || f.text,
+          line: f.startPosition.row + 1,
+          text: node.text.replace(/\s+/g, ' ').slice(0, 200),
+        });
+      } else if (f && f.type === 'member_expression') {
+        const o = f.childForFieldName('object');
+        const pr = f.childForFieldName('property');
+        if (o && pr && o.type === 'identifier' && targets.has('#' + o.text))
+          sink.push({
+            type: '#' + o.text, method: pr.text,
+            line: pr.startPosition.row + 1,
+            text: node.text.replace(/\s+/g, ' ').slice(0, 200),
+          });
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) zbierzWywolania(node.child(i), sink);
+  };
+
+  // 1. importy — statyczne i dynamiczne (`const { x } = await import('...')`)
+  const zbierzImporty = (node) => {
+    if (node.type === 'import_statement') {
+      const zrodlo = node.childForFieldName('source');
+      const spec = zrodlo ? zrodlo.text.slice(1, -1) : null;
+      if (spec) {
+        const wIdent = (n) => {
+          if (n.type === 'import_specifier') {
+            const nm = n.childForFieldName('name');
+            const al = n.childForFieldName('alias');
+            if (nm) zapiszImport((al || nm).text, nm.text, spec);
+          } else if (n.type === 'namespace_import' || n.type === 'identifier') {
+            const nm = n.type === 'identifier' ? n : n.child(n.childCount - 1);
+            if (nm && n.parent && n.parent.type !== 'import_specifier') zapiszImport(nm.text, null, spec);
+          }
+          for (let i = 0; i < n.childCount; i++) wIdent(n.child(i));
+        };
+        wIdent(node);
+      }
+    } else if (node.type === 'variable_declarator') {
+      // const { przygotuj } = await import('./snapshot.mjs');
+      const nm = node.childForFieldName('name');
+      const val = node.childForFieldName('value');
+      const tekst = val ? val.text : '';
+      const m = tekst.match(/import\s*\(\s*['"]([^'"]+)['"]\s*\)/);
+      if (m && nm) {
+        if (nm.type === 'object_pattern') {
+          for (let i = 0; i < nm.childCount; i++) {
+            const p = nm.child(i);
+            if (p.type === 'shorthand_property_identifier_pattern') zapiszImport(p.text, p.text, m[1]);
+            else if (p.type === 'pair_pattern') {
+              const k = p.childForFieldName('key');
+              const v = p.childForFieldName('value');
+              if (k && v) zapiszImport(v.text, k.text, m[1]);
+            }
+          }
+        } else if (nm.type === 'identifier') zapiszImport(nm.text, null, m[1]);
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) zbierzImporty(node.child(i));
+  };
+  zbierzImporty(tree.rootNode);
+
+  // 2. publiczne metody modulu = funkcje eksportowane
+  const zbierzFunkcje = (node) => {
+    if (node.type === 'function_declaration') {
+      const nm = node.childForFieldName('name');
+      const body = node.childForFieldName('body');
+      const eksportowana = node.parent && node.parent.type === 'export_statement';
+      const inner = [];
+      if (body) zbierzWywolania(body, inner);
+      if (nm) methods.push({
+        name: nm.text,
+        isPublic: !!eksportowana,
+        sig: src.slice(node.startIndex, body ? body.startIndex : node.endIndex).replace(/\s+/g, ' ').trim(),
+        line: node.startPosition.row + 1,
+        calls: inner,
+      });
+    }
+    for (let i = 0; i < node.childCount; i++) zbierzFunkcje(node.child(i));
+  };
+  zbierzFunkcje(tree.rootNode);
+  zbierzWywolania(tree.rootNode, calls);
+
+  classes.set(wzgledna, {
+    fqn: wzgledna, simple: path.basename(file), pkg: path.dirname(wzgledna),
+    file, src, imports: new Map(), starPkgs: [], targets, methods, calls,
+  });
+}
+
 const isProject = f => classes.has(f);
 function resolve(c, name) {
+  if (c.targets && c.targets.has(name)) return c.targets.get(name);   // JS: #nazwa -> modul
   if (c.imports.has(name)) return c.imports.get(name);
   const same = c.pkg + '.' + name;
   if (classes.has(same)) return same;
@@ -252,10 +393,16 @@ findings.slice(0, TOP).forEach((f, i) => {
   const exampleUser = f.via[0];
   const eu = classes.get(exampleUser);
   let exLine = 0, exText = '';
-  for (const c of eu.calls)
-    if (c.type === facadeSimple && f.methods.some(m => m.method === c.method)) {
+  // Java: odbiornikiem jest nazwa klasy (SafeIo.writeString).
+  // JS: odbiornikiem jest sztuczny "#nazwa" z importu, wiec porownujemy przez
+  // resolve — inaczej przyklad wychodzi z numerem linii 0.
+  for (const c of eu.calls) {
+    const celWywolania = resolve(eu, c.type);
+    if ((c.type === facadeSimple || celWywolania === f.facade) &&
+        f.methods.some(m => m.method === c.method)) {
       exLine = c.line; exText = c.text; break;
     }
+  }
   console.log('     ' + rel(eu.file) + ':' + exLine + '   ' + exText);
   console.log(t('depsLayer', rel(classes.get(f.facade).file), best.line));
   console.log('       ' + best.sig);

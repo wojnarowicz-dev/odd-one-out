@@ -41,19 +41,35 @@ odd-one-out pom   --pom <pom.xml> --tree <deptree.txt>
 npm run self-check      # detektor js na własnym kodzie; kod wyjścia 1 przy nowych odstępstwach
 ```
 
-**Narzędzie przechodzi własny test i nie zgłasza nic — ale to nie znaczy, że
-jego kod jest spójny: dziewięć plików samodzielnie czyta `process.argv`,
-parsowanie flag ma pięć osobnych implementacji, i odd-one-out tego nie widzi.**
+**Narzędzie przechodzi własny test i nie zgłasza nic — mimo że dziewięć jego
+plików samodzielnie czyta `process.argv`, a parsowanie flag ma pięć osobnych
+implementacji; `deps` działa już na JavaScripcie, ale tej wady nie widzi, bo
+mierzy omijanie *istniejącej* warstwy, a tu żadnej warstwy nie ma.**
 
-Powód jest konkretny i wart zapamiętania. Reguła `sierota` raportuje wyłącznie
-na stronach HTML — czternaście własnych plików `.mjs` zostaje sparsowanych, ale
-nie ma na nich czego zgłosić. Klasa odstępstwa, o którą tu chodzi („N miejsc
-idzie przez wspólną warstwę, K bezpośrednio"), ma w tym narzędziu własny
-detektor — `deps` — tyle że działa on tylko na Javie.
+To rozróżnienie jest sednem, nie wymówką. `deps` odpowiada na pytanie „N miejsc
+idzie przez X, K bezpośrednio". Pięć kopii parsowania flag to inna wada:
+**duplikat bez warstwy**. `via = 0`, więc regule nie ma czego porównać —
+w przebiegu na własnym kodzie widać to wprost jako `operacji opakowanych=0`.
+Wykrycie tego wymaga reguły szukającej powtórzonego kodu, a nie odstępstwa od
+konwencji; to inne narzędzie.
 
-Czyli: metoda tę wadę wykrywa, implementacja nie sięga do języka, w którym
-narzędzie samo jest napisane. Zero zgłoszeń przy samosprawdzaniu jest miarą
-zasięgu detektorów, nie jakości kodu.
+Port `deps` na gramatykę JS/TS jest **sprawdzony i działa** — na próbce
+kontrolnej (pięć modułów przez `safeio.mjs`, jeden wprost do `fs.readFileSync`)
+zgłasza rozjazd poprawnie. Dwa ograniczenia zmierzone przy okazji:
+
+- **Reguła cienkiego opakowania słabo przenosi się na JavaScript.** Wymaga, by
+  nazwa opakowania zawierała nazwę operacji — `movePathWithRetry` ⊃ `move`
+  działa, ale `readFileWithRetry` ⊅ `readFileSync` już nie. Nazwy API Node są
+  długimi złożeniami, więc warunek rzadko bywa spełniony. Ta sama próbka
+  kontrolna przechodzi dopiero po przemianowaniu opakowania na
+  `readFileSyncWithRetry`.
+- **Skrypty przeglądarkowe są poza zasięgiem.** W VideoAnalyzerProWeb **żaden
+  z 85 plików `.js` nie używa `import` ani `require`** — komunikują się przez
+  `window`. `deps` stoi na grafie importów, więc nie ma tam czego zbudować:
+  0 zgłoszeń.
+
+Zero zgłoszeń przy samosprawdzaniu jest więc miarą zasięgu reguł, nie jakości
+kodu — i teraz wiadomo dokładnie, której reguły brakuje.
 
 ### Język komunikatów
 
