@@ -16,6 +16,7 @@
 // `"excludeDefaults": false`.
 import fs from 'node:fs';
 import path from 'node:path';
+import { t } from './lang.mjs';
 
 export const DEFAULT_EXCLUDE = [
   '**/build/**', '**/target/**', '**/out/**', '**/dist/**',
@@ -127,10 +128,10 @@ export function loadConfig(argv = [], root = process.cwd()) {
       }
       if (!linie) return null;
       for (const nr of [line - 1, line - 2]) {
-        const t = linie[nr];
-        if (!t) continue;
-        const m = t.match(/odd-one-out:\s*ok\b[ \t]*[—:-]?[ \t]*(.*)$/i);
-        if (m) return (m[1] || '').replace(/\s*(\*\/|-->)\s*$/, '').trim() || '(bez powodu)';
+        const tresc = linie[nr];
+        if (!tresc) continue;
+        const m = tresc.match(/odd-one-out:\s*ok\b[ \t]*[—:-]?[ \t]*(.*)$/i);
+        if (m) return (m[1] || '').replace(/\s*(\*\/|-->)\s*$/, '').trim() || t('noReason');
       }
       return null;
     },
@@ -138,9 +139,9 @@ export function loadConfig(argv = [], root = process.cwd()) {
       return mute.get(id) || '';
     },
     opis() {
-      return 'wykluczen=' + exclude.length +
-        (this.file ? ' (config: ' + norm(this.file) + ')' : ' (domyslne)') +
-        (mute.size ? '  wyciszen=' + mute.size : '');
+      return t('exclusions', exclude.length) +
+        (this.file ? ' (config: ' + norm(this.file) + ')' : t('defaults')) +
+        (mute.size ? t('mutes', mute.size) : '');
     },
   };
 }

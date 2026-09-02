@@ -14,6 +14,7 @@
 // zgłosi jako martwe wszystko z profili domyślnych. Stąd --tree przyjmuje wiele
 // plików: sumujemy artefakty ze wszystkich przebiegów.
 import fs from 'node:fs';
+import { t } from './lang.mjs';
 
 const argv = process.argv.slice(2);
 const flagAll = (n) => {
@@ -109,15 +110,11 @@ for (const e of managed) {
   else dead.push(rec);
 }
 
-console.log('# odd-one-out / pom.xml: martwy wpis w dependencyManagement');
+console.log(t('pomTitle'));
 console.log('pom=' + POM);
-console.log('drzewa=' + TREES.length + ' (artefaktow w sumie: ' + inTree.size + ')');
-console.log('profile: ' + (profiles.length
-  ? profiles.map(p => p.id + (p.active ? '*' : '')).join(', ') + '   (* = activeByDefault)'
-  : 'brak'));
-console.log('wpisow w dependencyManagement=' + managed.length +
-  '  zywych=' + live.length + '  MARTWYCH=' + dead.length +
-  '  do sprawdzenia=' + suspect.length);
+console.log(t('pomTrees', TREES.length, inTree.size));
+console.log(t('pomProfiles', profiles.length ? profiles.map(p => p.id + (p.active ? '*' : '')).join(', ') + t('pomActiveByDefault') : t('pomProfilesNone')));
+console.log(t('pomCounts', managed.length, live.length, dead.length, suspect.length));
 console.log('');
 
 // ---- zapis przebiegu i roznica ----
@@ -149,45 +146,42 @@ console.log('');
 process.exitCode = w.nowych ? 1 : 0;
 
 for (const s of suspect.filter(x => pokaz.has(x.key))) {
-  console.log('!! DO SPRAWDZENIA (nie zgloszenie): ' + s.key);
-  console.log('   Nie ma go w drzewie, ale JEST zadeklarowany w <dependencies> (' + POM + ':' + s.line + ').');
-  console.log('   Najpewniej drzewo pochodzi z innej rewizji pom.xml niz badana, albo profil');
-  console.log('   byl nieaktywny przy tamtym przebiegu. Zdejmij drzewo z TEJ rewizji i powtorz.');
+  console.log(t('pomSuspect1', s.key));
+  console.log(t('pomSuspect2', POM, s.line));
+  console.log(t('pomSuspect3'));
+  console.log(t('pomSuspect4'));
   console.log('');
 }
 
 if (dead.length === 0) {
-  console.log('Brak martwych wpisow.');
+  console.log(t('pomNoDead'));
 } else {
   dead.filter(e => pokaz.has(e.key)).forEach((e, i) => {
     console.log('## [' + (i + 1) + '] ' + e.key + (e.v ? ':' + e.v : ''));
     console.log('');
-    console.log('   CO JEST NIESPOJNE');
-    console.log('     ' + POM + ':' + e.line + ' przypina wersje zaleznosci, ktorej nikt nie deklaruje.');
-    console.log('     Nie ma jej w drzewie ' + (e.profile ? '(profil ' + e.profile +
-      (e.profileActive ? ', activeByDefault' : ', NIEaktywny domyslnie') + ')' : '(zakres glowny)') + '.');
-    console.log('     W <dependencies> tego pom.xml: ' + (e.declaredInPom ? 'jest' : 'NIE MA') +
-      '. Wpis nie robi nic.');
+    console.log(t('secInconsistent'));
+    console.log(t('pomBody1', POM, e.line));
+    console.log(t('pomBody2', e.profile ? t('pomScopeProfile', e.profile, e.profileActive ? t('pomActiveSuffix') : t('pomInactiveSuffix')) : t('pomScopeMain')));
+    console.log(t('pomBody3', e.declaredInPom ? t('pomYes') : t('pomNo')));
     console.log('');
-    console.log('   JAK ZROBIONO W POZOSTALYCH MIEJSCACH');
+    console.log(t('secElsewhere'));
     const sameScope = live.filter(l => l.profile === e.profile).slice(0, 2);
     if (sameScope.length) {
       for (const l of sameScope)
-        console.log('     ' + POM + ':' + l.line + '   ' + l.key +
-          ' — przypiete i obecne w drzewie' + (l.declaredInPom ? ', zadeklarowane w <dependencies>' : ''));
+        console.log(t('pomLive', POM, l.line, l.key, l.declaredInPom ? t('pomAlsoDeclared') : ''));
     } else {
-      console.log('     (brak zywego wpisu w tym samym zakresie do porownania)');
+      console.log(t('pomNoComparable'));
     }
     console.log('');
-    console.log('   GOTOWA POPRAWKA (nie zastosowana)');
-    console.log('     // ' + POM + ':' + e.line + ' — usun caly blok:');
+    console.log(t('secFix'));
+    console.log(t('pomFix1', POM, e.line));
     console.log('     -     <dependency>');
     console.log('     -         <groupId>' + e.g + '</groupId>');
     console.log('     -         <artifactId>' + e.a + '</artifactId>');
     if (e.v) console.log('     -         <version>' + e.v + '</version>');
     console.log('     -     </dependency>');
-    console.log('     // albo, jesli ta zaleznosc MIALA byc uzywana, dodaj ja do <dependencies>');
-    console.log('     //   w tym samym profilu (bez <version> — wersje da dependencyManagement).');
+    console.log(t('pomFix2'));
+    console.log(t('pomFix3'));
     console.log('');
   });
 }

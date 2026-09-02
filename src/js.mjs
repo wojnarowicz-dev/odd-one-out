@@ -17,6 +17,7 @@
 // pliki dana strona ładuje, więc bez wiedzy o projekcie nie da się jej postawić.
 import fs from 'node:fs';
 import path from 'node:path';
+import { t } from './lang.mjs';
 import { Parser, Language } from 'web-tree-sitter';
 import { createRequire } from 'node:module';
 
@@ -239,29 +240,27 @@ const w = przygotuj(argv, {
   })),
 });
 
-console.log('# odd-one-out / js: nazwa wolana jak funkcja, nigdzie niezdefiniowana');
-console.log('root=' + ROOT);
-console.log('stron ze skryptami inline=' + stronBadanych + '  blokow inline=' + skryptowInline +
-  '  plikow skryptowych=' + pliki.skrypt.length);
-console.log('regula=' + REGULA + '  ' + cfg.opis());
-console.log('SIEROT=' + w.snap.findings.length +
-  (w.roznica && !w.wszystko ? '  (pokazane ponizej: tylko nowe i zmienione)' : ''));
+console.log(t('jsTitle'));
+console.log(t('root') + ROOT);
+console.log(t('jsStats', stronBadanych, skryptowInline, pliki.skrypt.length));
+console.log(t('jsRule', REGULA, cfg.opis()));
+console.log(t('jsOrphans', w.snap.findings.length, w.roznica && !w.wszystko ? t('onlyNewShown') : ''));
 naglowekRoznicy(w);
 console.log('');
 
 w.doPokazania.slice(0, TOP).forEach((f, i) => {
   console.log('## [' + (i + 1) + '] ' + f.anchor + '  —  ' + f.file + ':' + f.line);
   console.log('');
-  console.log('   CO JEST NIESPOJNE');
-  console.log('     Nazwa wolana jak funkcja (' + f.meta.wywolan + ' raz/y na tej stronie), ale strona');
-  console.log('     jej nie zna: nie ma definicji w jej skryptach inline, nie wystawia jej zaden');
-  console.log('     z ladowanych plikow <script src>, nie jest wbudowana.');
-  console.log('     Strona definiuje ' + f.meta.sup + ' innych nazw i te sa rozpoznane.');
+  console.log(t('secInconsistent'));
+  console.log(t('jsBody1', f.meta.wywolan));
+  console.log(t('jsBody2'));
+  console.log(t('jsBody3'));
+  console.log(t('jsBody4', f.meta.sup));
   console.log('');
-  console.log('   GOTOWA POPRAWKA (nie zastosowana)');
-  console.log('     Usun wywolanie albo przywroc definicje. Jesli to pozostalosc po usunietej');
-  console.log('     funkcji — usun linie ' + f.file + ':' + f.line + '.');
-  console.log('     Jesli to swiadoma decyzja — dopisz obok:  // odd-one-out: ok — powod');
+  console.log(t('secFix'));
+  console.log(t('jsFix'));
+  console.log(t('jsFix2', f.file, f.line));
+  console.log(t('muteHint'));
   console.log('');
 });
 

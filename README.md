@@ -35,6 +35,19 @@ odd-one-out pom   --pom <pom.xml> --tree <deptree.txt>
 
 `pom` wymaga wcześniejszego `mvn -o -B dependency:tree > deptree.txt`.
 
+### Język komunikatów
+
+`--lang en` (domyślnie) albo `--lang pl`. Wszystkie napisy siedzą w jednym pliku
+`src/lang.mjs` — klucz i dwa tłumaczenia; detektor woła `t('klucz', …)` i nie wie,
+w jakim języku pisze. Rozsypanie tłumaczeń po detektorach kończy się tym, że
+połowa wyniku zostaje w jednym języku, a widzi to dopiero ktoś, kto tego języka
+nie zna.
+
+**Tłumaczone są tylko etykiety i nagłówki.** Nazwy metod, typów, ścieżki,
+identyfikatory zgłoszeń i nazwy reguł zostają bez zmian — to dane, nie tekst.
+Zweryfikowane: ten sam zapis wyświetlony w obu językach daje **identyczne
+pozycje, oceny i ścieżki**; różni się wyłącznie tekst etykiet.
+
 ## Detektor js — JavaScript i TypeScript
 
 Jedna gramatyka (`tree-sitter-typescript`) na oba języki: TypeScript jest

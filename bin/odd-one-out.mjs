@@ -67,6 +67,10 @@ function usage(code = 0) {
   out('UŻYCIE');
   out('  odd-one-out <polecenie> [argumenty]');
   out('');
+  out('JEZYK / LANGUAGE');
+  out('  --lang en   (domyslnie) angielski / English');
+  out('  --lang pl   polski');
+  out('');
   out('POLECENIA');
   for (const [name, c] of Object.entries(COMMANDS)) {
     out('  ' + name.padEnd(6) + c.arg);
@@ -110,7 +114,13 @@ if (rest.length === 0) {
 if (cmd === 'diff') {
   const { readSnapshot, printDiff } = await import(
     new URL('file://' + path.join(SRC, 'snapshot.mjs').replace(/\\/g, '/')).href);
-  const files = rest.filter(a => !a.startsWith('--'));
+  // --lang zjada nastepny token, tak samo jak --top w poleceniu rank
+  const files = [];
+  for (let i = 0; i < rest.length; i++) {
+    if (rest[i] === '--lang') { i++; continue; }
+    if (rest[i].startsWith('--')) continue;
+    files.push(rest[i]);
+  }
   if (files.length !== 2) {
     console.error('diff wymaga dwoch plikow: <poprzedni.json> <biezacy.json>');
     process.exit(2);
@@ -127,7 +137,7 @@ if (cmd === 'rank') {
   const { printRanking } = await import(mod('rank.mjs'));
   // Flagi z wartością zjadają następny token — bez tego `--top 8` wstawia "8"
   // na listę plików.
-  const FLAGI_Z_WARTOSCIA = new Set(['--top', '--wiek']);
+  const FLAGI_Z_WARTOSCIA = new Set(['--top', '--wiek', '--lang']);
   const files = [];
   let top = 20, wiek = null;
   for (let i = 0; i < rest.length; i++) {

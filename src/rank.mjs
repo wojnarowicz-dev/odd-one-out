@@ -1,3 +1,4 @@
+import { t } from './lang.mjs';
 // odd-one-out — jeden ranking ponad detektorami.
 //
 // PO CO. Cztery detektory dają cztery osobne listy w czterech skalach:
@@ -99,7 +100,7 @@ export async function printRanking(snapshots, { top = 20, wiek = null, stabilnos
       if (typeof s === 'number') { f.score = Math.round(f.score * s); zeSkladnikiem++; }
     }
     ranked.sort((a, b) => b.score - a.score || a.file.localeCompare(b.file));
-    stabOpis = 'skladnik stabilnosci: zastosowany do ' + zeSkladnikiem + ' z ' + ranked.length;
+    stabOpis = t('stabApplied', zeSkladnikiem, ranked.length);
   }
 
   // WIEK — sygnal opcjonalny, domyslnie wylaczony. Wylacznie podbicie oceny;
@@ -108,7 +109,7 @@ export async function printRanking(snapshots, { top = 20, wiek = null, stabilnos
   if (wiek) {
     const { ageSignal, isGitRepo } = await import('./age.mjs');
     if (!isGitRepo(wiek)) {
-      wiekOpis = '!! ' + wiek + ' nie jest repozytorium git — sygnal wieku pominiety';
+      wiekOpis = t('ageNotRepo', wiek);
     } else {
       let podbitych = 0;
       for (const f of ranked) {
@@ -118,19 +119,17 @@ export async function printRanking(snapshots, { top = 20, wiek = null, stabilnos
         f.score = Math.round(f.score * a.mnoznik);
       }
       ranked.sort((a, b) => b.score - a.score || a.file.localeCompare(b.file));
-      wiekOpis = 'sygnal wieku: podbitych ' + podbitych + ' z ' + ranked.length +
-        ' (odstepstwo nowsze niz mediana linii zgodnych z wzorcem)';
+      wiekOpis = t('ageSignal', podbitych, ranked.length);
     }
   }
   const pominiete = snapshots.reduce((n, s) =>
     n + s.findings.filter(f => f.meta && NIE_ZGLOSZENIE.has(f.meta.kind)).length, 0);
 
-  console.log('# odd-one-out / ranking');
-  console.log('zapisow=' + snapshots.length + ' (' + snapshots.map(s => s.detector).join(', ') + ')');
-  console.log('zgloszen=' + ranked.length +
-    (pominiete ? '  pominietych stanow niebedacych zgloszeniem=' + pominiete : ''));
+  console.log(t('rankTitle'));
+  console.log(t('rankSnapshots', snapshots.length, snapshots.map(s => s.detector).join(', ')));
+  console.log(t('rankFindings', ranked.length) + (pominiete ? t('rankSkipped', pominiete) : ''));
   console.log('');
-  console.log('ocena = 100 x konwencja x populacja x rzadkosc  (porzadkowa, nie procent)');
+  console.log(t('rankFormula'));
   if (wiekOpis) console.log(wiekOpis);
   if (stabOpis) console.log(stabOpis);
   console.log('');
@@ -140,16 +139,13 @@ export async function printRanking(snapshots, { top = 20, wiek = null, stabilnos
     console.log(String(i + 1).padStart(3) + '. [' + String(f.score).padStart(3) + ']  ' +
       f.detector.padEnd(5) + '  ' + f.file + (f.line ? ':' + f.line : ''));
     console.log('       ' + f.label);
-    console.log('       konwencja=' + (c.konwencja * 100).toFixed(0) + '%' +
-      '  populacja=' + c.pop +
-      '  odstajacych=' + c.odd);
-    if (f.takze && f.takze.length)
-      console.log('       to samo miejsce narusza takze: ' + f.takze.join(', '));
-    if (f.wiek) console.log('       wiek: ' + f.wiek.opis);
+    console.log(t('rankComponents', (c.konwencja * 100).toFixed(0), c.pop, c.odd));
+    if (f.takze && f.takze.length) console.log(t('rankAlsoViolates', f.takze.join(', ')));
+    if (f.wiek) console.log(t('rankAge', f.wiek.opis));
     if (stabilnosc && f.meta && f.meta.stabOpis)
-      console.log('       stabilnosc: ' + f.meta.stab + '  (' + f.meta.stabOpis + ')');
+      console.log(t('rankStability', f.meta.stab, f.meta.stabOpis));
   });
 
-  if (ranked.length > top) console.log('\n   ... i ' + (ranked.length - top) + ' dalszych');
+  if (ranked.length > top) console.log(t('rankMore', ranked.length - top));
   return ranked;
 }

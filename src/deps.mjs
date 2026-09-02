@@ -13,6 +13,7 @@
 import { javaParser } from './parser.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
+import { t } from './lang.mjs';
 
 const argv = process.argv.slice(2);
 const ROOT = argv[0];
@@ -213,18 +214,14 @@ for (const [op, wraps] of wrappers) {
 findings.sort((a, b) => b.score - a.score);
 
 // ---- 5. raport z gotową poprawką ----
-console.log('# odd-one-out / kategoria 5: zaleznosci rozlozone niespojnie');
-console.log('root=' + ROOT);
-console.log('klasy=' + classes.size + ' operacji zewn.=' + extCallers.size +
-  ' operacji opakowanych=' + wrappers.size);
-console.log('progi: minvia=' + MINVIA + ' maxodd=' + MAXODD);
+console.log(t('depsTitle'));
+console.log(t('root') + ROOT);
+console.log(t('depsStats', classes.size, extCallers.size, wrappers.size));
+console.log(t('depsThresholds', MINVIA, MAXODD));
 const nOf = k => findings.filter(f => f.kind === k).length;
-console.log('rozjazdow=' + nOf('ROZJAZD') +
-  '  migracji w toku=' + nOf('MIGRACJA W TOKU') +
-  '  za malo danych=' + nOf('ZA MALO DANYCH'));
+console.log(t('depsCounts', nOf('ROZJAZD'), nOf('MIGRACJA W TOKU'), nOf('ZA MALO DANYCH')));
 if (nOf('ROZJAZD') === 0)
-  console.log('\n-> Zadnego rozjazdu przy tych progach. Ponizej to NIE sa odstepstwa —\n' +
-    '   to stany, w ktorych narzedzie nie ma podstaw, by cokolwiek zglosic.');
+  console.log(t('depsNoDivergence'));
 console.log('');
 
 findings.slice(0, TOP).forEach((f, i) => {
@@ -236,26 +233,22 @@ findings.slice(0, TOP).forEach((f, i) => {
     extType.split('.').pop() + '.' + extMethod +
     ': ' + f.via.length + ' klas przez ' + short(f.facade) + ', ' + f.odd.length + ' bezposrednio');
   if (f.kind === 'ZA MALO DANYCH') {
-    console.log('     Za malo wystapien, by mowic o konwencji (' + f.via.length +
-      ' przez warstwe, prog=' + MINVIA + '). Wroc, gdy bedzie ich ' + MINVIA + '.');
+    console.log(t('depsTooFew', f.via.length, MINVIA));
     console.log('');
     return;
   }
   if (f.kind === 'MIGRACJA W TOKU') {
-    console.log('     Obie drogi sa liczne — nie ma czego nazwac odstepstwem.');
-    console.log('     To nie blad do poprawienia punktowo, tylko niedokonczone przejscie na ' +
-      short(f.facade) + '.');
+    console.log(t('depsMigration'));
+    console.log(t('depsMigration2', short(f.facade)));
   }
   console.log('');
-  console.log('   CO JEST NIESPOJNE');
-  console.log('     ' + extType + '.' + extMethod + ' jest wolane wprost w ' +
-    f.odd.length + ' klasie/ach, choc ' + f.via.length +
-    ' innych idzie przez ' + facadeSimple + '.');
+  console.log(t('secInconsistent'));
+  console.log(t('depsBody', extType, extMethod, f.odd.length, f.via.length, facadeSimple));
   for (const s of f.sites)
     for (const h of s.hits.slice(0, 2))
       console.log('       ' + rel(h.file) + ':' + h.line + '   ' + h.text);
   console.log('');
-  console.log('   JAK ZROBIONO W POZOSTALYCH MIEJSCACH');
+  console.log(t('secElsewhere'));
   const exampleUser = f.via[0];
   const eu = classes.get(exampleUser);
   let exLine = 0, exText = '';
@@ -264,20 +257,20 @@ findings.slice(0, TOP).forEach((f, i) => {
       exLine = c.line; exText = c.text; break;
     }
   console.log('     ' + rel(eu.file) + ':' + exLine + '   ' + exText);
-  console.log('     warstwa: ' + rel(classes.get(f.facade).file) + ':' + best.line);
+  console.log(t('depsLayer', rel(classes.get(f.facade).file), best.line));
   console.log('       ' + best.sig);
   console.log('');
-  console.log('   GOTOWA POPRAWKA (nie zastosowana)');
+  console.log(t('secFix'));
   const site = f.sites[0].hits[0];
   const argsMatch = site.text.match(/\(([\s\S]*)\)\s*$/);
   const args = argsMatch ? argsMatch[1] : '...';
   console.log('     // ' + rel(site.file) + ':' + site.line);
   console.log('     - ' + site.text);
   console.log('     + ' + facadeSimple + '.' + best.method + '(' + args + ');');
-  console.log('     // sprawdz zwracany typ — ' + best.sig);
+  console.log(t('depsCheckReturn', best.sig));
   if (!classes.get(f.sites[0].fqn).imports.has(facadeSimple) &&
       classes.get(f.sites[0].fqn).pkg !== classes.get(f.facade).pkg)
-    console.log('     // dolóz import: import ' + f.facade + ';');
+    console.log(t('depsAddImport', f.facade));
   console.log('');
 });
 

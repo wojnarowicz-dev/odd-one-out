@@ -12,6 +12,7 @@
 // ktorzy mieli je tylko tak — lacznie z service_role.
 import fs from 'node:fs';
 import path from 'node:path';
+import { t } from './lang.mjs';
 
 const argv = process.argv.slice(2);
 const DIR = argv[0];
@@ -107,13 +108,11 @@ for (const pf of perFile)
       if (!grantedLater.has(a.name)) grantedLater.set(a.name, { file: pf.file, roles: a.roles });
 
 const rel = f => f;
-console.log('# odd-one-out / SQL: revoke bez grant execute w tej samej migracji');
-console.log('katalog=' + DIR);
-console.log('migracji=' + files.length + '  instrukcji GRANT/REVOKE=' +
-  perFile.reduce((s, p) => s + p.acls.length, 0));
+console.log(t('sqlTitle'));
+console.log(t('sqlDir', DIR));
+console.log(t('sqlStats', files.length, perFile.reduce((s, p) => s + p.acls.length, 0)));
 const distinct = new Set(both.map(b => b.name)).size;
-console.log('par (migracja, funkcja) z revoke+grant w tym samym pliku=' + both.length +
-  ' (roznych funkcji: ' + distinct + ')  BEZ GRANTU=' + onlyRevoke.length);
+console.log(t('sqlPairs', both.length, distinct, onlyRevoke.length));
 console.log('');
 
 // ---- zapis przebiegu i roznica ----
@@ -139,37 +138,36 @@ console.log('');
 process.exitCode = w.nowych ? 1 : 0;
 
 if (both.length < MINCONV) {
-  console.log('Za malo wystapien pary revoke+grant (' + both.length + ', prog=' + MINCONV +
-    '), by mowic o konwencji. Nie zglaszam nic.');
+  console.log(t('sqlTooFew', both.length, MINCONV));
 } else if (onlyRevoke.length === 0) {
-  console.log('Brak odstepstw — kazda migracja odbierajaca uprawnienia nadaje tez EXECUTE.');
+  console.log(t('sqlNoDeviations'));
 } else {
   onlyRevoke.filter(o => pokaz.has(o.file + ':' + o.a.line)).forEach((o, i) => {
     const fixed = grantedLater.get(o.name);
     console.log('## [' + (i + 1) + '] ' + o.name + '  —  ' + rel(o.file));
     console.log('');
-    console.log('   CO JEST NIESPOJNE');
-    console.log('     ' + rel(o.file) + ':' + o.a.line + ' odbiera uprawnienia i na tym konczy:');
+    console.log(t('secInconsistent'));
+    console.log(t('sqlBody1', rel(o.file), o.a.line));
     console.log('       ' + o.a.text);
-    console.log('     Postgres nadaje EXECUTE roli `public` przy tworzeniu funkcji, wiec');
-    console.log('     `revoke ... from public` zabiera je KAZDEJ roli, ktora miala je tylko tak —');
-    console.log('     w tym service_role. Po tej migracji funkcje moze wolac juz tylko wlasciciel.');
-    console.log('     Wzorzec: ' + distinct + ' funkcji w tych migracjach ma revoke I grant, ta jedna nie.');
+    console.log(t('sqlBody2'));
+    console.log(t('sqlBody3'));
+    console.log(t('sqlBody4'));
+    console.log(t('sqlBody5', distinct));
     console.log('');
-    console.log('   JAK ZROBIONO W POZOSTALYCH MIEJSCACH');
+    console.log(t('secElsewhere'));
     for (const b of both.slice(0, 2)) {
       console.log('     ' + rel(b.file) + ':' + b.a.line);
       console.log('       ' + b.a.text);
     }
     console.log('');
-    console.log('   GOTOWA POPRAWKA (nie zastosowana)');
+    console.log(t('secFix'));
     if (fixed && fixed.file > o.file) {
-      console.log('     UWAGA: pozniejsza migracja juz to naprawia — ' + rel(fixed.file));
+      console.log(t('sqlFixedLater', rel(fixed.file)));
       console.log('       grant execute ... to ' + fixed.roles.join(', '));
-      console.log('     Zgloszenie zostaje jako dowod, ze regula lapie ten blad w chwili wprowadzenia.');
+      console.log(t('sqlFixedLater2'));
     } else {
-      console.log('     // NOWA migracja, nie dopisek do ' + rel(o.file) + ' —');
-      console.log('     //   tamta jest juz wdrozona, a Supabase pamieta migracje po nazwie.');
+      console.log(t('sqlFixNew', rel(o.file)));
+      console.log(t('sqlFixNew2'));
       console.log('     grant execute on function ' + o.name + ' ' + (o.a.args || '(...)') +
         ' to service_role;');
     }

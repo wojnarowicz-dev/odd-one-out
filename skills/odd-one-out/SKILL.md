@@ -37,6 +37,10 @@ odd-one-out js    <katalog-web>              # nazwa wołana, której strona nie
 Gdy paczka nie jest zainstalowana globalnie, wołaj przez `node`:
 `node <katalog-wtyczki>/bin/odd-one-out.mjs java ./src/main/java`.
 
+**Język komunikatów:** `--lang en` (domyślnie) albo `--lang pl`. Dobierz do
+języka, w którym rozmawiasz z użytkownikiem. Pozycje, oceny i ścieżki są w obu
+identyczne — różnią się tylko etykiety.
+
 ### `pom` wymaga przygotowania
 
 `dependencyManagement` tylko przypina wersje zależnościom zadeklarowanym gdzie

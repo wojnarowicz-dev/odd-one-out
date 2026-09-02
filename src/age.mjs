@@ -13,6 +13,7 @@
 // Zgłoszenie bez danych o wieku zachowuje swoją ocenę bez zmian.
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
+import { t } from './lang.mjs';
 
 const cache = new Map();
 
@@ -66,14 +67,13 @@ export function ageSignal(finding, root, repoDir, { boost = 1.3 } = {}) {
     .filter(Boolean);
   const med = mediana(daty);
 
-  if (!dev || med === null) return { dev, med, nowsze: null, mnoznik: 1, opis: 'brak danych o wieku' };
+  if (!dev || med === null) return { dev, med, nowsze: null, mnoznik: 1, opis: t('ageNoData') };
 
   const nowsze = dev > med;
   return {
     dev, med, nowsze,
     mnoznik: nowsze ? boost : 1,
-    opis: 'odstepstwo ' + dzien(dev) + ', wzorzec (mediana z ' + daty.length + ') ' + dzien(med) +
-      (nowsze ? '  -> NOWSZE, podbicie x' + boost : '  -> nie nowsze, bez podbicia'),
+    opis: t('ageDesc', dzien(dev), daty.length, dzien(med), nowsze ? t('ageNewer', boost) : t('ageNotNewer')),
   };
 }
 

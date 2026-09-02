@@ -5,6 +5,7 @@
 import { javaParser } from './parser.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
+import { t } from './lang.mjs';
 
 const argv = process.argv.slice(2);
 const ROOT = argv[0];
@@ -388,9 +389,8 @@ for (const r of rules) {
 
   r.stab = rozstrzygajace === 0 ? null
     : +(((trzyma / rozstrzygajace) + (prefiksy ? prefiksyTrzyma / prefiksy : 1)) / 2).toFixed(2);
-  r.stabOpis = rozstrzygajace === 0 ? 'brak danych'
-    : trzyma + '/' + rozstrzygajace + ' podzbiorow, ' +
-      prefiksyTrzyma + '/' + prefiksy + ' narastajaco';
+  r.stabOpis = rozstrzygajace === 0 ? t('ageNoData')
+    : t('javaStabDesc', trzyma, rozstrzygajace, prefiksyTrzyma, prefiksy);
 }
 
 // ---- odsiewanie klasy "setter obok settera" ----
@@ -491,30 +491,28 @@ const pokaz = new Set(w.doPokazania.map(f => f.rule + '|' + f.file + '|' + f.lin
 process.exitCode = w.nowych ? 1 : 0;
 
 // ---- report ----
-console.log('# odd-one-out');
-console.log('root=' + ROOT);
-console.log('files=' + parsed + ' parseErrors=' + parseErrors.length + ' units=' + all.length +
-  ' distinctItems=' + supA.size + ' frequent=' + frequent.size);
-if (parseErrors.length) console.log('  !! parse errors in: ' + parseErrors.slice(0, 5).map(rel).join(', '));
-if (ODSIEJ.size) console.log('odsiewanie: sygnaly [' + [...ODSIEJ].join(',') + ']');
+console.log(t('javaTitle'));
+console.log(t('root') + ROOT);
+console.log(t('javaStats', parsed, parseErrors.length, all.length, supA.size, frequent.size));
+if (parseErrors.length) console.log(t('javaParseErrors', parseErrors.slice(0, 5).map(rel).join(', ')));
+if (ODSIEJ.size) console.log(t('javaSieve', [...ODSIEJ].join(',')));
 naglowekRoznicy(w);
-console.log('scope=' + SCOPE + '  rules(minsup=' + MINSUP + ' minconf=' + MINCONF + ' maxviol=' + MAXVIOL + ')=' + rules.length);
+console.log(t('javaRules', SCOPE, MINSUP, MINCONF, MAXVIOL, rules.length));
 console.log('');
 
 let shown = 0;
 for (const r of rules) {
   if (shown >= TOP) break;
   shown++;
-  console.log('## [' + shown + '] ' + r.A + ' -> ' + r.B +
-    '   sup=' + r.sup + '/' + r.supA + ' conf=' + (r.conf * 100).toFixed(0) + '% odd=' + r.viol +
-    (r.stab === null ? '' : ' stab=' + r.stab + ' (' + r.stabOpis + ')'));
+  console.log(t('javaRuleHead', shown, r.A, r.B, r.sup, r.supA, (r.conf * 100).toFixed(0), r.viol) +
+    (r.stab === null ? '' : t('javaStab', r.stab, r.stabOpis)));
   for (const u of all) {
     if (!u.items.has(r.A) || u.items.has(r.B)) continue;
     if (odsiane(r, u)) { odsianych++; continue; }
     if (!pokaz.has((r.A + '->' + r.B) + '|' + rel(u.file) + '|' + u.items.get(r.A)[0])) continue;
     console.log('   ' + rel(u.file) + ':' + u.items.get(r.A)[0] + '  recv=' + u.recv +
       '  in ' + u.unitKind + '@' + u.unitLine);
-    console.log('      calls here: ' + [...u.items.keys()].join(', '));
+    console.log(t('javaCallsHere', [...u.items.keys()].join(', ')));
   }
   console.log('');
 }
