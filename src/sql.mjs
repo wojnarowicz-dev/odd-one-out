@@ -12,16 +12,12 @@
 // who held it only that way — service_role included.
 import fs from 'node:fs';
 import path from 'node:path';
+import { makeFlag } from './args.mjs';
 import { t } from './lang.mjs';
 
 const argv = process.argv.slice(2);
 const DIR = argv[0];
-const flag = (n, d) => {
-  const i = argv.indexOf('--' + n);
-  if (i < 0) return d;
-  const v = argv[i + 1];
-  return v === undefined || v.startsWith('--') ? true : v;
-};
+const flag = makeFlag(argv);
 const MINCONV = +flag('minconv', 3);   // count migracji musi holdsć pattern, by to była konwencja
 
 // --- podzial na instrukcje, swiadomy cytowania dolarowego ---

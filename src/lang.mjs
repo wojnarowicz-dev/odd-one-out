@@ -11,11 +11,10 @@
 // WE DO NOT TRANSLATE: method names, type names, paths, finding identifiers,
 // rule names or flag names. Those are data, not prose.
 
+import { valueOf } from './args.mjs';
+
 const argv = process.argv.slice(2);
-const iLang = argv.indexOf('--lang');
-const LANG = (iLang >= 0 && argv[iLang + 1] && !argv[iLang + 1].startsWith('--')
-  ? String(argv[iLang + 1]).toLowerCase()
-  : 'en') === 'pl' ? 'pl' : 'en';
+const LANG = String(valueOf(argv, 'lang', 'en')).toLowerCase() === 'pl' ? 'pl' : 'en';
 
 export const language = LANG;
 

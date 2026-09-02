@@ -19,6 +19,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { t } from './lang.mjs';
+import { valueOf, hasFlag } from './args.mjs';
 
 export const SNAPSHOT_VERSION = 1;
 
@@ -205,9 +206,8 @@ export function printDiff(oldSnap, newSnap, { showUnchanged = false } = {}) {
  */
 export function prepare(argv, payload) {
   const cfg = payload.cfg;
-  const i = argv.indexOf('--json');
-  const file = i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : null;
-  const showAll = argv.includes('--all');
+  const file = valueOf(argv, 'json');
+  const showAll = hasFlag(argv, 'all');
 
   const snap = buildSnapshot(payload);
 
@@ -261,10 +261,9 @@ export function diffHeader(w) {
 
 // Shared handling of --json <file> for the detectors.
 export function maybeWriteSnapshot(argv, payload) {
-  const i = argv.indexOf('--json');
-  if (i < 0) return null;
-  const file = argv[i + 1];
-  if (!file || file.startsWith('--')) {
+  if (!hasFlag(argv, 'json')) return null;
+  const file = valueOf(argv, 'json');
+  if (!file) {
     console.error('--json wymaga sciezki pliku');
     process.exit(2);
   }

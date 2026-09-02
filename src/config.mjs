@@ -18,6 +18,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { t } from './lang.mjs';
+import { valueOf } from './args.mjs';
 
 export const DEFAULT_EXCLUDE = [
   '**/build/**', '**/target/**', '**/out/**', '**/dist/**',
@@ -54,8 +55,7 @@ function toRegExp(pattern) {
 }
 
 export function loadConfig(argv = [], root = process.cwd()) {
-  const i = argv.indexOf('--config');
-  const explicit = i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : null;
+  const explicit = valueOf(argv, 'config');
 
   let file = explicit;
   if (!file) {

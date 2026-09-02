@@ -8,6 +8,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { t } from '../src/lang.mjs';
+import { valueOf, flagAll as allValues } from '../src/args.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.join(HERE, '..', 'src');
@@ -130,15 +131,12 @@ if (cmd === 'rank') {
 {
   const mod = f => new URL('file://' + path.join(SRC, f).replace(/\\/g, '/')).href;
   const { requireDirectory, requireFile } = await import(mod('input.mjs'));
-  const wartosc = (name) => {
-    const i = rest.indexOf(name);
-    return i >= 0 && rest[i + 1] && !rest[i + 1].startsWith('--') ? rest[i + 1] : null;
-  };
+
   if (cmd === 'pom') {
-    requireFile(wartosc('--pom'), '--pom <pom.xml>');
-    const i = rest.indexOf('--tree');
-    if (i < 0) requireFile(null, '--tree <deptree.txt>');
-    for (let j = i + 1; j < rest.length && !rest[j].startsWith('--'); j++) requireFile(rest[j], '--tree');
+    requireFile(valueOf(rest, 'pom'), '--pom <pom.xml>');
+    const trees = allValues(rest, 'tree');
+    if (trees.length === 0) requireFile(null, '--tree <deptree.txt>');
+    for (const tr of trees) requireFile(tr, '--tree');
   } else {
     requireDirectory(rest.find(a => !a.startsWith('--')), COMMANDS[cmd].arg);
   }

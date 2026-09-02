@@ -6,11 +6,14 @@
   "bin": {
     "odd-one-out": "bin/odd-one-out.mjs"
   },
-  "main": "src/parser.mjs",
   "files": [
     "bin",
     "src",
-    "README.md"
+    "skills",
+    "test",
+    "README.md",
+    "README.pl.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=18"

@@ -14,15 +14,11 @@
 // the tool reports everything from the default profiles as dead. That is why
 // --tree accepts several files: we take the union of artefacts from all runs.
 import fs from 'node:fs';
+import { flagAll as allValues } from './args.mjs';
 import { t } from './lang.mjs';
 
 const argv = process.argv.slice(2);
-const flagAll = (n) => {
-  const out = [];
-  for (let i = 0; i < argv.length; i++)
-    if (argv[i] === '--' + n) { let j = i + 1; while (j < argv.length && !argv[j].startsWith('--')) out.push(argv[j++]); }
-  return out;
-};
+const flagAll = (n) => allValues(argv, n);
 const POM = flagAll('pom')[0];
 const TREES = flagAll('tree');
 if (!POM || TREES.length === 0) {

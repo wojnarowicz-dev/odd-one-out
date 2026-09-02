@@ -6,15 +6,11 @@ import { javaParser } from './parser.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { t } from './lang.mjs';
+import { makeFlag } from './args.mjs';
 
 const argv = process.argv.slice(2);
 const ROOT = argv[0];
-const flag = (name, def) => {
-  const i = argv.indexOf('--' + name);
-  if (i < 0) return def;
-  const v = argv[i + 1];
-  return v === undefined || v.startsWith('--') ? true : v;
-};
+const flag = makeFlag(argv);
 const MINSUP = +flag('minsup', 3);
 const MINCONF = +flag('minconf', 0.6);
 const MAXVIOL = +flag('maxviol', 4);

@@ -19,18 +19,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { t } from './lang.mjs';
+import { makeFlag } from './args.mjs';
 import { Parser, Language } from 'web-tree-sitter';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const argv = process.argv.slice(2);
 const ROOT = argv[0];
-const flag = (n, d) => {
-  const i = argv.indexOf('--' + n);
-  if (i < 0) return d;
-  const v = argv[i + 1];
-  return v === undefined || v.startsWith('--') ? true : v;
-};
+const flag = makeFlag(argv);
 const TOP = +flag('top', 20);
 const RULE = String(flag('rule', 'sierota'));
 
