@@ -1,6 +1,6 @@
 ---
 name: odd-one-out
-description: Znajduje miejsca odstające od konwencji panującej w tym projekcie — "N razy tak, raz inaczej". Użyj przy przeglądzie kodu, audycie, przed wydaniem, przy pytaniach typu "czy coś tu odstaje", "czy o czymś zapomniałem", "sprawdź spójność", a także gdy użytkownik dodał nowy kod obok istniejącej rodziny podobnych miejsc. Obsługuje Javę (pary wywołań, warstwy wspólne), pom.xml (martwe wpisy dependencyManagement) i migracje SQL/Supabase (revoke bez grant execute).
+description: Znajduje miejsca odstające od konwencji panującej w tym projekcie — "N razy tak, raz inaczej". Użyj przy przeglądzie kodu, audycie, przed wydaniem, przy pytaniach typu "czy coś tu odstaje", "czy o czymś zapomniałem", "sprawdź spójność", a także gdy użytkownik dodał nowy kod obok istniejącej rodziny podobnych miejsc. Obsługuje Javę (pary wywołań, warstwy wspólne), pom.xml (martwe wpisy dependencyManagement), migracje SQL/Supabase (revoke bez grant execute) oraz JavaScript/TypeScript i strony HTML (nazwa wołana, której strona nie zna).
 ---
 
 # odd-one-out
@@ -31,6 +31,7 @@ odd-one-out java  <katalog-zrodel-java>      # pary wywołań na tym samym odbio
 odd-one-out deps  <katalog-zrodel-java>      # warstwa wspólna vs użycie bezpośrednie
 odd-one-out sql   <katalog-migracji>         # revoke bez grant execute
 odd-one-out pom   --pom <pom.xml> --tree <deptree.txt>
+odd-one-out js    <katalog-web>              # nazwa wołana, której strona nie zna
 ```
 
 Gdy paczka nie jest zainstalowana globalnie, wołaj przez `node`:

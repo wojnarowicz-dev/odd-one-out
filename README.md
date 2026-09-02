@@ -35,6 +35,33 @@ odd-one-out pom   --pom <pom.xml> --tree <deptree.txt>
 
 `pom` wymaga wcześniejszego `mvn -o -B dependency:tree > deptree.txt`.
 
+## Detektor js — JavaScript i TypeScript
+
+Jedna gramatyka (`tree-sitter-typescript`) na oba języki: TypeScript jest
+nadzbiorem JavaScriptu. Sprawdzone na materiale — **40 plików `.js` i 10 `.ts`,
+zero błędów parsowania**. Skrypty inline wycinane są z HTML-a, z zachowaniem
+przesunięcia linii, więc numery w raporcie wskazują linię w HTML-u.
+
+Reguła `sierota`: nazwa wołana jak funkcja, **której strona nie zna**. Strona zna
+własne definicje ze swoich skryptów inline, globalne z ładowanych plików
+`<script src>` oraz wbudowane przeglądarki i języka. **To nie jest reguła
+z listy dobrych praktyk** — wynik zależy od tego, które pliki dana strona
+ładuje, więc bez wiedzy o projekcie nie da się jej postawić.
+
+| rewizja | stron | zgłoszeń | prawdziwych | trafność |
+|---|---|---|---|---|
+| przed naprawą (`c45f7a6^`) | 88 | **1** | 1 | **100%** |
+| bieżąca | 88 | 0 | — | kontrola negatywna |
+
+Znaleziona sierota to `closeAiReqLightbox` w `VideoAnalyzerPro.html:9464` —
+dokładnie ta linia, którą usunął commit `c45f7a6`.
+
+Pierwszy przebieg dał 5 zgłoszeń, z czego 4 fałszywe. Przyczyna była w moim
+wycinaniu skryptów: słowo `<script>` napisane **w komentarzu HTML** brałem za
+otwarcie bloku i parowałem z zamknięciem sto linii dalej, przez co CSS i proza
+trafiały do parsera jako JavaScript. Komentarze są teraz wygaszane przed
+szukaniem `<script>`, ze spacjami zamiast treści, żeby nie rozjechać numeracji.
+
 ## Różnica między uruchomieniami
 
 Bez tego przy każdym uruchomieniu czyta się te same zgłoszenia od nowa. Pytanie
