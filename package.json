@@ -17,6 +17,7 @@
   },
   "scripts": {
     "start": "node bin/odd-one-out.mjs",
+    "self-check": "node bin/odd-one-out.mjs js . --json .odd-one-out/self.json",
     "smoke": "node src/smoke.mjs test/Smoke.java",
     "plugin:validate": "claude plugin validate . --strict"
   },

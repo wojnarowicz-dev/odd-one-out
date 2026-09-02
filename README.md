@@ -35,6 +35,26 @@ odd-one-out pom   --pom <pom.xml> --tree <deptree.txt>
 
 `pom` wymaga wcześniejszego `mvn -o -B dependency:tree > deptree.txt`.
 
+### Samosprawdzanie
+
+```bash
+npm run self-check      # detektor js na własnym kodzie; kod wyjścia 1 przy nowych odstępstwach
+```
+
+**Narzędzie przechodzi własny test i nie zgłasza nic — ale to nie znaczy, że
+jego kod jest spójny: dziewięć plików samodzielnie czyta `process.argv`,
+parsowanie flag ma pięć osobnych implementacji, i odd-one-out tego nie widzi.**
+
+Powód jest konkretny i wart zapamiętania. Reguła `sierota` raportuje wyłącznie
+na stronach HTML — czternaście własnych plików `.mjs` zostaje sparsowanych, ale
+nie ma na nich czego zgłosić. Klasa odstępstwa, o którą tu chodzi („N miejsc
+idzie przez wspólną warstwę, K bezpośrednio"), ma w tym narzędziu własny
+detektor — `deps` — tyle że działa on tylko na Javie.
+
+Czyli: metoda tę wadę wykrywa, implementacja nie sięga do języka, w którym
+narzędzie samo jest napisane. Zero zgłoszeń przy samosprawdzaniu jest miarą
+zasięgu detektorów, nie jakości kodu.
+
 ### Język komunikatów
 
 `--lang en` (domyślnie) albo `--lang pl`. Wszystkie napisy siedzą w jednym pliku
