@@ -93,6 +93,17 @@ a wąski zasięg tego nie widzi i zgłasza brak. Do przeglądu proponuj
 (9 zamiast 15). Zasięg `method` jest najgorszy z trzech — gubi zgłoszenia,
 bo dzieli populację tak, że reguły tracą wsparcie.
 
+## Stabilność wzorca
+
+`--stabilnosc` przy `rank` mnoży ocenę przez to, jak równo wzorzec rozkłada się
+na podzbiorach populacji. **Domyślnie wyłączone.**
+
+Zmierzone: pozycja zweryfikowanych trafień podniosła się o jedno miejsce, ale
+kosztem zepchnięcia w dół innego prawdziwego zgłoszenia; dwa fałszywe alarmy
+z czoła listy mają stabilność 1,00 i są odporne. Liczba prawdziwych zgłoszeń
+w pierwszej trójce i piątce bez zmian. Ruch w rankingu to nie to samo co
+poprawa rankingu.
+
 ## Wiek odstępstwa
 
 `--wiek <katalog-repo>` przy `rank` podbija ocenę odstępstw nowszych niż linie

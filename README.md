@@ -134,6 +134,43 @@ Domyślny zasięg został przy `lambda` — różnica 22% vs 20% na jednym proje
 i jednej rodzinie reguł to za cienki dowód, żeby zmieniać zachowanie. Do
 przeglądu warto uruchomić `--scope file`.
 
+## Stabilność wzorca — czwarty składnik oceny, domyślnie wyłączony
+
+`odd-one-out rank ... --stabilnosc`
+
+Wzorzec obecny w **każdym** podzbiorze populacji jest pewniejszy niż taki, który
+powstaje dopiero z całości — ten drugi często oznacza regułę zlepioną z kilku
+niezależnych zwyczajów panujących w różnych częściach projektu.
+
+Populacja dzielona jest na cztery podzbiory **po pliku** (klasa nie rozjeżdża
+się między podzbiory), a reguła liczona w każdym osobno oraz narastająco na
+prefiksach. `stab` to średnia z obu udziałów.
+
+**To jest sprawdzenie, nie zmiana populacji.** Reguły są wydobywane z całego
+zbioru; podzbiory służą wyłącznie do policzenia, jak równo wzorzec się rozkłada.
+Dzielenie populacji, na której *pracuje* detektor, pogarsza wynik — zmierzone
+przy zasięgu `method` (7%).
+
+Zmierzone:
+
+| pozycja | bez `--stabilnosc` | z `--stabilnosc` | `stab` |
+|---|---|---|---|
+| `VideoAnalyzerPro.java:1496` (szum) | 1 | **1** | 1,00 |
+| `VideoAnalyzerPro.java:9861` (szum) | 2 | **2** | 1,00 |
+| `Menu.java:5753` (prawdziwe) | 3 | **5** | 0,71 |
+| `Loading.java:397` (zweryfikowane) | 4 | **3** | 0,83 |
+| `Loading.java:411` (zweryfikowane) | 5 | **4** | 0,83 |
+
+**Pozycja zweryfikowanych trafień drgnęła — w górę o jedno miejsce.** Ale ruch
+nie jest poprawą: awans wziął się stąd, że w dół spadło **inne prawdziwe
+zgłoszenie** (`Menu.java:5753`), a dwa fałszywe alarmy z czoła listy są na ten
+składnik odporne — ich reguły są idealnie stabilne (1,00). Liczba prawdziwych
+zgłoszeń w pierwszej trójce i piątce nie zmieniła się wcale.
+
+Dlatego **zostaje wyłączone domyślnie**: ruch w rankingu to nie to samo co
+poprawa rankingu. Składnik jest poprawny i tani — warto spróbować w projekcie,
+gdzie reguły nie są tak jednorodnie stabilne jak tutaj.
+
 ## Wiek odstępstwa — zmierzony, nie pomógł, domyślnie wyłączony
 
 `odd-one-out rank ... --wiek <katalog-repo>`

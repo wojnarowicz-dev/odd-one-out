@@ -46,7 +46,7 @@ const COMMANDS = {
     module: null,
     arg: '<zapis.json> [wiecej.json...]',
     opis: 'Jeden ranking ponad detektorami — co czytac pierwsze.',
-    opcje: '--top 20  --wiek <katalog-repo> (podbicie za mlodsze odstepstwo, domyslnie WYLACZONE)',
+    opcje: '--top 20  --wiek <katalog-repo>  --stabilnosc  (oba domyslnie WYLACZONE)',
   },
 };
 
@@ -137,7 +137,7 @@ if (cmd === 'rank') {
     console.error('rank wymaga co najmniej jednego pliku zapisu');
     process.exit(2);
   }
-  await printRanking(files.map(readSnapshot), { top, wiek });
+  await printRanking(files.map(readSnapshot), { top, wiek, stabilnosc: rest.includes('--stabilnosc') });
   process.exit(0);
 }
 

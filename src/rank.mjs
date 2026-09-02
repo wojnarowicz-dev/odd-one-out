@@ -83,8 +83,24 @@ export function rankSnapshots(snapshots) {
   return out;
 }
 
-export async function printRanking(snapshots, { top = 20, wiek = null } = {}) {
+export async function printRanking(snapshots, { top = 20, wiek = null, stabilnosc = false } = {}) {
   const ranked = rankSnapshots(snapshots);
+
+  // STABILNOSC WZORCA — czwarty skladnik oceny, opcjonalny.
+  // Wzorzec obecny w kazdym podzbiorze populacji jest pewniejszy niz taki,
+  // ktory powstaje dopiero z calosci. Wartosc liczy detektor (patrz
+  // src/oddone.mjs) na PODZBIORACH SPRAWDZAJACYCH — populacja, na ktorej
+  // wydobyto reguly, pozostaje cala.
+  let stabOpis = null;
+  if (stabilnosc) {
+    let zeSkladnikiem = 0;
+    for (const f of ranked) {
+      const s = f.meta && f.meta.stab;
+      if (typeof s === 'number') { f.score = Math.round(f.score * s); zeSkladnikiem++; }
+    }
+    ranked.sort((a, b) => b.score - a.score || a.file.localeCompare(b.file));
+    stabOpis = 'skladnik stabilnosci: zastosowany do ' + zeSkladnikiem + ' z ' + ranked.length;
+  }
 
   // WIEK — sygnal opcjonalny, domyslnie wylaczony. Wylacznie podbicie oceny;
   // nic nie jest na tej podstawie usuwane ani obnizane (patrz src/age.mjs).
@@ -116,6 +132,7 @@ export async function printRanking(snapshots, { top = 20, wiek = null } = {}) {
   console.log('');
   console.log('ocena = 100 x konwencja x populacja x rzadkosc  (porzadkowa, nie procent)');
   if (wiekOpis) console.log(wiekOpis);
+  if (stabOpis) console.log(stabOpis);
   console.log('');
 
   ranked.slice(0, top).forEach((f, i) => {
@@ -129,6 +146,8 @@ export async function printRanking(snapshots, { top = 20, wiek = null } = {}) {
     if (f.takze && f.takze.length)
       console.log('       to samo miejsce narusza takze: ' + f.takze.join(', '));
     if (f.wiek) console.log('       wiek: ' + f.wiek.opis);
+    if (stabilnosc && f.meta && f.meta.stabOpis)
+      console.log('       stabilnosc: ' + f.meta.stab + '  (' + f.meta.stabOpis + ')');
   });
 
   if (ranked.length > top) console.log('\n   ... i ' + (ranked.length - top) + ' dalszych');

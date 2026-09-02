@@ -307,6 +307,60 @@ for (const [k, ab] of supAB) {
 }
 rules.sort((a, b) => b.score - a.score);
 
+// ---- stabilnosc wzorca ----
+//
+// Wzorzec obecny w KAZDYM podzbiorze populacji jest pewniejszy niz taki, ktory
+// powstaje dopiero z calosci. Ten drugi czesto oznacza, ze regula zlepila sie
+// z kilku niezaleznych zwyczajow panujacych w roznych czesciach projektu.
+//
+// UWAGA — to jest SPRAWDZENIE, nie zmiana populacji. Reguly sa wydobyte
+// z calego zbioru (powyzej) i nic tu tego nie rusza; podzbiory sluza wylacznie
+// do policzenia, jak rowno wzorzec sie rozklada. Dzielenie populacji, na ktorej
+// PRACUJE detektor, pogarsza wynik — zmierzone przy zasiegu `method` (7%).
+//
+// Podzial idzie po PLIKU, nie po jednostce: klasa nie ma sie rozjezdzac miedzy
+// podzbiory, bo wtedy kazdy podzbior widzialby urwany fragment jej zwyczajow.
+const PODZBIORY = Math.max(2, +flag('podzbiory', 4));
+const haszPliku = (s) => {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h) % PODZBIORY;
+};
+for (const u of all) u.podzbior = haszPliku(u.file);
+
+for (const r of rules) {
+  const supAi = new Array(PODZBIORY).fill(0);
+  const supABi = new Array(PODZBIORY).fill(0);
+  for (const u of all) {
+    if (!u.items.has(r.A)) continue;
+    supAi[u.podzbior]++;
+    if (u.items.has(r.B)) supABi[u.podzbior]++;
+  }
+
+  // podzbior "rozstrzygajacy" to taki, w ktorym poprzednik w ogole wystepuje
+  let rozstrzygajace = 0, trzyma = 0;
+  for (let i = 0; i < PODZBIORY; i++) {
+    if (supAi[i] === 0) continue;
+    rozstrzygajace++;
+    if (supABi[i] / supAi[i] >= MINCONF) trzyma++;
+  }
+
+  // narastajaco: czy regula trzyma sie na kazdym prefiksie podzbiorow
+  let kumA = 0, kumAB = 0, prefiksy = 0, prefiksyTrzyma = 0;
+  for (let i = 0; i < PODZBIORY; i++) {
+    kumA += supAi[i]; kumAB += supABi[i];
+    if (kumA === 0) continue;
+    prefiksy++;
+    if (kumAB / kumA >= MINCONF) prefiksyTrzyma++;
+  }
+
+  r.stab = rozstrzygajace === 0 ? null
+    : +(((trzyma / rozstrzygajace) + (prefiksy ? prefiksyTrzyma / prefiksy : 1)) / 2).toFixed(2);
+  r.stabOpis = rozstrzygajace === 0 ? 'brak danych'
+    : trzyma + '/' + rozstrzygajace + ' podzbiorow, ' +
+      prefiksyTrzyma + '/' + prefiksy + ' narastajaco';
+}
+
 // ---- report ----
 const rel = f => path.relative(ROOT, f).replace(/\\/g, '/');
 console.log('# odd-one-out');
@@ -322,7 +376,8 @@ for (const r of rules) {
   if (shown >= TOP) break;
   shown++;
   console.log('## [' + shown + '] ' + r.A + ' -> ' + r.B +
-    '   sup=' + r.sup + '/' + r.supA + ' conf=' + (r.conf * 100).toFixed(0) + '% odd=' + r.viol);
+    '   sup=' + r.sup + '/' + r.supA + ' conf=' + (r.conf * 100).toFixed(0) + '% odd=' + r.viol +
+    (r.stab === null ? '' : ' stab=' + r.stab + ' (' + r.stabOpis + ')'));
   for (const u of all) {
     if (!u.items.has(r.A) || u.items.has(r.B)) continue;
     console.log('   ' + rel(u.file) + ':' + u.items.get(r.A)[0] + '  recv=' + u.recv +
@@ -358,6 +413,7 @@ for (const r of rules) {
       meta: {
         sup: r.sup, supA: r.supA, conf: +r.conf.toFixed(2), viol: r.viol,
         unit: u.unitKind + '@' + u.unitLine,
+        stab: r.stab, stabOpis: r.stabOpis,
         wzorzec,
       },
     });
