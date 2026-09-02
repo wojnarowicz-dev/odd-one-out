@@ -23,7 +23,7 @@ const flagAll = (n) => allValues(argv, n);
 const POM = flagAll('pom')[0];
 const TREES = flagAll('tree');
 if (!POM || TREES.length === 0) {
-  console.error('uzycie: node src/pom.mjs --pom <pom.xml> --tree <deptree.txt> [wiecej...]');
+  console.error(t('pomUsage'));
   process.exit(2);
 }
 

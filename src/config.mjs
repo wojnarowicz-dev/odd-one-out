@@ -72,8 +72,8 @@ export function loadConfig(argv = [], root = process.cwd()) {
     try {
       raw = JSON.parse(fs.readFileSync(file, 'utf8'));
     } catch (e) {
-      console.error('!! Nie udalo sie wczytac ' + file + ': ' + e.message);
-      console.error('   Ide dalej z ustawieniami domyslnymi.');
+      console.error(t('configUnreadable', file, e.message));
+      console.error(t('configFallback'));
       raw = {};
       file = null;
     }

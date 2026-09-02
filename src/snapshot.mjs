@@ -217,6 +217,7 @@ export function printDiff(oldSnap, newSnap, { showUnchanged = false } = {}) {
   }
   if (d.zniklo.length) {
     console.log(t('diffSecGone'));
+    console.log(t('diffSecGoneHint'));
     for (const f of d.zniklo) console.log(line(f));
     console.log('');
   }

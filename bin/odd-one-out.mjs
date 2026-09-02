@@ -18,7 +18,7 @@ const COMMANDS = {
     module: 'oddone.mjs',
     arg: '<java-source-dir>',
     descKey: 'cmdJava',
-    options: '--minsup 3 --minconf 0.6 --maxviol 4 --top 10 --only nazwa1,nazwa2',
+    options: '--minsup 3 --minconf 0.6 --maxviol 4 --top 10 --only name1,name2',
   },
   deps: {
     module: 'deps.mjs',

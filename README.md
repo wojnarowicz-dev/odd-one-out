@@ -17,8 +17,20 @@ to the rest of the same repository.
 ```bash
 git clone <repo> && cd odd-one-out
 npm install
-npm start          # prints the help screen
+npm start                      # prints the help screen
 ```
+
+Three ways to run it, all equivalent:
+
+```bash
+npx odd-one-out java ./src/main/java        # inside the clone, nothing to install
+node bin/odd-one-out.mjs java ./src/main/java   # the same, without npx
+npm i -g . && odd-one-out java ./src/main/java  # installs the command system-wide
+```
+
+The bare `odd-one-out` command exists only after the last one. `package.json`
+declares `bin`, but a plain clone does not put anything on the PATH — the help
+screen prints `npx odd-one-out ...` for exactly that reason.
 
 **For Claude Code, install through the plugin marketplace**
 (`.claude-plugin/marketplace.json` — `claude plugin marketplace add <repo>`, then

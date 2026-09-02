@@ -1,0 +1,108 @@
+# odd-one-out — Polish words that must not appear in an English message.
+#
+# The mirror of technical-terms.txt. test/lang-check.mjs checks BOTH directions:
+# English left inside a Polish string, and Polish left inside an English one.
+#
+# WHY THE SECOND DIRECTION EXISTS. The English help printed
+# `--only nazwa1,nazwa2` all the way to a first-contact audit. The check at the
+# time looked only for English inside Polish, and only inside lang.mjs — and
+# that string was Polish, inside English, in bin/odd-one-out.mjs. Three ways of
+# being invisible at once.
+#
+# Diacritics are caught without this list: any of ąćęłńóśźż in an English string
+# is a leak by itself. This list exists because the Polish in this project is
+# written without them.
+#
+# One word per line, three letters or more. Everything after # is a comment.
+
+# --- the ones that actually leaked, or nearly did
+nazwa
+nazwy
+nazwe
+nazwie
+plik
+pliku
+pliki
+plikow
+katalog
+katalogu
+sciezka
+sciezki
+sciezke
+zapis
+zapisu
+zapisie
+przebieg
+przebiegu
+wynik
+wyniku
+blad
+bledu
+bledy
+brak
+braku
+
+# --- common verbs and connectives
+jest
+sacz
+nie
+albo
+oraz
+tez
+tylko
+wiec
+przez
+dla
+tego
+tym
+jak
+ktore
+ktory
+ktora
+jesli
+gdy
+zeby
+juz
+bez
+sie
+
+# --- vocabulary of this tool
+zgloszen
+zgloszenie
+zgloszenia
+regula
+reguly
+regul
+odstepstwo
+odstepstwa
+konwencja
+konwencji
+miejsce
+miejsca
+miejsc
+wolanie
+wolania
+wola
+projekt
+projektu
+projekcie
+sprawdz
+sprawdza
+uzycie
+domyslnie
+domyslne
+wlaczone
+wylaczone
+nieznany
+nieznane
+zasieg
+zasiegu
+wymaga
+oczekiwano
+znaleziono
+odbiornik
+odbiorniku
+wyciszone
+wykluczen
+migracje
+migracji

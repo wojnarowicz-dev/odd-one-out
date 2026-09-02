@@ -55,7 +55,7 @@ const SCOPES = {
 };
 const SCOPE = String(flag('scope', 'lambda'));
 if (!SCOPES[SCOPE]) {
-  console.error('Nieznany zasieg: ' + SCOPE + '. Dozwolone: file, method, lambda.');
+  console.error(t('javaUnknownScope', SCOPE));
   process.exit(2);
 }
 const FUNC_LIKE = SCOPES[SCOPE];
@@ -584,21 +584,74 @@ let shown = 0;
 for (const r of rules) {
   if (shown >= TOP) break;
 
-  const lines = [];
+  const violations = [];
   for (const u of all) {
     if (!u.items.has(r.A) || u.items.has(r.B)) continue;
     if (sieved(r, u)) { sievedCount++; continue; }
     if (!visible.has((r.A + '->' + r.B) + '|' + rel(u.file) + '|' + u.items.get(r.A)[0])) continue;
-    lines.push('   ' + rel(u.file) + ':' + u.items.get(r.A)[0] + '  recv=' + u.recv +
-      '  in ' + u.unitKind + '@' + u.unitLine);
-    lines.push(t('javaCallsHere', [...u.items.keys()].join(', ')));
+    violations.push(u);
   }
-  if (lines.length === 0) continue;
+  if (violations.length === 0) continue;
+
+  // THE PLACES THAT HOLD THE PATTERN. Until this was added, a java finding was a
+  // rule header and a list of sites, and the reader had to take "45 of 49" on
+  // faith — the evidence the rule rests on was never shown. Every other detector
+  // has said WHAT IS INCONSISTENT, HOW IT IS DONE ELSEWHERE and offered a
+  // ready-made fix from the start; java, which produces almost every finding on
+  // a real project, had none of the three. It stayed invisible because these
+  // findings were only ever read through `rank` and the known-answer suite.
+  const conforming = [];
+  for (const u of all) {
+    if (!u.items.has(r.A) || !u.items.has(r.B)) continue;
+    conforming.push(u);
+    if (conforming.length >= 2) break;
+  }
 
   shown++;
   console.log(t('javaRuleHead', shown, r.A, r.B, r.sup, r.supA, (r.conf * 100).toFixed(0), r.viol) +
     (r.stab === null ? '' : t('javaStab', r.stab, r.stabDesc)));
-  for (const l of lines) console.log(l);
+  console.log('');
+
+  console.log(t('secInconsistent'));
+  console.log(t('javaWhatBody', methodName(r.B), r.sup, r.supA, methodName(r.A), r.viol));
+  for (const u of violations) {
+    console.log('     ' + rel(u.file) + ':' + u.items.get(r.A)[0] + '  recv=' + u.recv +
+      '  in ' + u.unitKind + '@' + u.unitLine);
+    console.log(t('javaCallsHere', [...u.items.keys()].join(', ')));
+  }
+
+  if (conforming.length) {
+    console.log('');
+    console.log(t('secElsewhere'));
+    for (const u of conforming) {
+      console.log('     ' + rel(u.file) + ':' + u.items.get(r.B)[0] + '  recv=' + u.recv +
+        '  in ' + u.unitKind + '@' + u.unitLine);
+      console.log(t('javaCallsBoth', methodName(r.A), methodName(r.B)));
+    }
+  }
+
+  // The fix is a call, not a patch. The rule knows WHICH call is missing and on
+  // what; it does not know the arguments, and says so. Same reason nothing here
+  // is ever written to a file.
+  console.log('');
+  console.log(t('secFix'));
+  const first = violations[0];
+  console.log(t('javaFixWhere', rel(first.file), first.items.get(r.A)[0],
+    first.unitKind + '@' + first.unitLine));
+  console.log('     + ' + first.recv + '.' + methodName(r.B) + '(...);');
+  console.log(t('javaFixNote', r.sup));
+  console.log('');
+}
+
+// WHAT IS ON SCREEN IS NOT THE WHOLE LIST. Ten rule blocks used to be printed
+// next to a line saying 518 rules had been mined, with nothing connecting the
+// two and no hint that `rank` is where the full, ordered list lives.
+// ONLY WHEN THE CAP IS WHAT CUT THE LIST. `shown < rules.length` is also true on
+// a second run where the diff hid everything unchanged — saying "shown 0 of 518"
+// there would blame the cap for something the diff did, and the diff line above
+// has already explained it.
+if (shown >= TOP && rules.length > shown) {
+  console.log(t('javaMoreRules', shown, rules.length, flag('json', null) || '<snapshot.json>'));
   console.log('');
 }
 

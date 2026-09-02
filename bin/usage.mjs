@@ -32,23 +32,30 @@ export function help(COMMANDS, code = 0) {
   // THE PATH TO THE READABLE OUTPUT. It used to be missing entirely: the
   // examples showed a single detector invocation, while the only output that is
   // actually readable — the merged ranking — was never mentioned in the help.
+  // THE COMMAND HAS TO BE ONE THAT WORKS. The examples used to read
+  // `odd-one-out ...`, and after a plain `git clone && npm install` there is no
+  // such command on the PATH — package.json declares `bin`, but that becomes a
+  // command only after `npm i -g` or `npm link`. Somebody following the help got
+  // "command not found" and had to guess `npx` unaided.
   w(t('helpStart'));
+  w(t('helpHowToRun'));
   w(t('helpStart1'));
-  w('       odd-one-out java ./src/main/java --json .odd-one-out/java.json');
+  w('       npx odd-one-out java ./src/main/java --json .odd-one-out/java.json');
   w(t('helpStart2'));
-  w('       odd-one-out rank .odd-one-out/java.json');
+  w('       npx odd-one-out rank .odd-one-out/java.json');
   w(t('helpStart3'));
   w('');
   w(t('helpExamples'));
-  w('  odd-one-out js    ./src/web');
-  w('  odd-one-out sql   ./supabase/migrations');
-  w('  odd-one-out deps  ./src/main/java');
-  w('  odd-one-out pom   --pom ./pom.xml --tree ./deptree.txt');
+  w('  npx odd-one-out js    ./src/web');
+  w('  npx odd-one-out sql   ./supabase/migrations');
+  w('  npx odd-one-out deps  ./src/main/java');
+  w('  npx odd-one-out pom   --pom ./pom.xml --tree ./deptree.txt');
   w('');
   w(t('helpReading'));
   w(t('helpReading1'));
   w(t('helpReading2'));
   w(t('helpReading3'));
+  w(t('helpReadingStab'));
   w(t('helpReading4'));
 
   process.exit(code);

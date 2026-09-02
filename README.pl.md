@@ -18,6 +18,18 @@ npm install
 npm start          # wypisuje pomoc
 ```
 
+Trzy sposoby uruchomienia, równoważne:
+
+```bash
+npx odd-one-out java ./src/main/java            # w sklonowanym repo, bez instalowania
+node bin/odd-one-out.mjs java ./src/main/java   # to samo, bez npx
+npm i -g . && odd-one-out java ./src/main/java  # instaluje komendę w systemie
+```
+
+Gołe `odd-one-out` istnieje dopiero po tym ostatnim. `package.json` deklaruje
+`bin`, ale zwykły klon niczego nie dokłada do PATH — dlatego ekran pomocy
+drukuje `npx odd-one-out ...`.
+
 **Dla Claude Code instalacja przez rynek wtyczek** (`.claude-plugin/marketplace.json`
 — `claude plugin marketplace add <repo>`, potem `claude plugin install odd-one-out`).
 **Dla pozostałych agentów skopiuj katalog `skills/`**: `SKILL.md` nie jest formatem

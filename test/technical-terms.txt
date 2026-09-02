@@ -42,8 +42,25 @@ npm
 node
 PR-Miner
 
+# --- how the tool is invoked, printed verbatim so it can be pasted
+npx
+bin
+mjs
+
+# --- quoted verbatim from the tool own output line: stab=1 (4/4 subsets, 4/4 cumulative)
+subsets
+cumulative
+
 # --- command names, printed verbatim so they can be copied into a shell
 deps
+
+# --- values of --scope, printed verbatim because they are what you type
+file
+method
+lambda
+
+# --- the conventional name of the Maven tree file
+deptree.txt
 
 # --- flag names, printed verbatim so they can be copied into a shell
 accessors
@@ -76,6 +93,7 @@ profile
 revoke
 grant
 execute
+function
 public
 from
 service

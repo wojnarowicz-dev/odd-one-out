@@ -75,6 +75,14 @@ const S = {
   'helpCommands': { en: 'COMMANDS', pl: 'POLECENIA' },
   'helpOptions': { en: '         options: {0}', pl: '         opcje: {0}' },
   'helpStart': { en: 'START HERE', pl: 'OD CZEGO ZACZAC' },
+  'helpHowToRun': {
+    en: '  Inside a clone: npx odd-one-out ... (or node bin/odd-one-out.mjs ...). After npm i -g: odd-one-out ...',
+    pl: '  W sklonowanym repo: npx odd-one-out ... (albo node bin/odd-one-out.mjs ...). Po npm i -g: odd-one-out ...',
+  },
+  'helpReadingStab': {
+    en: '  stab=1 (4/4 subsets, 4/4 cumulative) — the pattern held in every slice of the project, so it is not an artefact of one corner of it.',
+    pl: '  stab=1 (4/4 subsets, 4/4 cumulative) — wzorzec trzymal sie w kazdym wycinku projektu, wiec nie jest artefaktem jednego jego zakatka.',
+  },
   'helpStart1': { en: '  1. Scan and save the run:', pl: '  1. Przeskanuj i zapisz przebieg:' },
   'helpStart2': { en: '  2. Read the merged, ranked list (this is the readable output):', pl: '  2. Przeczytaj scalona liste w kolejnosci sily dowodu (to czytelne wyjscie):' },
   'helpStart3': { en: '  3. Run it again later — it will show only what is NEW since last time.', pl: '  3. Uruchom pozniej ponownie — pokaze tylko to, co NOWE od ostatniego razu.' },
@@ -93,6 +101,22 @@ const S = {
   'cmdRank': { en: 'One ranked list across detectors — what to read first.', pl: 'Jeden ranking ponad detektorami — co czytac pierwsze.' },
   'optPomNote': { en: '(the tree must come from THE SAME pom.xml revision and profile set)', pl: '(drzewo musi pochodzic z TEJ SAMEJ rewizji pom.xml i tego samego zestawu profili)' },
   // ---------- input validation ----------
+  'configUnreadable': {
+    en: '!! Could not read {0}: {1}',
+    pl: '!! Nie udalo sie wczytac {0}: {1}',
+  },
+  'configFallback': {
+    en: '   Carrying on with the default settings.',
+    pl: '   Ide dalej z ustawieniami domyslnymi.',
+  },
+  'javaUnknownScope': {
+    en: 'Unknown scope: {0}. Allowed: file, method, lambda.',
+    pl: 'Nieznany zasieg: {0}. Dozwolone: file, method, lambda.',
+  },
+  'pomUsage': {
+    en: 'usage: odd-one-out pom --pom <pom.xml> --tree <deptree.txt> [more...]',
+    pl: 'uzycie: odd-one-out pom --pom <pom.xml> --tree <deptree.txt> [wiecej...]',
+  },
   'inputNoSuchPath': { en: 'Path does not exist: {0}', pl: 'Sciezka nie istnieje: {0}' },
   'inputNotDir': { en: 'Not a directory: {0}', pl: 'To nie jest katalog: {0}' },
   'inputNotFile': { en: 'Not a file: {0}', pl: 'To nie jest plik: {0}' },
@@ -117,6 +141,26 @@ const S = {
   'noSourcesHint': { en: '  Supported: Java (java, deps), JavaScript/TypeScript and HTML (js), SQL migrations (sql), Maven pom.xml (pom). Other languages are not read.', pl: '  Obslugiwane: Java (java, deps), JavaScript/TypeScript i HTML (js), migracje SQL (sql), pom.xml Mavena (pom). Innych jezykow nie czytam.' },
 
   // ---------- sekcje zgłoszenia ----------
+  'javaWhatBody': {
+    en: '     {0} is not called here, although {1} of the {2} places that call {3} on the same receiver do call it. These {4} do not:',
+    pl: '     {0} nie jest tu wolane, choc {1} z {2} miejsc wolajacych {3} na tym samym odbiorniku je wola. Te {4} nie:',
+  },
+  'javaCallsBoth': {
+    en: '      calls both: {0} and {1}',
+    pl: '      wola oba: {0} oraz {1}',
+  },
+  'javaFixWhere': {
+    en: '     // {0}:{1} — in {2}, next to the call already there:',
+    pl: '     // {0}:{1} — w {2}, obok wolania, ktore juz tam jest:',
+  },
+  'javaFixNote': {
+    en: '     // check the arguments against the {0} places that do call it — the rule knows the call is missing, not what to pass to it',
+    pl: '     // sprawdz argumenty wzgledem {0} miejsc, ktore je wolaja — regula wie, ze wolania brakuje, nie wie, co mu podac',
+  },
+  'javaMoreRules': {
+    en: 'Shown: {0} of {1} rules. The whole list, ordered by strength of evidence: odd-one-out rank {2} — or --top {1} to see them all here.',
+    pl: 'Pokazano: {0} z {1} regul. Cala lista w kolejnosci sily dowodu: odd-one-out rank {2} — albo --top {1}, zeby zobaczyc je tutaj.',
+  },
   'secInconsistent': { en: '   WHAT IS INCONSISTENT', pl: '   CO JEST NIESPOJNE' },
   'secElsewhere': { en: '   HOW IT IS DONE ELSEWHERE', pl: '   JAK ZROBIONO W POZOSTALYCH MIEJSCACH' },
   'secFix': { en: '   READY-MADE FIX (not applied)', pl: '   GOTOWA POPRAWKA (nie zastosowana)' },
@@ -149,7 +193,11 @@ const S = {
   'diffWarnThresholds': { en: '!! WARNING: different thresholds — [{0}] vs [{1}]. The difference may come from the thresholds, not the code.', pl: '!! UWAGA: rozne progi — [{0}] vs [{1}]. Roznica moze pochodzic z progow, nie z kodu.' },
   'diffCounts': { en: 'NEW={0}  GONE={1}  CHANGED={2}  unchanged={3}', pl: 'NOWE={0}  ZNIKNELO={1}  ZMIENIONE={2}  bez zmian={3}' },
   'diffSecNew': { en: '## NEW — appeared since the previous run', pl: '## NOWE — doszly od ostatniego przebiegu' },
-  'diffSecGone': { en: '## GONE — fixed or code removed', pl: '## ZNIKNELO — poprawione albo kod usuniety' },
+  'diffSecGone': { en: '## GONE — fixed, or the code is no longer there', pl: '## ZNIKNELO — poprawione albo kodu juz nie ma' },
+  'diffSecGoneHint': {
+    en: '   Which of the two: open the file at the line below. Still there and now consistent — fixed. Not there — moved, renamed or deleted, and this says nothing about whether the deviation survived the move.',
+    pl: '   Ktore z dwojga: otworz plik w linii ponizej. Jest i jest juz spojne — poprawione. Nie ma go — przeniesione, przemianowane albo skasowane, a to nic nie mowi o tym, czy odstepstwo przetrwalo przenosiny.',
+  },
   'diffSecChanged': { en: '## CHANGED — same site, different strength of evidence', pl: '## ZMIENIONE — to samo miejsce, inna sila dowodu' },
   'diffSecUnchanged': { en: '## UNCHANGED', pl: '## BEZ ZMIAN' },
   'diffNoChange': { en: 'No change since the previous run.', pl: 'Bez zmian wzgledem poprzedniego przebiegu.' },
