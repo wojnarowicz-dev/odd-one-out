@@ -1,0 +1,12 @@
+# odd-one-out — line endings are decided by the repository, not by the machine.
+#
+# WHY. Without this, every checkout uses whatever core.autocrlf the local git
+# happens to have. This repository was written on Windows with autocrlf=true:
+# the blobs are LF, but a checkout here rewrites them to CRLF, and a checkout
+# elsewhere may not. The result is the same file with two different endings
+# depending on who cloned it — and a diff that shows every line as changed the
+# first time somebody edits it.
+#
+# text=auto  — git decides what is text and normalises it to LF in the repo
+# eol=lf     — and writes LF on checkout, on every platform
+* text=auto eol=lf
