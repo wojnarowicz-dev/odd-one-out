@@ -12,6 +12,40 @@ to the rest of the same repository.
 
 *Polska wersja tego dokumentu: [README.pl.md](README.pl.md).*
 
+## What one finding looks like
+
+Every finding answers three questions, and the third one is the reason this tool
+exists: it hands you the fix and does not apply it.
+
+```
+## [1] Button#setOnMouseEntered -> Button#setStyle   sup=45/49 conf=92% odd=4
+
+   WHAT IS INCONSISTENT
+     setStyle is not called here, although 45 of the 49 places that call
+     setOnMouseEntered on the same receiver do call it. These 4 do not:
+     SharedButtonEffects.java:52  recv=btn  in setupHoverEffects@38
+      calls here: Button#setOnMouseEntered, Button#setOnMouseExited
+
+   HOW IT IS DONE ELSEWHERE
+     KeyMomentCategoryStyles.java:214  recv=targetButton  in applyPreviewToButton@211
+      calls both: setOnMouseEntered and setStyle
+
+   READY-MADE FIX (not applied)
+     // SharedButtonEffects.java:52 — in setupHoverEffects@38, next to the call already there:
+     + btn.setStyle(...);
+     // check the arguments against the 45 places that do call it — the rule knows
+     // the call is missing, not what to pass to it
+```
+
+**WHAT IS INCONSISTENT** names the population the verdict rests on — 45 of 49 —
+so a wrong finding can be dismissed in seconds instead of investigated.
+**HOW IT IS DONE ELSEWHERE** points at real lines that hold the pattern, because
+"this deviates" is worth nothing without somewhere to compare it to.
+**READY-MADE FIX** is a call you can paste, with the one thing the rule does not
+know said out loud: it knows which call is missing and on what, not what to pass
+to it. Nothing is ever written to a file — a tool that edits code needs tests
+measuring whether it helped, and there are none.
+
 ## Install
 
 ```bash
@@ -634,6 +668,26 @@ settings — the ranking has **7 entries** (12 findings merged by site):
 | **5** | **`Loading.java:411`** | **true (verified)** |
 | 6 | `Screen.java:2121` | false |
 | 7 | `Loading.java:974` | false |
+
+**Two numbers, not one.** Accuracy alone flatters a tool; what costs you time is
+the other half. Both are given here, over the same list:
+
+| | first 5 | first 7 (the whole merged list) |
+|---|---|---|
+| true findings | 3 — **60%** | 3 — **43%** |
+| **false alarms** | 2 — **40%** | 4 — **57%** |
+
+In discovery mode, without `--only`, the same project gives 4 true of 14 —
+**29% accuracy, 71% false alarms**.
+
+For scale: commercial static analysers publish false positive rates from about
+**1%** (SonarQube on the OWASP Benchmark; Veracode claims under 1.1% in
+enterprise use) up to **36.3%** for Checkmarx in the 2024 Tolly Report. Those are
+vendor and benchmark figures on synthetic security suites, so they do not compare
+like for like with the numbers above — but they set the scale, and this tool is
+on the wrong end of it. That is what "PR-Miner: 18.1%" means in practice, and
+it is the honest price of looking for conventions instead of known bug patterns.
+
 
 **All four known answers fall in the top five.** Above them stand exactly two
 false positives — and that is not a coincidence but the known limitation

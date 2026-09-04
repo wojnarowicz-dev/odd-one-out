@@ -10,6 +10,40 @@ progów z sufitu; porównuje kod do reszty tego samego repozytorium.
 **Nie zmienia plików.** Przy każdym zgłoszeniu pokazuje gotową poprawkę do
 wklejenia.
 
+## Jak wygląda jedno zgłoszenie
+
+Każde zgłoszenie odpowiada na trzy pytania, a trzecie jest powodem, dla którego
+to narzędzie istnieje: podaje poprawkę i jej nie stosuje.
+
+```
+## [1] Button#setOnMouseEntered -> Button#setStyle   sup=45/49 conf=92% odd=4
+
+   CO JEST NIESPOJNE
+     setStyle nie jest tu wolane, choc 45 z 49 miejsc wolajacych
+     setOnMouseEntered na tym samym odbiorniku je wola. Te 4 nie:
+     SharedButtonEffects.java:52  recv=btn  in setupHoverEffects@38
+      wolania tutaj: Button#setOnMouseEntered, Button#setOnMouseExited
+
+   JAK ZROBIONO W POZOSTALYCH MIEJSCACH
+     KeyMomentCategoryStyles.java:214  recv=targetButton  in applyPreviewToButton@211
+      wola oba: setOnMouseEntered oraz setStyle
+
+   GOTOWA POPRAWKA (nie zastosowana)
+     // SharedButtonEffects.java:52 — w setupHoverEffects@38, obok wolania, ktore juz tam jest:
+     + btn.setStyle(...);
+     // sprawdz argumenty wzgledem 45 miejsc, ktore je wolaja — regula wie,
+     // ze wolania brakuje, nie wie, co mu podac
+```
+
+**CO JEST NIESPÓJNE** nazywa populację, na której stoi werdykt — 45 z 49 — więc
+błędne zgłoszenie da się odrzucić w kilka sekund zamiast je badać.
+**JAK ZROBIONO W POZOSTAŁYCH MIEJSCACH** wskazuje prawdziwe linie trzymające
+wzorzec, bo „to odstaje" jest nic niewarte bez czegoś, do czego można porównać.
+**GOTOWA POPRAWKA** to wywołanie do wklejenia, z powiedzianą wprost jedyną
+rzeczą, której reguła nie wie: wie, którego wywołania brakuje i na czym, nie wie,
+co mu podać. Nic nigdy nie trafia do pliku — narzędzie, które samo poprawia kod,
+wymaga testów mierzących, czy pomogło, a takich nie ma.
+
 ## Instalacja
 
 ```bash
@@ -643,6 +677,27 @@ domyślne — ranking ma **7 pozycji** (12 zgłoszeń scalonych po miejscu):
 | **5** | **`Loading.java:411`** | **prawdziwe (zweryfikowane)** |
 | 6 | `Screen.java:2121` | fałszywe |
 | 7 | `Loading.java:974` | fałszywe |
+
+**Dwie liczby, nie jedna.** Sama trafność narzędziu pochlebia; czas zabiera druga
+połowa. Obie są tutaj, policzone na tej samej liście:
+
+| | pierwsze 5 | pierwsze 7 (cała scalona lista) |
+|---|---|---|
+| trafnych | 3 — **60%** | 3 — **43%** |
+| **fałszywych alarmów** | 2 — **40%** | 4 — **57%** |
+
+W trybie odkrywania, bez `--only`, ten sam projekt daje 4 trafne z 14 —
+**29% trafności, 71% fałszywych alarmów**.
+
+Dla skali: komercyjne analizatory statyczne podają wskaźniki fałszywych alarmów
+od około **1%** (SonarQube na OWASP Benchmark; Veracode deklaruje poniżej 1,1%
+w zastosowaniach firmowych) po **36,3%** dla Checkmarksa w raporcie Tolly 2024.
+To są liczby producentów i benchmarków na syntetycznych zestawach
+bezpieczeństwa, więc nie porównują się wprost z powyższymi — ale wyznaczają
+skalę, a to narzędzie stoi na jej niewłaściwym końcu. Tyle w praktyce znaczy
+„PR-Miner: 18,1%" i taka jest uczciwa cena szukania konwencji zamiast znanych
+wzorców błędów.
+
 
 **Wszystkie cztery znane odpowiedzi mieszczą się w pierwszej piątce.** Nad nimi
 stoją dokładnie dwa fałszywe alarmy — i to nie jest przypadek, tylko znane

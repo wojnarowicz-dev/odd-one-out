@@ -357,7 +357,7 @@ const itemName = s => (s.includes('#') ? s.slice(s.indexOf('#') + 1) : s);
 // fields is not a defect; forgetting one of two sibling STATE CHECKS is a
 // whole class of them. Measured on the author's project, the first version of
 // this filter removed `Duration#isUnknown -> Duration#isIndefinite` at
-// VideoAnalyzerPro.java:877, where the code guards isUnknown() and the same
+// Screen.java:877, where the code guards isUnknown() and the same
 // file guards both twenty lines further down. For media of indefinite length
 // toMillis() is infinite, the `<= 0` guard does not catch it, and the (int)
 // cast yields 2147483647 seconds instead of -1. That is a real defect and the
