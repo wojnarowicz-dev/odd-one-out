@@ -462,6 +462,68 @@ mieć timeout") byłaby zupełnie dobrą regułą lintera i są lintery, które 
 robią — ale nie jest zdaniem o konwencji TEGO projektu, a tylko takie zdania
 to narzędzie wypowiada.
 
+## Detektor Pythona — napisany, zmierzony, niewydany
+
+Model z Javy został przeniesiony na Pythona: te same jednostki, to samo
+wydobywanie reguł, te same progi. Trudny jest odbiornik — Python nie deklaruje
+typów, więc „ten sam obiekt" rozpoznaje się po nazwie zmiennej w zasięgu
+funkcji, ze znacznikiem z konstruktora (`sock = socket.socket(...)` znaczy
+`sock` jako socket), z listy importów dla odbiorników modułowych albo z klauzuli
+`with ... as`. Co przy tym przepada, jest wypisane: obiekt przychodzący
+parametrem, czytany z pola albo rozpakowany z indeksu wpada do `?`, tam gdzie
+w Javie byłaby deklaracja do przeczytania.
+
+**Detektor działa.** Na siedmiu prawdziwych projektach, przy progach domyślnych,
+bez żadnego strojenia:
+
+| projekt | plików .py | jednostek | reguł, które przeszły | naruszeń |
+|---|---|---|---|---|
+| django | 2930 | 68 971 | 552 | 931 |
+| prefect | 1819 | 54 341 | 336 | 596 |
+| scrapy | 487 | 8 628 | 72 | 128 |
+| celery | 423 | 13 526 | 71 | 139 |
+| paramiko | 70 | 2 869 | 71 | 126 |
+| urllib3 | 81 | 3 447 | 39 | 57 |
+| certbot | 33 | 920 | 6 | 10 |
+
+Reguły czytają się sensownie — `Signal#connect -> Signal#disconnect` w celery,
+`ExecutionEngine#open_spider_async -> close_spider_async` w scrapy,
+`HTTPConnection#request -> HTTPConnection#getresponse` w urllib3 przy 19 na 22.
+Model ma w Pythonie materiał i to nigdy nie było pytaniem.
+
+**NIE JEST WYDANY, BO NIE MA ZNANEJ ODPOWIEDZI.** Każdy detektor tutaj zasługuje
+na swoje miejsce tym, że wskazuje defekt, który ktoś naprawdę naprawił,
+sprawdzony na rewizji sprzed naprawy (patrz `test/known-answers.mjs`). Python
+takiej nie ma. Dwie próby znalezienia jej ręcznie padły z powodów wartych
+zapisania: w docker-py jedyne `requests.get` bez timeoutu było JEDYNYM
+wywołaniem HTTP w repozytorium — brak populacji, więc nie ma konwencji, od której
+można odstawać; w streamlink i urllib3 zasób, którego zamknięcie dopisano, nigdy
+nie był odbiornikiem w naprawianej funkcji, więc model par nie miał czego parować.
+
+Wtedy kolejność została odwrócona: zamiast szukać naprawy i pytać, czy narzędzie
+ją widzi, puścić narzędzie na rewizji z 2022 i zapytać, czy cokolwiek z tego, co
+zgłosiło, zostało później poprawione.
+
+| repozytorium | naruszeń w 2022 | naprawionych | nadal narusza | zniknęło z kodem | commitów od tamtej pory |
+|---|---|---|---|---|---|
+| urllib3 | 37 | **0** | 20 | 15 | 656 |
+| paramiko | 137 | **0** | 107 | 30 | 368 |
+| docker-py | 86 | **0** | 86 | 0 | 245 |
+| **razem** | **260** | **0** | **213** | 45 | |
+
+**213 z 260 naruszeń przeżyło trzy lata i 1269 commitów nietkniętych.** To jest
+uczciwa miara tego, co ta klasa narzędzi zgłasza: w większości nie defekty.
+Własne 18,1% PR-Minera mówi to samo jedną liczbą.
+
+Jeden przypis o metodzie, bo o mało nie poszło inaczej. Pierwszy przebieg
+sprawdzianu zgłosił dwa naruszenia urllib3 jako naprawione. Nie były: sprawdzian
+dopasowywał miejsca po trójce (plik, nazwa funkcji, odbiornik), a w tym pliku są
+CZTERY funkcje o nazwie `socket_handler` i tylko jedna woła brakującą metodę —
+przy czym wołała ją już w 2022. Commit, który ruszył tamtą okolicę,
+`d560e21d "Consume connections better in socket-level tests"`, to infrastruktura
+testów, nie naprawa defektu. Przyrząd pomiarowy, który zgadza się z hipotezą, to
+pierwsza rzecz, której nie należy ufać.
+
 ## Wiek odstępstwa — zmierzony, nie pomógł, domyślnie wyłączony
 
 `odd-one-out rank ... --wiek <katalog-repo>`
