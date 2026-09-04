@@ -440,6 +440,68 @@ timeout") it would be a perfectly good lint rule, and there are linters that do
 it — but it is not a statement about the convention of THIS project, which is
 the only kind of statement this tool makes.
 
+## A Python detector — built, measured, not shipped
+
+The Java model was ported to Python: same units, same rule mining, same
+thresholds. The receiver is the hard part — Python declares no types, so "the
+same object" is recognised by the variable name inside one function, tagged from
+its constructor (`sock = socket.socket(...)` tags `sock` as socket), from the
+import list for module receivers, or from a `with ... as` clause. What that
+loses is written down: an object arriving as a parameter, read from a field, or
+unpacked from a subscript falls through to `?`, where Java would have had a
+declaration to read.
+
+**The detector works.** On seven real projects, at default thresholds, with
+nothing tuned:
+
+| project | .py files | units | rules that passed | violations |
+|---|---|---|---|---|
+| django | 2930 | 68 971 | 552 | 931 |
+| prefect | 1819 | 54 341 | 336 | 596 |
+| scrapy | 487 | 8 628 | 72 | 128 |
+| celery | 423 | 13 526 | 71 | 139 |
+| paramiko | 70 | 2 869 | 71 | 126 |
+| urllib3 | 81 | 3 447 | 39 | 57 |
+| certbot | 33 | 920 | 6 | 10 |
+
+The rules read sensibly — `Signal#connect -> Signal#disconnect` in celery,
+`ExecutionEngine#open_spider_async -> close_spider_async` in scrapy,
+`HTTPConnection#request -> HTTPConnection#getresponse` in urllib3 at 19 of 22.
+So the model has material in Python, and that was never the question.
+
+**IT IS NOT SHIPPED, BECAUSE THERE IS NO KNOWN ANSWER.** Every detector here
+earns its place by pointing at a defect somebody actually fixed, checked at the
+revision before the fix (see `test/known-answers.mjs`). Python has none. Two
+attempts to find one by hand failed for reasons worth recording: in docker-py the
+one `requests.get` without a timeout was the ONLY HTTP call in the repository —
+no population, so no convention to deviate from; in streamlink and urllib3 the
+resource whose closing was added was never a receiver in the fixed function, so
+the pair model had nothing to pair.
+
+Then the search was inverted: instead of hunting a fix and asking whether the
+tool sees it, run the tool on a 2022 revision and ask whether anything it
+reported was later corrected.
+
+| repository | violations in 2022 | later fixed | still violating | gone with the code | commits since |
+|---|---|---|---|---|---|
+| urllib3 | 37 | **0** | 20 | 15 | 656 |
+| paramiko | 137 | **0** | 107 | 30 | 368 |
+| docker-py | 86 | **0** | 86 | 0 | 245 |
+| **total** | **260** | **0** | **213** | 45 | |
+
+**213 of 260 violations survived three years and 1269 commits untouched.** That
+is the honest measure of what this class of tool reports: mostly not defects.
+PR-Miner's own 18.1% says the same thing in one number.
+
+One footnote on method, because it nearly went the other way. The first run of
+the check reported two urllib3 violations as fixed. They were not: the check
+matched sites by (file, function name, receiver), and that file contains FOUR
+functions named `socket_handler`, only one of which calls the missing method —
+and it already called it in 2022. The commit that touched the area,
+`d560e21d "Consume connections better in socket-level tests"`, is test
+infrastructure, not a defect fix. A measuring instrument that agrees with the
+hypothesis is the first thing to distrust.
+
 ## Age of a deviation — measured, did not help, off by default
 
 `odd-one-out rank … --age <repo-dir>`
