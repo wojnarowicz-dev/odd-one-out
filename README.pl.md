@@ -437,6 +437,31 @@ Dlatego **zostaje wyłączone domyślnie**: ruch w rankingu to nie to samo co
 poprawa rankingu. Składnik jest poprawny i tani — warto spróbować w projekcie,
 gdzie reguły nie są tak jednorodnie stabilne jak tutaj.
 
+## Wywołania HTTP bez timeoutu — zmierzone, przesłanka nie trzyma
+
+Detektor Pythona miał dostać regułę, która wygląda oczywiście: `requests.get`
+bez `timeout=` może wisieć w nieskończoność, więc jeśli dziesięć wywołań
+w projekcie ma timeout, a jedno nie ma, to jedno jest podejrzane.
+
+Przesłankę zmierzyłem, zanim reguła powstała, na czterech prawdziwych projektach:
+
+| projekt | wywołań HTTP | z timeoutem |
+|---|---|---|
+| redash | 43 | **1** |
+| prefect | 38 | **1** |
+| certbot | 5 | 1 |
+| sherlock | 4 | 4 |
+
+W redash i prefekcie konwencją jest **brak** timeoutu. Reguła „dziesięć ma,
+jedno nie ma" nie ma się tam czego uchwycić — a czytana dosłownie zgłosiłaby
+jako odstępstwo to jedno wywołanie, które timeout MA. W sherlocku wszystkie
+cztery go mają i nie ma czego znajdować.
+
+Reguła nie powstała. Jako sprawdzenie uniwersalne („każde wywołanie HTTP musi
+mieć timeout") byłaby zupełnie dobrą regułą lintera i są lintery, które to
+robią — ale nie jest zdaniem o konwencji TEGO projektu, a tylko takie zdania
+to narzędzie wypowiada.
+
 ## Wiek odstępstwa — zmierzony, nie pomógł, domyślnie wyłączony
 
 `odd-one-out rank ... --wiek <katalog-repo>`

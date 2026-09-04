@@ -10,17 +10,23 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const WASM = require.resolve('tree-sitter-java/tree-sitter-java.wasm');
+const PYTHON_WASM = require.resolve('tree-sitter-python/tree-sitter-python.wasm');
 
-let cached = null;
+// One parser per grammar, built once. Parser.init() is global to web-tree-sitter
+// and must not be called twice.
+const cache = new Map();
 
-export async function javaParser() {
-  if (cached) return cached;
+async function parserFor(wasm) {
+  if (cache.has(wasm)) return cache.get(wasm);
   await Parser.init();
-  const lang = await Language.load(WASM);
+  const lang = await Language.load(wasm);
   const p = new Parser();
   p.setLanguage(lang);
-  cached = p;
+  cache.set(wasm, p);
   return p;
 }
+
+export const javaParser = () => parserFor(WASM);
+export const pythonParser = () => parserFor(PYTHON_WASM);
 
 export { WASM as JAVA_WASM_PATH };

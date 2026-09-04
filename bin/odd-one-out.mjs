@@ -20,6 +20,12 @@ const COMMANDS = {
     descKey: 'cmdJava',
     options: '--minsup 3 --minconf 0.6 --maxviol 4 --top 10 --only name1,name2',
   },
+  python: {
+    module: 'python.mjs',
+    arg: '<python-source-dir>',
+    descKey: 'cmdPython',
+    options: '--minsup 3 --minconf 0.6 --maxviol 4 --top 10 --scope function|lambda',
+  },
   deps: {
     module: 'deps.mjs',
     arg: '<java-source-dir>',

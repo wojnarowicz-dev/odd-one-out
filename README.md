@@ -415,6 +415,31 @@ three and top five did not change at all.
 That is why it stays off by default: movement in the ranking is not the same as
 an improvement of the ranking.
 
+## HTTP calls without a timeout — measured, the premise does not hold
+
+A Python detector was planned with a rule that looks obvious: `requests.get`
+without `timeout=` can hang forever, so if ten calls in a project pass a timeout
+and one does not, that one is suspicious.
+
+The premise was measured before the rule was written, on four real projects:
+
+| project | HTTP calls | with a timeout |
+|---|---|---|
+| redash | 43 | **1** |
+| prefect | 38 | **1** |
+| certbot | 5 | 1 |
+| sherlock | 4 | 4 |
+
+In redash and prefect the convention is the **absence** of a timeout. A rule of
+the form "ten do it, one does not" has nothing to attach to there — and read
+literally it would report the single call that DOES pass a timeout as the odd
+one out. In sherlock all four calls pass one and there is no deviation to find.
+
+So the rule was not built. As a universal check ("every HTTP call must have a
+timeout") it would be a perfectly good lint rule, and there are linters that do
+it — but it is not a statement about the convention of THIS project, which is
+the only kind of statement this tool makes.
+
 ## Age of a deviation — measured, did not help, off by default
 
 `odd-one-out rank … --age <repo-dir>`

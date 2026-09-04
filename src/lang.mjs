@@ -93,6 +93,7 @@ const S = {
   'helpReading3': { en: '  Type#method — the receiver type. "?" means the type could not be resolved.', pl: '  Typ#metoda — typ odbiornika. "?" znaczy, ze typu nie udalo sie ustalic.' },
   'helpReading4': { en: '  Reference accuracy for this class of tool (PR-Miner): 18.1% — noise is expected.', pl: '  Trafnosc referencyjna tej klasy narzedzi (PR-Miner): 18,1% — szum jest oczekiwany.' },
   'cmdJava': { en: 'Call pairs on the same receiver (PR-Miner). Rule A->B; a deviation has A but not B.', pl: 'Pary wywolan na tym samym odbiorniku (PR-Miner). Regula A->B, odstepstwo = ma A, nie ma B.' },
+  'cmdPython': { en: 'Python: call pairs on the same receiver. The receiver is recognised by name plus a tag from its constructor.', pl: 'Python: pary wywolan na tym samym odbiorniku. Odbiornik rozpoznany po nazwie i znaczniku z konstruktora.' },
   'cmdDeps': { en: 'Dependencies spread inconsistently: N classes via a shared layer, K directly.', pl: 'Zaleznosci rozlozone niespojnie: N klas przez warstwe wspolna, K bezposrednio.' },
   'cmdPom': { en: 'Dead entry in dependencyManagement. Needs a tree from mvn dependency:tree.', pl: 'Martwy wpis w dependencyManagement. Wymaga drzewa z mvn dependency:tree.' },
   'cmdSql': { en: 'revoke without grant execute in the same migration.', pl: 'revoke bez grant execute w tej samej migracji.' },
@@ -203,6 +204,15 @@ const S = {
   'diffNoChange': { en: 'No change since the previous run.', pl: 'Bez zmian wzgledem poprzedniego przebiegu.' },
 
   // ---------- java detector ----------
+  'pythonTitle': { en: '# odd-one-out / python', pl: '# odd-one-out / python' },
+  'pythonStats': {
+    en: 'files={0} parseErrors={1} units={2} distinctItems={3} frequent={4}',
+    pl: 'plikow={0} bledowParsowania={1} jednostek={2} roznychPozycji={3} czestych={4}',
+  },
+  'pythonUnknownScope': {
+    en: 'Unknown scope: {0}. Allowed: function, lambda.',
+    pl: 'Nieznany zasieg: {0}. Dozwolone: function, lambda.',
+  },
   'javaTitle': { en: '# odd-one-out', pl: '# odd-one-out' },
   'javaStats': { en: 'files={0} parseErrors={1} units={2} distinctItems={3} frequent={4}', pl: 'plikow={0} bledowParsowania={1} jednostek={2} roznychPozycji={3} czestych={4}' },
   'javaParseErrors': { en: '  !! parse errors in: {0}', pl: '  !! bledy parsowania w: {0}' },
