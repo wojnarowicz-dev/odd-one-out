@@ -1,7 +1,13 @@
 # odd-one-out
 
-Szuka miejsc **odstających od konwencji panującej w projekcie**. Zasada jest
-jedna: **N razy tak, raz inaczej.**
+Dla każdego, kto pracuje w kodzie, którego reguł nikt nie spisał — własnym
+sprzed dwóch lat albo cudzym sprzed tygodnia. Nawyki siedzą w kodzie, tyle że
+nie ma ich w żadnym dokumencie i nic nie mówi, które z nich były zamierzone.
+
+odd-one-out wyczytuje te nawyki z repozytorium i pokazuje miejsca, które je
+łamią: to jedno wywołanie z pięćdziesięciu, które zapomniało zwolnić odtwarzacz,
+tę jedną migrację, która odbiera uprawnienia i nigdy ich nie oddaje.
+Zasada jest jedna: **N razy tak, raz inaczej.**
 
 Klasa z tysiącem linii w projekcie, gdzie wszystkie mają tysiąc, nie odstaje.
 Cztery `MediaPlayer` z `setOnError` i jeden bez — odstaje. Narzędzie nie ma
@@ -9,6 +15,8 @@ progów z sufitu; porównuje kod do reszty tego samego repozytorium.
 
 **Nie zmienia plików.** Przy każdym zgłoszeniu pokazuje gotową poprawkę do
 wklejenia.
+
+*English version of this document: [README.md](README.md).*
 
 ## Jak wygląda jedno zgłoszenie
 
@@ -650,6 +658,20 @@ uzasadnienie.
 
 Każde zgłoszenie ma trzy sekcje: co jest niespójne, jak zrobiono w pozostałych
 miejscach (z przykładem i ścieżką), gotowa poprawka.
+
+### Stany, których nie wolno wziąć za zgłoszenie
+
+- **ROZJAZD** — warstwa jest konwencją, kilka miejsc ją omija. Jedyny stan,
+  który jest zgłoszeniem.
+- **MIGRACJA W TOKU** — obie drogi są liczne. Nie ma czego nazwać odstępstwem;
+  to niedokończone przejście, nie błąd do naprawienia w jednym miejscu.
+- **ZA MAŁO DANYCH** — za mało wystąpień, by mówić o konwencji.
+
+Detektor `pom` dzieli podobnie: **MARTWY** (nieobecny w drzewie i nigdzie
+niezadeklarowany — dwaj niezależni świadkowie) wobec **DO SPRAWDZENIA**
+(nieobecny w drzewie, ale zadeklarowany — zwykle drzewo z innej rewizji).
+
+Pusty wynik jest poprawnym wynikiem.
 
 ## Liczby, nie przymiotniki
 

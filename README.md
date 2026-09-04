@@ -1,7 +1,14 @@
 # odd-one-out
 
-Finds places that **deviate from the convention of the project itself**. One
-principle: **N times this way, once differently.**
+For anyone working in a codebase whose rules nobody wrote down — your own from
+two years ago, or somebody else's from last week. The habits are in the code;
+they are just not in any document, and nothing tells you which of them were
+deliberate.
+
+odd-one-out reads those habits out of the repository and shows you the places
+that break them: the one call site out of fifty that forgot to release the
+player, the one migration that revokes permissions and never grants them back.
+One principle: **N times this way, once differently.**
 
 A thousand-line class in a project where every class is a thousand lines does
 not deviate. Four `MediaPlayer` instances with `setOnError` and one without —
