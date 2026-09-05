@@ -128,7 +128,7 @@ konwencji; to inne narzędzie.
 
 Port `deps` na gramatykę JS/TS jest **sprawdzony i działa** — na próbce
 kontrolnej (pięć modułów przez `safeio.mjs`, jeden wprost do `fs.readFileSync`)
-zgłasza rozjazd poprawnie. Dwa ograniczenia zmierzone przy okazji:
+zgłasza rozjazd poprawnie. Jedno ograniczenie zmierzone przy okazji:
 
 - **Reguła cienkiego opakowania słabo przenosi się na JavaScript.** Wymaga, by
   nazwa opakowania zawierała nazwę operacji — `movePathWithRetry` ⊃ `move`
@@ -136,10 +136,6 @@ zgłasza rozjazd poprawnie. Dwa ograniczenia zmierzone przy okazji:
   długimi złożeniami, więc warunek rzadko bywa spełniony. Ta sama próbka
   kontrolna przechodzi dopiero po przemianowaniu opakowania na
   `readFileSyncWithRetry`.
-- **Skrypty przeglądarkowe są poza zasięgiem.** W webowym projekcie autora **żaden
-  z 85 plików `.js` nie używa `import` ani `require`** — komunikują się przez
-  `window`. `deps` stoi na grafie importów, więc nie ma tam czego zbudować:
-  0 zgłoszeń.
 
 Zero zgłoszeń przy samosprawdzaniu jest więc miarą zasięgu reguł, nie jakości
 kodu — i teraz wiadomo dokładnie, której reguły brakuje.
@@ -226,7 +222,8 @@ odd-one-out java ./src/main/java --json .odd-one-out/java.json || echo "nowe ods
 ```
 
 Przy pierwszym uruchomieniu (brak zapisu) wszystkie zgłoszenia są nowe, więc kod
-to `1`. Przy kolejnym bez zmian w kodzie — `0`.
+to `1`. Przy kolejnym bez zmian w kodzie — `0`. Błąd użycia (zła ścieżka, brak
+argumentu) kończy się kodem `2`.
 
 ### Szczegóły różnicy
 
@@ -772,6 +769,23 @@ wzorców błędów.
 stoją dokładnie dwa fałszywe alarmy — i to nie jest przypadek, tylko znane
 ograniczenie opisane niżej.
 
+Pozostałe detektory, każdy na parze ze znaną odpowiedzią:
+
+| detektor | zgłoszeń | prawdziwych |
+|---|---|---|
+| `sql` | 1 | 1 — `release_rate_slot` |
+| `pom` | 1 | 1 — `io.thorntail:javafx` |
+| `js` | 1 | 1 — `closeAiReqLightbox` |
+| `deps` | 0 (z 51 przed odsianiem) | brak podstaw do zgłoszenia |
+
+`java` startował z 3 z 5 dopiero po trzech zmierzonych poprawkach: **typ
+odbiornika** i **odsiewanie setterów** (obie włączone domyślnie) oraz **aliasy**,
+które wynik pogorszyły i są **wyłączone**.
+
+Zastrzeżenie do tych 100%: `sql`, `pom` i `js` to wąskie detektory jednoregułowe
+na małym, jednorodnym zbiorze. `java` mieli 11 581 jednostek i tam trafność
+siedzi blisko PR-Minerowej. Szum jest oczekiwany i nie jest porażką.
+
 ### Znane ograniczenie: obsługa o poziom wyżej niż wywołanie
 
 Pozycje 1 i 2 (`Screen.java:1496` i `:9861`) są fałszywe z tej samej
@@ -788,23 +802,6 @@ Poszerzenie zasięgu do `--scope file` część takich alarmów usuwa — koszte
 osłabienia samego pojęcia pary (patrz [Zasięg pary](#zasięg-pary)). Wyciszenie
 komentarzem `// odd-one-out: ok — obsługa u wołającego` załatwia je na stałe
 w konkretnym miejscu.
-
-Pozostałe detektory, każdy na parze ze znaną odpowiedzią:
-
-| detektor | zgłoszeń | prawdziwych |
-|---|---|---|
-| `sql` | 1 | 1 — `release_rate_slot` |
-| `pom` | 1 | 1 — `io.thorntail:javafx` |
-| `js` | 1 | 1 — `closeAiReqLightbox` |
-| `deps` | 0 (z 51 przed odsianiem) | brak podstaw do zgłoszenia |
-
-`java` startował z 3 z 5 dopiero po trzech zmierzonych poprawkach: **typ
-odbiornika** i **odsiewanie setterów** (obie włączone domyślnie) oraz **aliasy**,
-które wynik pogorszyły i są **wyłączone**.
-
-Zastrzeżenie: `pom` i `sql` to wąskie detektory jednoregułowe na małym zbiorze —
-łatwiejsze zadanie niż `java`, który mieli 11 tysięcy jednostek. Szum jest
-oczekiwany i nie jest porażką.
 
 ## Nisza: tam, gdzie skanery regułowe są bezradne
 
@@ -874,3 +871,12 @@ użytkownika. Pusty wynik jest poprawnym wynikiem.
 - Brak wywołania nie dowodzi błędu — sprawdź, czy nie jest robione gdzie indziej.
 - `pom` wymaga drzewa z **tej samej rewizji** `pom.xml` i tego samego zestawu
   profili. `mvn -P X` wyłącza profile `activeByDefault`.
+- **Źródła spoza UTF-8** są po cichu parsowane na śmieci (plik w Latin-2 daje
+  znaki zastępcze i bezsensowne drzewo, bez ostrzeżenia).
+- **Pamięć**: `deps` trzyma źródło każdego pliku w pamięci — 547 MB przy 100 tys.
+  linii; ekstrapolowany sufit to kilkaset tysięcy linii.
+- **Dwa równoległe przebiegi piszące do jednego pliku zapisu**: wygrywa ten,
+  który pisze później, po cichu. Nie ma blokady, a zapis nie jest niepodzielny.
+- Skrypty przeglądarkowe komunikujące się przez `window` są poza zasięgiem
+  `deps`, który stoi na grafie importów (w webowym projekcie autora żaden z 85
+  plików `.js` nie używa `import` ani `require`).

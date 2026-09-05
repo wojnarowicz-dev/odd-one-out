@@ -138,6 +138,17 @@ against — visible in the run as `wrapped ops=0`. Catching that needs a rule th
 looks for repeated code rather than deviation from a convention; that is a
 different tool.
 
+The port of `deps` onto the JS/TS grammar is **verified and works** — on a
+control sample (five modules through `safeio.mjs`, one straight to
+`fs.readFileSync`) it reports the divergence correctly. One limitation was
+measured along the way:
+
+- **The thin-wrapper rule travels badly to JavaScript.** It requires the
+  wrapper name to contain the operation name — `movePathWithRetry` ⊃ `move`
+  works, `readFileWithRetry` ⊅ `readFileSync` does not. Node API names are long
+  compounds, so the condition is rarely met. The same control sample only
+  passes after the wrapper is renamed to `readFileSyncWithRetry`.
+
 ## The js detector — JavaScript and TypeScript
 
 One grammar (`tree-sitter-typescript`) for both languages: TypeScript is a
@@ -328,7 +339,9 @@ caught by signal 2 (complete configuration of a freshly created `MediaPlayer`).
 > everything there was `setOn*`) and on foreign code covered everything else,
 > including every pair of getters. On netty it removed the whole body of the
 > report and left ten empty headers. An earlier version of this table claimed
-> 161 findings and position 13 of 30; those numbers measured the broken signal.
+> 161 findings and position 13 of 30; those numbers measured the broken signal,
+> which defined "sets state" by negation. Corrected, the sieve moves
+> that position from 88 to 47, not to 13.
 
 ## Discovering pairs — measured, the noise floods the result
 
@@ -347,6 +360,8 @@ tens of thousands of pairs did not materialise.
 **Noise is the problem.** The first twelve ranking entries are entirely
 mechanical co-occurrences of JavaFX setters. Verified hits `Loading.java:397` and
 `:411` land at positions 73 and 74 of 99, and accuracy in the top ten is **0%**.
+Position 1 carries 36 other violated rules alongside it — as a finding put in
+front of a person, that is not one thing to look at.
 
 Thresholds were **not tuned** to this measurement. The conclusion is different:
 pair discovery is good for **finding rule families** you did not know about (327
@@ -403,6 +418,11 @@ How close two calls must stand to count as a pair.
 | `file` | file + receiver | **9** | 2 | **22%** |
 | `method` | method/constructor + receiver | 14 | 1 | 7% |
 | `lambda` | innermost function + receiver | 15 | 2 (in 3 findings) | 20% |
+
+> The table below is the state at the time of the measurement, not the current
+> one. The default scope `lambda` gives 29% today, not 20%. The comparison
+> between the three scopes still holds, because all three were measured on the
+> same code on the same day.
 
 Measured on 111 files with the `setOn*` rule. "True" means defects traced in the
 code: the player never released in `Loading` (two sites) and `dispose()` without
@@ -755,6 +775,10 @@ The other detectors, each on a pair with a known answer:
 | `pom` | 1 | 1 — `io.thorntail:javafx` |
 | `js` | 1 | 1 — `closeAiReqLightbox` |
 | `deps` | 0 (of 51 before filtering) | no grounds to report |
+
+`java` only reached 3 of 5 after three measured changes: the **receiver type**
+and the **setter sieve** (both on by default), and **aliases**, which made the
+result worse and are **off**.
 
 Reference accuracy for this class of tool — **PR-Miner (2005): 18.1%**.
 
