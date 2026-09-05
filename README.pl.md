@@ -715,6 +715,61 @@ z pomiarem za sobą, a ranking nadal premiuje liczebność zamiast ciężaru. To
 pozostaje problemem otwartym: trzy odpowiedzi z `java` siedzą na pozycjach 34, 41
 i 42 ze 167 z identyczną oceną 32, a identyczna ocena to lista, nie ranking.
 
+## MUBench — sprawdzony, nie do uruchomienia tutaj, a zbiór jest trafiony
+
+Bez publicznego zbioru odniesienia liczby trafności powyżej porównują się z jedną
+pracą z 2005 roku i z niczym więcej. MUBench (Amann i inni, TU Darmstadt
+2015–2018, od tego czasu utrzymywany przez Svena Amanna) jest zbiorem odniesienia
+dla tej klasy narzędzi: wyselekcjonowany zestaw prawdziwych nadużyć API, potok
+uruchamiający na nim detektory oraz precyzja i pełność liczone po ręcznej
+recenzji.
+
+**Trzy blokady, każda wymierzona, nie założona.**
+
+1. **Detektor musi być wykonywalnym JAR-em.** Nie „czymkolwiek, co się uruchamia"
+   — MUBench wymaga JAR-a z wbudowanym *MUBench Runnerem* jako punktem wejścia,
+   budowanego wtyczką Maven assembly. odd-one-out to CLI w Node.
+2. **Nie ma tu czym go zbudować.** `java` nie jest na PATH i `mvn` nie jest na
+   PATH.
+3. **Potok chodzi w Dockerze, a demon nie działa.** Klient jest zainstalowany —
+   wersja 29.7.2 — i odpowiada
+   `failed to connect to the docker API at npipe:////./pipe/docker_engine`.
+   Poza tym obraz `svamann/mubench:stable` jest zbudowany pod detektory javowe:
+   nawet z JAR-em-owijką musiałby w nim być Node, żeby owijka miała co wołać.
+
+**Zbiór natomiast jest trafiony — i ten pomiar sam w sobie coś znaczy.** Pobrany
+bez Dockera (klon rzadki, bez blobów, 1,8 MB) i policzony:
+
+| kategoria naruszenia | ile |
+|---|---|
+| **`missing/call`** | **128** |
+| `missing/condition/value_or_state` | 74 |
+| `redundant/call` | 49 |
+| `missing/condition/null_check` | 28 |
+| `missing/exception_handling` | 27 |
+| cała reszta | 14 |
+
+**128 z 320 naruszeń to brak wywołania** — dokładnie ta klasa, którą wyraża model
+par. MUBench nie jest zbiorem obok tematu, tylko na temat. To warto wiedzieć,
+nawet jeśli nie da się go tutaj uruchomić.
+
+**Droga częściowa istnieje i została odrzucona na liczbach.** Bez potoku dałoby
+się sklonować każdy projekt na rewizji *sprzed* naprawy i sprawdzić, czy detektor
+wskazuje ten plik i tę metodę — bez Dockera, Javy i Mavena, bo to narzędzie czyta
+źródła, zamiast je kompilować. Z 227 nadużyć 128 to brak wywołania, 110 z nich
+leży w repozytoriach git, a **54** mają sha naprawy razem z plikiem i metodą.
+
+**41 z tych 54 pochodzi z jednego projektu, Joda-Time — 76%.** Liczba zrobiona
+w ten sposób brzmiałaby jak porównanie ze zbiorem odniesienia, będąc w trzech
+czwartych pomiarem jednej biblioteki. Nie miałaby też definicji precyzji
+i pełności, które MUBench stosuje, ani wbudowanej w niego recenzji ręcznej.
+Liczba, która brzmi jak wynik z benchmarku, nim nie będąc, jest gorsza niż brak
+liczby.
+
+**Nieuruchomione.** Blokady są wypisane wyżej po to, żeby ktokolwiek z Dockerem,
+Javą i Mavenem mógł to podjąć w miejscu, w którym się zatrzymało: potrzebny jest
+JAR-Runner wołający Node oraz obraz, w którym Node się znajduje.
+
 ## Wiek odstępstwa — zmierzony, nie pomógł, domyślnie wyłączony
 
 `odd-one-out rank ... --wiek <katalog-repo>`

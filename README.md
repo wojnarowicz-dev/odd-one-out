@@ -715,6 +715,63 @@ weight. That remains the open problem: the three java answers sit at 34, 41 and
 42 of 167 with the identical score 32, and an identical score is a list, not a
 ranking.
 
+## MUBench — checked, cannot be run here, and the dataset is on target
+
+Without a public benchmark, the accuracy figures above compare to one 2005 paper
+and to nothing else. MUBench (Amann et al., TU Darmstadt 2015–2018, maintained
+since by Sven Amann) is the benchmark for this class of tool: a curated dataset
+of real API misuses, a pipeline that runs detectors against it, and precision and
+recall computed after manual review.
+
+**Three blockers, each measured rather than assumed.**
+
+1. **A detector must be an executable JAR.** Not "anything that runs" — MUBench
+   requires a JAR bundling a *MUBench Runner* as its entry point, built with the
+   Maven assembly plugin. odd-one-out is a Node CLI.
+2. **There is nothing here to build it with.** `java` is not on the PATH and
+   `mvn` is not on the PATH.
+3. **The pipeline runs in Docker and the daemon is not running.** The client is
+   installed — version 29.7.2 — and answers
+   `failed to connect to the docker API at npipe:////./pipe/docker_engine`.
+   Beyond that, the image `svamann/mubench:stable` is built for Java detectors:
+   even with a JAR wrapper, Node would have to exist inside that image for the
+   wrapper to have anything to call.
+
+**The dataset, on the other hand, is on target — and that measurement is worth
+having on its own.** It was fetched without Docker (a sparse, blobless clone,
+1.8 MB) and counted:
+
+| violation category | count |
+|---|---|
+| **`missing/call`** | **128** |
+| `missing/condition/value_or_state` | 74 |
+| `redundant/call` | 49 |
+| `missing/condition/null_check` | 28 |
+| `missing/exception_handling` | 27 |
+| everything else | 14 |
+
+**128 of 320 violations are a missing call** — precisely the class the pair model
+expresses. MUBench is not a benchmark next to the subject; it is a benchmark on
+the subject. That is worth knowing even though it cannot be run here.
+
+**A partial route exists and was rejected on the numbers.** Without the pipeline
+one could clone each project at the revision *before* the fix and check whether
+the detector points at that file and that method — no Docker, no Java, no Maven,
+because this tool reads sources instead of compiling them. Of the 227 misuses,
+128 are missing-call, 110 of those live in git repositories, and **54** carry a
+git SHA for the fix together with a file and a method.
+
+**41 of those 54 come from one project, Joda-Time — 76%.** A number produced that
+way would read like a comparison against a reference dataset while being, in
+three quarters, a measurement of one library. It would also lack the precision
+and recall definitions MUBench applies and the manual review it has built in.
+A figure that sounds like a benchmark result without being one is worse than no
+figure at all.
+
+**Not run.** The blockers are listed above so that anyone with Docker, Java and
+Maven can pick this up where it stopped: the work needed is a Runner JAR that
+shells out to Node, plus an image that contains Node.
+
 ## Age of a deviation — measured, did not help, off by default
 
 `odd-one-out rank … --age <repo-dir>`
