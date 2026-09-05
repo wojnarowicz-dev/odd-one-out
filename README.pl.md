@@ -658,6 +658,63 @@ trzydzieści sześć losowań o wysoką ocenę, a naruszające jedną — jedno.
 strukturalna przewaga mechanicznego współwystępowania i to jest następna rzecz
 warta zmierzenia — ale to inny pomysł i nie został jeszcze zmierzony.
 
+## Kara za wielość reguł naruszonych w jednym miejscu — zmierzona, obalona
+
+Druga hipoteza o rankingu, tym razem wzięta z materiału, a nie z pracy naukowej.
+Scalanie zachowuje **najwyższą** ocenę spośród reguł naruszonych w jednym
+miejscu, więc miejsce naruszające 36 reguł ma trzydzieści sześć losowań o wysoką
+ocenę, a naruszające jedną — jedno. Mechaniczne współwystępowanie produkuje długie
+listy naruszonych reguł; zatem — tak szło rozumowanie — dzielenie przez ich
+liczbę powinno zepchnąć szum w dół.
+
+**Diagnoza obaliła to, zanim symulacja się skończyła.**
+
+| miejsce | naruszonych reguł | werdykt |
+|---|---|---|
+| `closeAiReqLightbox` (js) | 1 | prawdziwe |
+| `release_rate_slot` (sql) | 1 | prawdziwe |
+| `io.thorntail:javafx` (pom) | 1 | prawdziwe |
+| `Loading.java:397` / `:411` (java) | po 4 | prawdziwe, zweryfikowane |
+| **`Menu.java:5753/5754` (java)** | **21** | **prawdziwe, zweryfikowane** |
+
+Znane odpowiedzi TO SĄ miejsca o wielu regułach. To nie przypadek i z perspektywy
+czasu jest oczywiste: **jedno brakujące wywołanie łamie każdą regułę
+współwystępowania, która je zawierała.** `MediaPlayer`, który jest zatrzymany, ale
+nigdy zwolniony i nigdy nie ma wyczyszczonych uchwytów, narusza
+`stop -> dispose`, `stop -> setOnError`, `stop -> setOnReady` i osiemnaście
+innych naraz. Liczba naruszonych reguł mierzy, jak dużą część cyklu życia obiektu
+pominięto — to dowód ZA defektem, nie przeciw.
+
+Zasymulowane mimo to, na tych samych zapisach:
+
+| znana odpowiedź | obecna | ÷ n | ÷ √n | ÷ (1+log₂n) |
+|---|---|---|---|---|
+| `closeAiReqLightbox` (js) | **1** | 1 | 1 | 1 |
+| `release_rate_slot` (sql) | **6** | 2 | 2 | 2 |
+| `io.thorntail:javafx` (pom) | **10** | 4 | 4 | 4 |
+| `Menu.java:5753/5754` (java) | **34** | **167 — ostatnia** | 160 | 159 |
+| `Loading.java:397` (java) | **41** | 138 | 85 | 103 |
+| `Loading.java:411` (java) | **42** | 139 | 86 | 104 |
+
+Najmocniejszy zweryfikowany defekt w projekcie ląduje na **ostatnim miejscu ze
+167**.
+
+**Odwrotność też została zmierzona i też nie jest odpowiedzią.** Jeśli wiele
+naruszonych reguł jest dowodem, to trzeba je nagradzać: `× n` przesuwa
+`Menu.java:5754` z 34 na **4**, a `Loading.java:397/411` z 41/42 na 19/20. Ale na
+czele tej listy stoją `VideoAnalyzerPro.java:9868` (27 reguł) i `:1503` (12) —
+czyli jednostka `bindPlayButtonToPlayerStatus` oraz lambda z linii 1486, **dwa
+miejsca, które ten dokument już opisuje jako fałszywe alarmy** (patrz „Znane
+ograniczenie: obsługa o poziom wyżej niż wywołanie"). Ranking, którego pierwsza
+i trzecia pozycja to dwa znane fałszywe alarmy, nie jest poprawą — a przyjęcie go
+byłoby dopasowaniem formuły do pięciu znanych odpowiedzi, czyli dokładnie tym,
+czego ten projekt odmawiał przez cały czas.
+
+**Żadna nieprzyjęta. W `src/` nie zmieniło się nic.** Dwie odrzucone hipotezy
+z pomiarem za sobą, a ranking nadal premiuje liczebność zamiast ciężaru. To
+pozostaje problemem otwartym: trzy odpowiedzi z `java` siedzą na pozycjach 34, 41
+i 42 ze 167 z identyczną oceną 32, a identyczna ocena to lista, nie ranking.
+
 ## Wiek odstępstwa — zmierzony, nie pomógł, domyślnie wyłączony
 
 `odd-one-out rank ... --wiek <katalog-repo>`

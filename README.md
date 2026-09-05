@@ -658,6 +658,63 @@ draws at a high score and a site violating one gets a single draw. That is a
 structural advantage for mechanical co-occurrence, and it is the next thing worth
 measuring — but it is a different idea, and it has not been measured yet.
 
+## Penalising a site that violates many rules — measured, refuted
+
+The second hypothesis about the ranking, and this one came from the material
+rather than from a paper. The merge keeps the **highest** score among the rules
+violated at one site, so a site violating 36 rules gets thirty-six draws at a
+high score and a site violating one gets a single draw. Mechanical co-occurrence
+produces long lists of violated rules; therefore, the reasoning went, dividing by
+their number should push the noise down.
+
+**The diagnosis refuted it before the simulation finished.**
+
+| site | rules violated | verdict |
+|---|---|---|
+| `closeAiReqLightbox` (js) | 1 | true |
+| `release_rate_slot` (sql) | 1 | true |
+| `io.thorntail:javafx` (pom) | 1 | true |
+| `Loading.java:397` / `:411` (java) | 4 each | true, verified |
+| **`Menu.java:5753/5754` (java)** | **21** | **true, verified** |
+
+The known answers ARE the multi-rule sites. That is not a coincidence and in
+hindsight it is obvious: **one missing call breaks every co-occurrence rule that
+contained it.** A `MediaPlayer` that is stopped but never disposed and never has
+its handlers cleared violates `stop -> dispose`, `stop -> setOnError`,
+`stop -> setOnReady` and eighteen more, all at once. The number of violated rules
+measures how much of the object's lifecycle was skipped — it is evidence FOR a
+defect, not against it.
+
+Simulated anyway, on the same snapshots:
+
+| known answer | current | ÷ n | ÷ √n | ÷ (1+log₂n) |
+|---|---|---|---|---|
+| `closeAiReqLightbox` (js) | **1** | 1 | 1 | 1 |
+| `release_rate_slot` (sql) | **6** | 2 | 2 | 2 |
+| `io.thorntail:javafx` (pom) | **10** | 4 | 4 | 4 |
+| `Menu.java:5753/5754` (java) | **34** | **167 — last** | 160 | 159 |
+| `Loading.java:397` (java) | **41** | 138 | 85 | 103 |
+| `Loading.java:411` (java) | **42** | 139 | 86 | 104 |
+
+The strongest verified defect in the project lands in **last place out of 167**.
+
+**The inverse was measured too, and is also not the answer.** If many violated
+rules are evidence, reward them: `× n` moves `Menu.java:5754` from 34 to **4**
+and `Loading.java:397/411` from 41/42 to 19/20. But the top of that list is
+`VideoAnalyzerPro.java:9868` (27 rules) and `:1503` (12) — and those are the unit
+`bindPlayButtonToPlayerStatus` and the lambda at 1486, **the two sites this
+document already records as false positives** (see "Known limitation: handling one
+level above the call"). A ranking whose first and third entries are the two known
+false positives is not an improvement, and adopting it would be fitting the
+formula to five known answers, which is the one thing this project has refused to
+do throughout.
+
+**Neither adopted. Nothing in `src/` was changed.** Two rejected hypotheses with
+measurements behind them, and the ranking still rewards population rather than
+weight. That remains the open problem: the three java answers sit at 34, 41 and
+42 of 167 with the identical score 32, and an identical score is a list, not a
+ranking.
+
 ## Age of a deviation — measured, did not help, off by default
 
 `odd-one-out rank … --age <repo-dir>`
