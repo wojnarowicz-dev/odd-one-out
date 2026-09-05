@@ -610,6 +610,54 @@ and until somebody does it stays a guess.
 The reason it stops at one file is cost: that file took **118 minutes**. All of
 `src/` would be most of a day, which is why mutation testing lives behind
 `npm run full` and not in `npm test`.
+## Ranking by JADET's formula — measured, it made things worse
+
+The ranking rewards population, and that is a real weakness: three verified
+defects sat at positions 34, 41 and 42 of 167, all with the identical score 32.
+An identical score is not a ranking, it is a list.
+
+JADET (Wasylkowski, Zeller, Lindig, 2007) scores a violation as **u × s / v** —
+uniqueness of the pattern, times support, divided by the number of violations —
+and requires the deviation to be at least ten times rarer than the pattern. It
+was simulated on the same snapshots before touching a line of the tool.
+
+| known answer | current | u × s / v | u × s / v + the 10× rule |
+|---|---|---|---|
+| `closeAiReqLightbox` (js) | **1** | **1** | **1** |
+| `release_rate_slot` (sql) | **5** | 6 | 6 |
+| `io.thorntail:javafx` (pom) | **8** | 18 | **dropped** |
+| `Menu.java:5753/5754` (java) | **34** | 47 | **dropped** |
+| `Loading.java:397` (java) | **41** | 61 | **dropped** |
+| `Loading.java:411` (java) | **42** | 62 | **dropped** |
+
+**Every position that mattered got worse.** The three java answers — the ones
+buried too deep to be read, the whole reason for trying — fell from 34/41/42 to
+47/61/62. The list shrank from 167 entries to 13 under the 10× rule, and four of
+the five known answers were among the things it deleted.
+
+The cause is arithmetic, not implementation. `u × s / v` rewards **support**, and
+here the true defects rest on small populations: `Menu.java:5754` on a pattern
+held 4 times, `Loading.java:397` on one held 8 times. The noise rests on large
+ones — `Button#setOnMouseEntered -> setStyle` is held 45 times out of 49. The
+current formula caps the reward for population at ten examples
+(`min(1, sup/10)`), and that cap is exactly what keeps the small-population
+defects from being buried. JADET's raw `s` removes it.
+
+The 10× rule fails for the same reason, harder: 29 of the 31 findings behind the
+five known answers have a violation count above one tenth of their support. Of
+the six sites, only two clear it. That rule was written for a corpus of thousands
+of projects, where a pattern is held hundreds of times; here the whole population
+of a rule is 4 to 15 sites, because this is one desktop application.
+
+**Not adopted.** Nothing in `src/` was changed — the simulation was enough to
+decide, and the measurement cost less than the change would have.
+
+What the numbers do point at is different: the merge keeps the **highest** score
+among the rules a site violates, so a site violating 36 rules gets thirty-six
+draws at a high score and a site violating one gets a single draw. That is a
+structural advantage for mechanical co-occurrence, and it is the next thing worth
+measuring — but it is a different idea, and it has not been measured yet.
+
 ## Age of a deviation — measured, did not help, off by default
 
 `odd-one-out rank … --age <repo-dir>`

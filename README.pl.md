@@ -610,6 +610,54 @@ zostaje domysłem.
 Powód, dla którego kończy się na jednym pliku, to koszt: ten jeden zajął
 **118 minut**. Całe `src/` to byłby prawie cały dzień i dlatego mutacje siedzą
 za `npm run full`, a nie w `npm test`.
+## Ranking wedle formuły JADET — zmierzony, pogorszył
+
+Ranking premiuje liczebność i to jest prawdziwa słabość: trzy zweryfikowane
+defekty stały na pozycjach 34, 41 i 42 ze 167, wszystkie z identyczną oceną 32.
+Identyczna ocena to nie ranking, tylko lista.
+
+JADET (Wasylkowski, Zeller, Lindig, 2007) ocenia naruszenie jako **u × s / v** —
+unikalność wzorca razy wsparcie, przez liczbę naruszeń — i wymaga, by odstępstwo
+było co najmniej dziesięć razy rzadsze niż wzorzec. Zostało to zasymulowane na
+tych samych zapisach, zanim tknąłem linijkę narzędzia.
+
+| znana odpowiedź | obecna | u × s / v | u × s / v + wymóg 10× |
+|---|---|---|---|
+| `closeAiReqLightbox` (js) | **1** | **1** | **1** |
+| `release_rate_slot` (sql) | **5** | 6 | 6 |
+| `io.thorntail:javafx` (pom) | **8** | 18 | **wypadła** |
+| `Menu.java:5753/5754` (java) | **34** | 47 | **wypadła** |
+| `Loading.java:397` (java) | **41** | 61 | **wypadła** |
+| `Loading.java:411` (java) | **42** | 62 | **wypadła** |
+
+**Każda pozycja, na której zależało, pogorszyła się.** Trzy odpowiedzi z `java` —
+te zakopane za głęboko, żeby ktokolwiek doczytał, czyli cały powód tej próby —
+spadły z 34/41/42 na 47/61/62. Lista skurczyła się ze 167 pozycji do 13 przy
+wymogu 10×, a wśród skasowanych znalazły się cztery z pięciu znanych odpowiedzi.
+
+Przyczyna jest arytmetyczna, nie implementacyjna. `u × s / v` premiuje
+**wsparcie**, a tutaj prawdziwe defekty stoją na małych populacjach:
+`Menu.java:5754` na wzorcu trzymanym 4 razy, `Loading.java:397` na trzymanym 8
+razy. Szum stoi na dużych — `Button#setOnMouseEntered -> setStyle` jest trzymany
+45 razy na 49. Obecna formuła ogranicza nagrodę za liczebność do dziesięciu
+przykładów (`min(1, sup/10)`) i właśnie ten limit nie pozwala zakopać defektów
+o małej populacji. Surowe `s` z JADET-a go znosi.
+
+Wymóg 10× zawodzi z tego samego powodu, tylko mocniej: 29 z 31 zgłoszeń stojących
+za pięcioma znanymi odpowiedziami ma liczbę naruszeń większą niż jedna dziesiąta
+wsparcia. Z sześciu miejsc przechodzą dwa. Ta reguła powstała dla zbioru tysięcy
+projektów, gdzie wzorzec jest trzymany setki razy; tutaj cała populacja reguły to
+4 do 15 miejsc, bo to jedna aplikacja desktopowa.
+
+**Nieprzyjęte.** W `src/` nie zmieniło się nic — symulacja wystarczyła do decyzji,
+a pomiar kosztował mniej niż kosztowałaby zmiana.
+
+Liczby wskazują natomiast na co innego: scalanie zachowuje **najwyższą** ocenę
+spośród reguł naruszonych w danym miejscu, więc miejsce naruszające 36 reguł ma
+trzydzieści sześć losowań o wysoką ocenę, a naruszające jedną — jedno. To jest
+strukturalna przewaga mechanicznego współwystępowania i to jest następna rzecz
+warta zmierzenia — ale to inny pomysł i nie został jeszcze zmierzony.
+
 ## Wiek odstępstwa — zmierzony, nie pomógł, domyślnie wyłączony
 
 `odd-one-out rank ... --wiek <katalog-repo>`
