@@ -481,7 +481,13 @@ timeout") it would be a perfectly good lint rule, and there are linters that do
 it — but it is not a statement about the convention of THIS project, which is
 the only kind of statement this tool makes.
 
-## A Python detector — built, measured, not shipped
+## Postponed — and what each one is missing
+
+Everything that is not built lives here, in one place, each with the specific
+thing that would unblock it. None of these is a promise; two of them are ideas
+and one is a gap in the measuring.
+
+### The Python detector — built, measured, not shipped
 
 The Java model was ported to Python: same units, same rule mining, same
 thresholds. The receiver is the hard part — Python declares no types, so "the
@@ -543,6 +549,47 @@ and it already called it in 2022. The commit that touched the area,
 infrastructure, not a defect fix. A measuring instrument that agrees with the
 hypothesis is the first thing to distrust.
 
+### A seam detector — an idea, not a measurement
+
+The same principle applied to testability. Not "inject your dependencies" —
+that is a universal rule, and this tool does not make those. Rather: **fifteen
+classes are handed their dependency from outside, this one builds its own.**
+
+What it would look for, each one a seam missing where the rest of the project
+has one:
+
+- a constructor called directly inside a method, where elsewhere the object
+  arrives from outside
+- a static call where the rest of the code holds a field
+- the clock or the file system reached from inside business logic
+- a singleton read from within a function instead of being passed in
+
+**What is missing is a known answer.** Every detector that ships here points at
+a defect somebody actually fixed, checked at the revision before the fix. This
+one has none, so it is a hypothesis and not a detector.
+
+Python is the measurement of what that costs. The detector was written, it
+passed thresholds on seven projects, and across three repositories with full
+history it reported 260 violations of which **not one was ever corrected by
+anybody**. Without a known answer there is no way to tell a detector that works
+from one that merely produces output — and the output looks the same either way.
+
+### Mutation testing beyond src/snapshot.mjs
+
+`npm run full` runs Stryker. **Exactly one file has been measured:**
+`src/snapshot.mjs` — 316 mutants, **216 survived**. That is a mutation score of
+31.65% with all four suites judging, 23.42% with the golden tests alone. Every
+other file under `src/` is unmeasured, so nothing at all is known about them.
+
+**A suspicion, not a finding:** most of the survivors look like they sit in
+printed text rather than in logic — `t('settings')` mutated to `t("")` passes,
+because the golden tests compare the JSON snapshot and not the screen. That is
+a reading of the survivor list, not a measurement. Nobody has classified them,
+and until somebody does it stays a guess.
+
+The reason it stops at one file is cost: that file took **118 minutes**. All of
+`src/` would be most of a day, which is why mutation testing lives behind
+`npm run full` and not in `npm test`.
 ## Age of a deviation — measured, did not help, off by default
 
 `odd-one-out rank … --age <repo-dir>`

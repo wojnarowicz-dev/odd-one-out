@@ -504,7 +504,13 @@ mieć timeout") byłaby zupełnie dobrą regułą lintera i są lintery, które 
 robią — ale nie jest zdaniem o konwencji TEGO projektu, a tylko takie zdania
 to narzędzie wypowiada.
 
-## Detektor Pythona — napisany, zmierzony, niewydany
+## Odłożone — i czego każdemu brakuje
+
+Wszystko, co nie jest zbudowane, leży tutaj, w jednym miejscu, z konkretną
+rzeczą, która by je odblokowała. Żadna z nich nie jest obietnicą; dwie są
+pomysłami, a jedna jest luką w pomiarze.
+
+### Detektor Pythona — napisany, zmierzony, niewydany
 
 Model z Javy został przeniesiony na Pythona: te same jednostki, to samo
 wydobywanie reguł, te same progi. Trudny jest odbiornik — Python nie deklaruje
@@ -566,6 +572,47 @@ przy czym wołała ją już w 2022. Commit, który ruszył tamtą okolicę,
 testów, nie naprawa defektu. Przyrząd pomiarowy, który zgadza się z hipotezą, to
 pierwsza rzecz, której nie należy ufać.
 
+### Detektor szwów — pomysł, nie pomiar
+
+Ta sama zasada przyłożona do testowalności. Nie „wstrzykuj zależności" — to
+reguła uniwersalna, a takich to narzędzie nie stawia. Raczej: **piętnaście klas
+dostaje zależność z góry, ta jedna tworzy ją sama.**
+
+Czego by szukał — każde to brakujący szew w miejscu, w którym reszta projektu
+go ma:
+
+- konstruktor wołany wprost wewnątrz metody, gdzie indziej obiekt przychodzi
+  z zewnątrz
+- wywołanie statyczne tam, gdzie reszta kodu trzyma pole
+- zegar albo system plików sięgnięty ze środka logiki
+- singleton czytany z wnętrza funkcji zamiast podany
+
+**Brakuje znanej odpowiedzi.** Każdy detektor, który tu jedzie, wskazuje defekt,
+który ktoś naprawdę naprawił, sprawdzony na rewizji sprzed naprawy. Ten nie ma
+żadnej, więc jest hipotezą, a nie detektorem.
+
+Python jest pomiarem tego, ile taki brak kosztuje. Detektor został napisany,
+przeszedł progi na siedmiu projektach, a w trzech repozytoriach z pełną historią
+zgłosił 260 naruszeń, z których **ani jedno nie zostało przez nikogo
+poprawione**. Bez znanej odpowiedzi nie da się odróżnić detektora, który działa,
+od takiego, który tylko coś wypisuje — a wypisują tak samo.
+
+### Mutacje poza src/snapshot.mjs
+
+`npm run full` uruchamia Strykera. **Zmierzony jest dokładnie jeden plik:**
+`src/snapshot.mjs` — 316 mutantów, **216 przeżyło**. To wynik 31,65% przy
+czterech zestawach jako sędzim i 23,42% przy samych testach złotych. Każdy inny
+plik w `src/` jest niezmierzony, więc o nich nie wiadomo nic.
+
+**Podejrzenie, nie ustalenie:** większość ocalałych wygląda, jakby siedziała
+w wypisywanym tekście, a nie w logice — `t('settings')` zamienione na `t("")`
+przechodzi, bo testy złote porównują zapis JSON, a nie ekran. To jest odczyt
+listy ocalałych, nie pomiar. Nikt ich nie sklasyfikował i dopóki tego nie zrobi,
+zostaje domysłem.
+
+Powód, dla którego kończy się na jednym pliku, to koszt: ten jeden zajął
+**118 minut**. Całe `src/` to byłby prawie cały dzień i dlatego mutacje siedzą
+za `npm run full`, a nie w `npm test`.
 ## Wiek odstępstwa — zmierzony, nie pomógł, domyślnie wyłączony
 
 `odd-one-out rank ... --wiek <katalog-repo>`
