@@ -368,11 +368,11 @@ In other words: a threshold of five occurrences, though it sounds more careful,
 Two attempts to raise the accuracy of the `java` detector, both measured on the
 same set (111 files, the `setOn*` rule, `lambda` scope):
 
-| variant | findings | true | accuracy |
-|---|---|---|---|
-| baseline | 15 | 3 | 20% |
-| **+ receiver type** | 14 | **4** | **29%** |
-| + type + aliases | 14 | 3 | 21% |
+| variant | findings | true | accuracy | `Loading.java:397/411` |
+|---|---|---|---|---|
+| baseline | 15 | 3 | 20% | pos. 3 / 4 |
+| **+ receiver type** | 14 | **4** | **29%** | pos. 4 / 5 |
+| + type + aliases | 14 | 3 | 21% | pos. 4 / 5 |
 
 **Receiver type — stays on** (`--types off` disables it). Without it
 `mediaControl.setOnEndOfMedia()` (a project class, no-argument method) and

@@ -34,7 +34,8 @@
     "foreign": "node test/foreign.mjs",
     "amplify": "node test/amplify.mjs",
     "mutation": "node test/mutation.mjs",
-    "full": "npm test && node test/amplify.mjs && node test/mutation.mjs"
+    "full": "npm test && node test/amplify.mjs && node test/mutation.mjs",
+    "readme-check": "node test/readme-check.mjs"
   },
   "keywords": [
     "static-analysis",
