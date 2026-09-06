@@ -56,23 +56,28 @@ function findings(detector, dir, extra = []) {
 }
 
 const CASES = [];
-const amplify = (name, detector, fixture, expect, perturb) =>
-  CASES.push({ name, detector, fixture, expect, perturb });
+// EXPECTATIONS ARE DELTAS, NOT ABSOLUTE COUNTS. They used to be absolute, and
+// the moment the fixtures grew — accessor and type-resolution files were added
+// so that mutation testing could reach those two regions — every number here
+// stopped matching although the property under test had not changed. A delta
+// says what the perturbation must DO, which is the thing being tested.
+const amplify = (name, detector, fixture, delta, perturb) =>
+  CASES.push({ name, detector, fixture, delta, perturb });
 
 // ---------------------------------------------------------------- java
-amplify('java: deviation removed -> gone', 'java', 'java', 0, d => {
+amplify('java: deviation removed -> gone', 'java', 'java', -1, d => {
   write(d, 'Player.java', read(d, 'Player.java').replace(
     'public void openFourth(String url) {\n        player.stop();',
     'public void openFourth(String url) {\n        player.stop();\n        player.dispose();'));
 });
 
-amplify('java: second deviation -> two', 'java', 'java', 2, d => {
+amplify('java: second deviation -> one more', 'java', 'java', +1, d => {
   write(d, 'Player.java', read(d, 'Player.java').replace(
     /\}\s*$/,
     '    public void openFifth(String url) {\n        player.stop();\n    }\n}\n'));
 });
 
-amplify('java: convention thinned -> silent', 'java', 'java', 0, d => {
+amplify('java: convention thinned -> silent', 'java', 'java', -1, d => {
   // three conforming methods down to one: below minsup=3, no convention left
   let s = read(d, 'Player.java');
   s = s.replace('    public void openSecond(String url) {\n        player.stop();\n        player.dispose();\n    }\n\n', '');
@@ -81,33 +86,33 @@ amplify('java: convention thinned -> silent', 'java', 'java', 0, d => {
 });
 
 // ---------------------------------------------------------------- sql
-amplify('sql: grant added -> gone', 'sql', 'sql', 0, d => {
+amplify('sql: grant added -> gone', 'sql', 'sql', -1, d => {
   const f = '20260104000000_release_slot.sql';
   write(d, f, read(d, f).replace(
     '-- planted deviation: no grant execute, so nobody can call it',
     'grant execute on function public.release_slot(uuid) to authenticated;'));
 });
 
-amplify('sql: convention thinned -> silent', 'sql', 'sql', 0, d => {
+amplify('sql: convention thinned -> silent', 'sql', 'sql', -1, d => {
   fs.rmSync(path.join(d, '20260101000000_take_slot.sql'));
   fs.rmSync(path.join(d, '20260102000000_free_slot.sql'));
 });
 
 // ---------------------------------------------------------------- js
-amplify('js: missing function defined -> gone', 'js', 'js', 0, d => {
+amplify('js: missing function defined -> gone', 'js', 'js', -1, d => {
   write(d, 'page.html', read(d, 'page.html').replace(
     '      function togglePanel()',
     '      function resetPanelState() { }\n      function togglePanel()'));
 });
 
 // ---------------------------------------------------------------- deps
-amplify('deps: one stray routed through the layer -> one left', 'deps', 'deps', 1, d => {
+amplify('deps: one stray routed through the layer -> one left', 'deps', 'deps', -1, d => {
   write(d, 'Direct1.java', read(d, 'Direct1.java')
     .replace('import java.nio.file.Files;', 'import fixture.io.Fs;')
     .replace('Files.readAllLines(p)', 'Fs.readAllLinesSafe(p)'));
 });
 
-amplify('deps: every stray routed -> gone', 'deps', 'deps', 0, d => {
+amplify('deps: every stray routed -> gone', 'deps', 'deps', -2, d => {
   for (const f of ['Direct1.java', 'Direct2.java']) {
     write(d, f, read(d, f)
       .replace('import java.nio.file.Files;', 'import fixture.io.Fs;')
@@ -131,13 +136,14 @@ for (const c of CASES) {
   c.perturb(dir);
   const after = findings(c.detector, dir);
 
-  const asExpected = after === c.expect;
+  const asExpected = after === before + c.delta;
   const moved = after !== before;
   const ok = asExpected && moved;
   if (!ok) failed++;
 
   console.log('  ' + (ok ? 'PASS' : 'FAIL') + '  ' + c.name.padEnd(46) +
-    before + ' -> ' + after + '  (expected ' + c.expect + ')' +
+    before + ' -> ' + after + '  (expected ' + (before + c.delta) +
+    ', delta ' + (c.delta > 0 ? '+' : '') + c.delta + ')' +
     (asExpected && !moved ? '   NOT DISCRIMINATING: unchanged by the perturbation' : ''));
 }
 

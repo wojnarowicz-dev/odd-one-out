@@ -10,13 +10,91 @@
     "en"
   ],
   "counts": {
-    "sources": 1,
+    "sources": 40,
     "zasieg": "lambda",
     "bledyParsowania": 0,
-    "jednostki": 4,
-    "regul": 1
+    "jednostki": 200,
+    "regul": 4
   },
   "findings": [
+    {
+      "id": "6132d8c00a5d",
+      "detector": "java",
+      "rule": "Alpha#open->Alpha#close",
+      "file": "TypesAlpha.java",
+      "anchor": "alphaDeviates|handle",
+      "line": 35,
+      "label": "Alpha#open -> Alpha#close   (recv=handle, alphaDeviates)",
+      "meta": {
+        "sup": 6,
+        "supA": 7,
+        "conf": 0.86,
+        "viol": 1,
+        "unit": "alphaDeviates@34",
+        "stab": 1,
+        "stabDesc": "2/2 subsets, 2/2 cumulative",
+        "pattern": [
+          {
+            "file": "TypesAlpha.java",
+            "line": 16
+          },
+          {
+            "file": "TypesAlpha.java",
+            "line": 21
+          },
+          {
+            "file": "TypesAlpha.java",
+            "line": 26
+          },
+          {
+            "file": "TypesAlpha.java",
+            "line": 31
+          },
+          {
+            "file": "TypesParameter.java",
+            "line": 9
+          }
+        ]
+      },
+      "unitId": "ba3ae4450e4d"
+    },
+    {
+      "id": "4623dbf198d2",
+      "detector": "java",
+      "rule": "Shape1#isEmpty->Shape1#hasNext",
+      "file": "PreIsEmpty.java",
+      "anchor": "deviates|probe",
+      "line": 33,
+      "label": "Shape1#isEmpty -> Shape1#hasNext   (recv=probe, deviates)",
+      "meta": {
+        "sup": 4,
+        "supA": 5,
+        "conf": 0.8,
+        "viol": 1,
+        "unit": "deviates@32",
+        "stab": 1,
+        "stabDesc": "1/1 subsets, 2/2 cumulative",
+        "pattern": [
+          {
+            "file": "PreIsEmpty.java",
+            "line": 14
+          },
+          {
+            "file": "PreIsEmpty.java",
+            "line": 19
+          },
+          {
+            "file": "PreIsEmpty.java",
+            "line": 24
+          },
+          {
+            "file": "PreIsEmpty.java",
+            "line": 29
+          }
+        ]
+      },
+      "unitId": "a70e89797d48"
+    },
     {
       "id": "5dae50ea1572",
       "detector": "java",
@@ -49,6 +127,39 @@
         ]
       },
       "unitId": "ad0f8ebdbbef"
+    },
+    {
+      "id": "5bdb1ef784c6",
+      "detector": "java",
+      "rule": "Gamma#begin->Gamma#commit",
+      "file": "TypesFromExpression.java",
+      "anchor": "forgetsToCommit|registry.lookup()",
+      "line": 28,
+      "label": "Gamma#begin -> Gamma#commit   (recv=registry.lookup(), forgetsToCommit)",
+      "meta": {
+        "sup": 3,
+        "supA": 4,
+        "conf": 0.75,
+        "viol": 1,
+        "unit": "forgetsToCommit@27",
+        "stab": 1,
+        "stabDesc": "1/1 subsets, 3/3 cumulative",
+        "pattern": [
+          {
+            "file": "TypesFromExpression.java",
+            "line": 14
+          },
+          {
+            "file": "TypesFromExpression.java",
+            "line": 19
+          },
+          {
+            "file": "TypesFromExpression.java",
+            "line": 24
+          }
+        ]
+      },
+      "unitId": "277da5f777d3"
     }
   ],
   "root": "test/fixtures/java"

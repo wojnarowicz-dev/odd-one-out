@@ -17,6 +17,28 @@ checkouts, and it says SKIP with a reason when they are missing.
 | `pom/` | entries in `<dependencyManagement>` are in the tree or declared in `<dependencies>` | `io.thorntail:javafx` is in neither | DEAD needs both witnesses: absent from `deptree.txt` AND undeclared |
 | `deps/` | the file system is reached through `fixture.io.Fs` | `Direct1` and `Direct2` call `java.nio.file.Files` straight | `minvia=5`, `maxodd=3`: 5 classes via the layer, 2 around it |
 
+## Fixtures that are silent on purpose
+
+Most files under `java/` report nothing, and that is their job. Each one holds a
+pattern that WOULD cross the thresholds if a filter stopped working:
+
+| files | what they exercise | how they fail |
+|---|---|---|
+| `Acc*.java` (30) | every name in `ACCESSOR_EXACT` | drop a name from the list and its rule appears |
+| `Pre*.java` (5) | the `get/is/has/to/as` prefixes | break the prefix test and the rules appear |
+| `PreIsEmpty.java` | the predicate exception — `isEmpty -> hasNext` is KEPT because both sides are predicates | this one is not silent: it is the fixture that proves the exception exists |
+| `TypesAlpha/Beta.java` | receiver type from a declaration | without types both collapse into `?#open`, violations pass `--maxviol` and the finding disappears |
+| `TypesParameter.java` | receiver type from a formal parameter | |
+| `TypesFromExpression.java` | the project-wide expression → type map | |
+
+They exist because mutation testing measured those two regions at **32%** (type
+resolution) and **29%** (the accessor filter) while the core of the detector sat
+at 83–89%. The cause was the material, not the tests: the accessor list names two
+dozen methods and the fixtures used three of them.
+
+A run over `java/` reports **4 findings**. Three of them are these fixtures
+speaking as designed; the fourth is the planted `stop -> dispose`.
+
 Two details that are easy to get wrong when editing these:
 
 * The `deps` layer method must be named `readAllLinesSafe`, not `readLines`.
