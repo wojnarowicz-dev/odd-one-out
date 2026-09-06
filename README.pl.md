@@ -626,11 +626,41 @@ jest zmierzony jako nieprzetestowany, bo jest nieprzetestowany, a jest
 nieprzetestowany, bo został zmierzony jako szkodliwy i wyłączony. To jest spójne,
 nie niepokojące.
 
-Dwie liczby, które mają znaczenie, to **rozpoznawanie typów na 32%** i **filtr
-akcesorów na 29%**, bo oba są włączone domyślnie i oba kształtują każde zgłoszenie.
-Wzorce są za małe, żeby je przećwiczyć: lista akcesorów wymienia dwa tuziny nazw,
-a `test/fixtures` używa trzech. To jest konkretna następna robota — i jest to
-robota przy wzorcach, nie przy testach.
+Dwie liczby, które miały znaczenie, to **rozpoznawanie typów na 32%** i **filtr
+akcesorów na 29%** — oba włączone domyślnie i oba kształtujące każde zgłoszenie.
+Przyczyna była w materiale, nie w testach: lista akcesorów wymienia trzydzieści
+nazw, a wzorce używały trzech.
+
+**Naprawione pisaniem wzorców, nie testów, i zmierzone ponownie:**
+
+| obszar | przed | po | zmiana |
+|---|---|---|---|
+| rozpoznawanie typów | 42 / 133 — 32% | 89 / 132 — **67%** | **+35 punktów** |
+| filtr akcesorów | 34 / 116 — 29% | 89 / 116 — **77%** | **+48 punktów** |
+| oba razem | 76 / 249 — 31% | 178 / 248 — **72%** | **+41 punktów** |
+
+Trzydzieści pięć nowych plików wzorcowych trzyma pary akcesorów, które
+**przeszłyby progi, gdyby filtr przestał działać** — cztery jednostki z wzorcem,
+jedna odstająca. Dopóki filtr działa, milczą; w chwili gdy mutant wytnie nazwę
+z listy, reguła wychodzi i test złoty pada. Cztery kolejne wzorce pokrywają trzy
+źródła typu odbiornika, ustawione tak, że dwa różne typy dzielą nazwę metody: bez
+rozpoznawania typów zlewają się w `?#open`, liczba naruszeń przekracza
+`--maxviol` i zgłoszenie znika.
+
+**Uwaga o pierwszej próbie, bo dała wynik idealny, a wynik idealny był właśnie
+problemem.** Pierwszy pomiar zgłosił 463 mutantów, wszystkie zabite, 100%,
+w 21 sekund — przy sędzim trwającym osiem. Jeden mutant, który wcześniej przeżył,
+został zastosowany ręcznie i bramka przeszła, co przeczyło raportowi. Przyczyna:
+nowe wzorce nie były jeszcze zacommitowane, a Stryker buduje piaskownicę
+z plików znanych gitowi. W piaskownicy siedział stary zestaw wzorców, test złoty
+padał tam przy każdym mutancie niezależnie od mutacji, a każda porażka liczyła
+się jako zabity mutant. **Przyrząd, który zgadza się z hipotezą, jest pierwszą
+rzeczą do sprawdzenia** — liczby powyżej pochodzą z przebiegu po zacommitowaniu
+wzorców.
+
+Nadal przeżywa 70 mutantów: 43 w rozpoznawaniu typów i 27 w filtrze akcesorów.
+Skupiają się w ścieżce `--only`, której nie ćwiczy żaden wzorzec, w przypadku
+szczególnym `var` oraz w obcinaniu typów generycznych i nawiasów tablicowych.
 
 | plik | mutantów | zabitych | ocalałych | wynik | czas |
 |---|---|---|---|---|---|

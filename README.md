@@ -625,11 +625,41 @@ default.** No test turns it on, so nothing can kill a mutant there — the code 
 measured as untested because it is untested, and it is untested because it was
 measured as harmful and disabled. That is consistent, not alarming.
 
-The two numbers that do matter are **type resolution at 32%** and the **accessor
-filter at 29%**, because both are on by default and both shape every finding. The
-fixtures are too small to exercise them: the accessor list names two dozen methods
-and `test/fixtures` uses three of them. That is the concrete next piece of work,
-and it is fixture work rather than test work.
+The two numbers that mattered were **type resolution at 32%** and the **accessor
+filter at 29%**, both on by default and both shaping every finding. The cause was
+the material, not the tests: the accessor list names thirty methods and the
+fixtures used three of them.
+
+**That was fixed by writing fixtures, not tests, and re-measured:**
+
+| region | before | after | change |
+|---|---|---|---|
+| type resolution | 42 / 133 — 32% | 89 / 132 — **67%** | **+35 points** |
+| accessor filter | 34 / 116 — 29% | 89 / 116 — **77%** | **+48 points** |
+| both together | 76 / 249 — 31% | 178 / 248 — **72%** | **+41 points** |
+
+Thirty-five new fixture files hold accessor pairs that **would cross the
+thresholds if the filter stopped working** — four units holding the pattern, one
+deviating. While the filter works they are silent; the moment a mutant drops a
+name from the list, the rule appears and the golden test fails. Four more fixtures
+cover the three sources of a receiver type, arranged so that two different types
+share a method name: without type resolution they collapse into `?#open`, the
+violation count passes `--maxviol` and the finding disappears.
+
+**A note on the first attempt, because it produced a perfect score and a perfect
+score was the problem.** The first re-measurement reported 463 mutants, all
+killed, 100%, in 21 seconds — while the judge alone takes eight. One mutant that
+had survived the earlier run was applied by hand and the gate passed, which
+contradicted the report. The cause: the new fixtures were not committed yet, and
+Stryker builds its sandbox from the files git knows about. The sandbox held the
+old fixture set, the golden test failed there for every mutant regardless of the
+mutation, and every failure counted as a kill. **An instrument that agrees with
+the hypothesis is the first thing to distrust** — the numbers above come from a
+run made after the fixtures were committed.
+
+What still survives is 70 mutants: 43 in type resolution and 27 in the accessor
+filter. They concentrate in the `--only` path, which no fixture exercises, in the
+`var` special case, and in stripping generics and array brackets off a type name.
 
 | file | mutants | killed | survived | score | time |
 |---|---|---|---|---|---|
