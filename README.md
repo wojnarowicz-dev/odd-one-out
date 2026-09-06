@@ -887,6 +887,14 @@ a scene, another only attaches an event, a third only a size. A pair model canno
 tell “everyone does this because it is required” apart from
 “everyone does this because it is what they happened to need”.
 
+Hence the more general statement, and it is the real conclusion here: **the pair
+model works where co-occurrence is OBLIGATORY rather than customary.** `revoke`
+without `grant execute` in the same migration — the `sql` detector's rule — is a
+forced relation: the missing half is an error by definition. `Stage#getIcons`
+without `Stage#setScene` is nothing; they are two independent actions that stand
+next to each other in the statistics. The closer an API is to configuration, the
+less that statistic means.
+
 Two of the findings have a separate and simpler cause: matching on the method
 NAME rather than its meaning (`Files.isRegularFile` is not `Files.exists`), and
 a failure to resolve the receiver's type.

@@ -890,6 +890,14 @@ ustawia ikonę i scenę, drugie tylko podpina zdarzenie, trzecie tylko rozmiar.
 Model par nie odróżnia „wszyscy tak robią, bo tak trzeba” od
 „wszyscy tak robią, bo akurat tego potrzebowali”.
 
+Stąd zdanie ogólniejsze, i to ono jest tu właściwym wnioskiem: **model par ma
+sens tam, gdzie współwystępowanie jest OBOWIĄZKOWE, a nie zwyczajowe.** `revoke`
+bez `grant execute` w tej samej migracji — reguła detektora `sql` — to relacja
+wymuszona: brak drugiego członu jest błędem z definicji. `Stage#getIcons` bez
+`Stage#setScene` nie jest niczym; to dwie niezależne czynności, które w
+statystyce stoją obok siebie. Im bliżej API jest konfiguracji, tym mniej z tej
+statystyki wynika.
+
 Dwa zgłoszenia z tabeli mają przyczynę osobną i prostszą: dopasowanie po NAZWIE
 metody bez jej znaczenia (`Files.isRegularFile` nie jest `Files.exists`) oraz
 błąd rozpoznania typu odbiornika.
