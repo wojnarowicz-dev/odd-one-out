@@ -27,14 +27,14 @@ const EN = path.join(ROOT, 'README.md');
 const PL = path.join(ROOT, 'README.pl.md');
 const CONFIG = 'test/fixtures/golden.config.json';
 
-const WCIECIE = String.fromCharCode(10) + '           ';
-const wyniki = [];
-const ok = (grupa, co, szczegol = '') => wyniki.push({ stan: 'OK', grupa, co, szczegol });
-const zle = (grupa, co, szczegol) => wyniki.push({ stan: 'FAIL', grupa, co, szczegol });
-const nieda = (grupa, co, powod) => wyniki.push({ stan: 'N/A', grupa, co, szczegol: powod });
+const INDENT = String.fromCharCode(10) + '           ';
+const results = [];
+const ok = (grupa, co, szczegol = '') => results.push({ state: 'OK', grupa, co, szczegol });
+const fail = (grupa, co, szczegol) => results.push({ state: 'FAIL', grupa, co, szczegol });
+const unverifiable = (grupa, co, reason) => results.push({ state: 'N/A', grupa, co, szczegol: reason });
 
-const czytaj = p => fs.readFileSync(p, 'utf8');
-const uruchom = (args, opts = {}) => {
+const read = p => fs.readFileSync(p, 'utf8');
+const run = (args, opts = {}) => {
   const r = spawnSync(process.execPath, [CLI, ...args], {
     cwd: ROOT, encoding: 'utf8', maxBuffer: 1e9, ...opts,
   });
@@ -42,11 +42,11 @@ const uruchom = (args, opts = {}) => {
 };
 
 // ---------------------------------------------------------------- pomocnicze
-function blokiKodu(tekst) {
-  const linie = tekst.split(/\r?\n/);
+function blokiKodu(text) {
+  const lines = text.split(/\r?\n/);
   const bloki = [];
   let w = false, buf = null;
-  for (const l of linie) {
+  for (const l of lines) {
     if (/^\s*```/.test(l)) {
       if (!w) { w = true; buf = []; } else { w = false; bloki.push(buf); }
       continue;
@@ -56,13 +56,13 @@ function blokiKodu(tekst) {
   return bloki;
 }
 
-function tabele(tekst) {
-  const linie = tekst.split(/\r?\n/);
+function tabele(text) {
+  const lines = text.split(/\r?\n/);
   const out = [];
-  let cur = null, wKod = false;
-  for (const l of linie) {
-    if (/^\s*```/.test(l)) { wKod = !wKod; continue; }
-    if (wKod) continue;
+  let cur = null, inCode = false;
+  for (const l of lines) {
+    if (/^\s*```/.test(l)) { inCode = !inCode; continue; }
+    if (inCode) continue;
     if (/^\s*\|/.test(l)) (cur = cur || []).push(l);
     else if (cur) { out.push(cur); cur = null; }
   }
@@ -73,135 +73,135 @@ function tabele(tekst) {
 // Cells minus parenthesised asides: "(the list ends at seven)" and
 // "(lista krotsza niz 10)" say the same thing with different numbers in them,
 // and that is prose, not a claim.
-const komorki = (wiersz) => wiersz.trim().replace(/^\||\|$/g, '').split('|')
+const cells = (row) => row.trim().replace(/^\||\|$/g, '').split('|')
   .map(c => c.replace(/\([^)]*\)/g, '').trim());
-const liczbyZ = (s) => (s.match(/\d+(?:[.,]\d+)?/g) || []).map(x => x.replace(',', '.'));
+const numbersIn = (s) => (s.match(/\d+(?:[.,]\d+)?/g) || []).map(x => x.replace(',', '.'));
 
 // ---------------------------------------------------------------- 1. komendy
 // Which subcommands and switches actually exist, read out of the running tool
 // rather than out of the source: the help screen is what a person is offered.
-const pomoc = uruchom(['--help']).out;
+const pomoc = run(['--help']).out;
 // A COMMAND EXISTS IF RUNNING IT DOES NOT SAY "unknown command". Reading the
 // help screen with a regular expression was the first version and it was wrong:
 // the pattern wanted "<" after the name, `pom` has "--pom" there, and the gate
 // reported a working command as missing. Asking the dispatcher is simpler and
 // is what this gate is supposed to do in the first place.
-const pamiecKomend = new Map();
-function komendaIstnieje(sub) {
-  if (!pamiecKomend.has(sub))
-    pamiecKomend.set(sub, !/Unknown command|Nieznane polecenie/i.test(uruchom([sub]).out));
-  return pamiecKomend.get(sub);
+const commandCache = new Map();
+function commandExists(sub) {
+  if (!commandCache.has(sub))
+    commandCache.set(sub, !/Unknown command|Nieznane polecenie/i.test(run([sub]).out));
+  return commandCache.get(sub);
 }
-const znaneFlagi = new Set([...pomoc.matchAll(/--([a-z][a-z-]*)/g)].map(m => m[1]));
+const knownFlags = new Set([...pomoc.matchAll(/--([a-z][a-z-]*)/g)].map(m => m[1]));
 // switches documented in prose rather than in the options line
 for (const f of ['json', 'all', 'lang', 'config', 'update', 'accessors', 'wrapper',
   'types', 'aliases', 'stability', 'age', 'subsets', 'filter', 'only', 'scope',
   'minsup', 'minconf', 'maxviol', 'minvia', 'maxodd', 'minconv', 'top', 'pom', 'tree'])
-  znaneFlagi.add(f);
+  knownFlags.add(f);
 
-const NARZEDZIE = /^(?:npx\s+odd-one-out|node\s+bin\/odd-one-out\.mjs|odd-one-out)\b/;
-const komendy = new Map();          // komenda -> [pliki]
-for (const [plik, tekst] of [['EN', czytaj(EN)], ['PL', czytaj(PL)]]) {
-  for (const blok of blokiKodu(tekst)) {
+const TOOL = /^(?:npx\s+odd-one-out|node\s+bin\/odd-one-out\.mjs|odd-one-out)\b/;
+const commands = new Map();          // komenda -> [pliki]
+for (const [file, text] of [['EN', read(EN)], ['PL', read(PL)]]) {
+  for (const blok of blokiKodu(text)) {
     for (const l of blok) {
       const s = l.trim();
       if (!s || s.startsWith('#') || s.startsWith('//') || s.startsWith('+') || s.startsWith('-')) continue;
       if (!/^(npx|node|odd-one-out|npm|git|gh|mvn|winget|claude)\b/.test(s)) continue;
-      if (!komendy.has(s)) komendy.set(s, []);
-      komendy.get(s).push(plik);
+      if (!commands.has(s)) commands.set(s, []);
+      commands.get(s).push(file);
     }
   }
 }
 
-for (const [k, gdzie] of komendy) {
-  const skad = ' [' + [...new Set(gdzie)].join('+') + ']';
-  const bezKomentarza = k.split(/\s+#/)[0].trim();
+for (const [k, gdzie] of commands) {
+  const source = ' [' + [...new Set(gdzie)].join('+') + ']';
+  const withoutComment = k.split(/\s+#/)[0].trim();
 
-  if (NARZEDZIE.test(bezKomentarza)) {
-    const czesci = bezKomentarza.replace(NARZEDZIE, '').trim().split(/\s+/).filter(Boolean);
-    const sub = czesci.find(c => !c.startsWith('-') && !c.startsWith('<'));
-    if (sub && !komendaIstnieje(sub)) {
-      zle('komendy', bezKomentarza + skad, 'polecenie "' + sub + '" nie istnieje — dyspozytor odpowiada "unknown command"');
+  if (TOOL.test(withoutComment)) {
+    const parts = withoutComment.replace(TOOL, '').trim().split(/\s+/).filter(Boolean);
+    const sub = parts.find(c => !c.startsWith('-') && !c.startsWith('<'));
+    if (sub && !commandExists(sub)) {
+      fail('komendy', withoutComment + source, 'polecenie "' + sub + '" nie istnieje — dyspozytor odpowiada "unknown command"');
       continue;
     }
-    const zle_flagi = czesci.filter(c => c.startsWith('--'))
+    const zle_flagi = parts.filter(c => c.startsWith('--'))
       .map(c => c.replace(/^--/, '').split('=')[0])
-      .filter(f => f && !znaneFlagi.has(f));
+      .filter(f => f && !knownFlags.has(f));
     if (zle_flagi.length) {
-      zle('komendy', bezKomentarza + skad, 'nieznane przelaczniki: ' + zle_flagi.join(', '));
+      fail('komendy', withoutComment + source, 'nieznane przelaczniki: ' + zle_flagi.join(', '));
       continue;
     }
-    ok('komendy', bezKomentarza + skad, sub ? 'polecenie i przelaczniki istnieja' : 'przelaczniki istnieja');
+    ok('komendy', withoutComment + source, sub ? 'polecenie i przelaczniki istnieja' : 'przelaczniki istnieja');
     continue;
   }
 
-  if (/^npm\s+run\s+/.test(bezKomentarza)) {
-    const skrypt = bezKomentarza.split(/\s+/)[2];
-    const pkg = JSON.parse(czytaj(path.join(ROOT, 'package.json')));
-    if (!pkg.scripts || !pkg.scripts[skrypt])
-      zle('komendy', bezKomentarza + skad, 'brak skryptu "' + skrypt + '" w package.json');
-    else ok('komendy', bezKomentarza + skad, 'skrypt istnieje');
+  if (/^npm\s+run\s+/.test(withoutComment)) {
+    const script = withoutComment.split(/\s+/)[2];
+    const pkg = JSON.parse(read(path.join(ROOT, 'package.json')));
+    if (!pkg.scripts || !pkg.scripts[script])
+      fail('komendy', withoutComment + source, 'brak skryptu "' + script + '" w package.json');
+    else ok('komendy', withoutComment + source, 'skrypt istnieje');
     continue;
   }
-  if (/^npm\s+(test|start|install|i)\b/.test(bezKomentarza)) {
-    const pkg = JSON.parse(czytaj(path.join(ROOT, 'package.json')));
-    const s = bezKomentarza.split(/\s+/)[1];
+  if (/^npm\s+(test|start|install|i)\b/.test(withoutComment)) {
+    const pkg = JSON.parse(read(path.join(ROOT, 'package.json')));
+    const s = withoutComment.split(/\s+/)[1];
     if ((s === 'test' || s === 'start') && !(pkg.scripts && pkg.scripts[s]))
-      zle('komendy', bezKomentarza + skad, 'brak skryptu "' + s + '"');
-    else ok('komendy', bezKomentarza + skad, 'polecenie npm istnieje');
+      fail('komendy', withoutComment + source, 'brak skryptu "' + s + '"');
+    else ok('komendy', withoutComment + source, 'polecenie npm istnieje');
     continue;
   }
-  nieda('komendy', bezKomentarza + skad, 'nie jest poleceniem tego narzedzia (git/gh/mvn/winget/claude)');
+  unverifiable('komendy', withoutComment + source, 'nie jest poleceniem tego narzedzia (git/gh/mvn/winget/claude)');
 }
 
 // Dowod, ze CLI naprawde dziala, a nie tylko ze nazwy sie zgadzaja.
 {
-  const r = uruchom(['java', 'test/fixtures/java', '--config', CONFIG]);
+  const r = run(['java', 'test/fixtures/java', '--config', CONFIG]);
   if (r.status === 0 || r.status === 1) ok('komendy', 'przebieg na wzorcu', 'kod ' + r.status);
-  else zle('komendy', 'przebieg na wzorcu', 'kod ' + r.status);
+  else fail('komendy', 'przebieg na wzorcu', 'kod ' + r.status);
 }
 
 // ---------------------------------------------------------------- 2. liczby
 // Domyslne progi wypisane w pomocy wobec tego, co narzedzie naprawde robi.
 {
-  const wPomocy = pomoc.match(/--minsup (\d+) --minconf ([\d.]+) --maxviol (\d+) --top (\d+)/);
-  const przebieg = uruchom(['java', 'test/fixtures/java', '--config', CONFIG]).out;
-  const wPrzebiegu = przebieg.match(/minsup=(\d+) minconf=([\d.]+) maxviol=(\d+)/);
-  if (!wPomocy) zle('liczby', 'progi domyslne w pomocy', 'nie znalazlem ich w pomocy');
-  else if (!wPrzebiegu) zle('liczby', 'progi domyslne w przebiegu', 'przebieg ich nie wypisal');
+  const inTheHelp = pomoc.match(/--minsup (\d+) --minconf ([\d.]+) --maxviol (\d+) --top (\d+)/);
+  const theRun = run(['java', 'test/fixtures/java', '--config', CONFIG]).out;
+  const inTheRun = theRun.match(/minsup=(\d+) minconf=([\d.]+) maxviol=(\d+)/);
+  if (!inTheHelp) fail('liczby', 'progi domyslne w pomocy', 'nie znalazlem ich w pomocy');
+  else if (!inTheRun) fail('liczby', 'progi domyslne w przebiegu', 'przebieg ich nie wypisal');
   else {
-    const a = wPomocy.slice(1, 4).join(','), b = wPrzebiegu.slice(1, 4).join(',');
+    const a = inTheHelp.slice(1, 4).join(','), b = inTheRun.slice(1, 4).join(',');
     if (a === b) ok('liczby', 'progi domyslne', 'pomoc = przebieg: ' + a);
-    else zle('liczby', 'progi domyslne', 'pomoc mowi ' + a + ', przebieg robi ' + b);
+    else fail('liczby', 'progi domyslne', 'pomoc mowi ' + a + ', przebieg robi ' + b);
   }
 }
 
 // Kody wyjscia opisane w README wobec tego, co zwraca proces.
 {
-  const opisane = /exit code|Kod wyjscia|Kod wyjścia/i.test(czytaj(EN));
-  const bezZgloszen = uruchom(['java', 'test/fixtures/java', '--config', CONFIG, '--only', 'nic-takiego']);
-  const zeZgloszeniami = uruchom(['java', 'test/fixtures/java', '--config', CONFIG]);
-  const zlaSciezka = uruchom(['java', 'nie-ma-takiego-katalogu']);
-  const zgadza = bezZgloszen.status === 0 && zeZgloszeniami.status === 1 && zlaSciezka.status === 2;
-  if (!opisane) nieda('liczby', 'kody wyjscia', 'README ich nie opisuje');
-  else if (zgadza) ok('liczby', 'kody wyjscia 0/1/2', 'zmierzone: 0, 1, 2');
-  else zle('liczby', 'kody wyjscia 0/1/2',
-    'zmierzone: ' + bezZgloszen.status + ', ' + zeZgloszeniami.status + ', ' + zlaSciezka.status);
+  const documented = /exit code|Kod wyjscia|Kod wyjścia/i.test(read(EN));
+  const noFindings = run(['java', 'test/fixtures/java', '--config', CONFIG, '--only', 'nic-takiego']);
+  const withFindings = run(['java', 'test/fixtures/java', '--config', CONFIG]);
+  const badPath = run(['java', 'nie-ma-takiego-katalogu']);
+  const agrees = noFindings.status === 0 && withFindings.status === 1 && badPath.status === 2;
+  if (!documented) unverifiable('liczby', 'kody wyjscia', 'README ich nie opisuje');
+  else if (agrees) ok('liczby', 'kody wyjscia 0/1/2', 'zmierzone: 0, 1, 2');
+  else fail('liczby', 'kody wyjscia 0/1/2',
+    'zmierzone: ' + noFindings.status + ', ' + withFindings.status + ', ' + badPath.status);
 }
 
 // Liczba detektorow wymieniona w pomocy wobec liczby modulow, ktore istnieja.
 {
-  const detektory = ['java', 'deps', 'pom', 'sql', 'js'].filter(komendaIstnieje);
-  const brakujace = detektory.filter(d => {
+  const detectors = ['java', 'deps', 'pom', 'sql', 'js'].filter(commandExists);
+  const missing = detectors.filter(d => {
     const m = { java: 'oddone.mjs', deps: 'deps.mjs', pom: 'pom.mjs', sql: 'sql.mjs', js: 'js.mjs' }[d];
     return m ? !fs.existsSync(path.join(ROOT, 'src', m)) : false;
   });
-  if (brakujace.length) zle('liczby', 'detektory z pomocy istnieja', 'brak modulow: ' + brakujace.join(', '));
-  else ok('liczby', 'detektory z pomocy istnieja', detektory.length + ': ' + detektory.join(', '));
+  if (missing.length) fail('liczby', 'detektory z pomocy istnieja', 'brak modulow: ' + missing.join(', '));
+  else ok('liczby', 'detektory z pomocy istnieja', detectors.length + ': ' + detectors.join(', '));
 }
 
 // Liczby, ktorych w bosym klonie sprawdzic sie nie da — wypisane, nie pominiete.
-const NIESPRAWDZALNE = [
+const UNVERIFIABLE = [
   ['trafnosc na projekcie autora (60%, 43%, 29%, 20%, 21%)',
     'wymaga prywatnego repozytorium; ustaw OOO_VAA i uruchom npm run known-answers'],
   ['tabele netty / JSON-java / spring-petclinic (100->79, 31->17, 7->2)',
@@ -216,75 +216,75 @@ const NIESPRAWDZALNE = [
     'detektor jest na galezi python-postponed-unverified, nie na masterze'],
   ['1% - 36,3% dla narzedzi komercyjnych', 'liczby producentow i raportu Tolly 2024, nie do zmierzenia tutaj'],
 ];
-for (const [co, powod] of NIESPRAWDZALNE) nieda('liczby', co, powod);
+for (const [co, reason] of UNVERIFIABLE) unverifiable('liczby', co, reason);
 
 // ---------------------------------------------------------------- 3. odnosniki
-for (const [nazwa, plik] of [['EN', EN], ['PL', PL]]) {
-  const tekst = czytaj(plik);
-  const linki = [...tekst.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)]
+for (const [name, file] of [['EN', EN], ['PL', PL]]) {
+  const text = read(file);
+  const linki = [...text.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)]
     .map(m => m[2]).filter(u => !/^https?:|^#|^mailto:/.test(u));
-  const brak = [...new Set(linki)].filter(u =>
-    !fs.existsSync(path.join(path.dirname(plik), u.split('#')[0])));
-  if (brak.length) zle('odnosniki', nazwa, 'nie istnieja: ' + brak.join(', '));
-  else ok('odnosniki', nazwa, [...new Set(linki)].length + ' wzglednych, wszystkie istnieja');
+  const missing = [...new Set(linki)].filter(u =>
+    !fs.existsSync(path.join(path.dirname(file), u.split('#')[0])));
+  if (missing.length) fail('odnosniki', name, 'nie istnieja: ' + missing.join(', '));
+  else ok('odnosniki', name, [...new Set(linki)].length + ' wzglednych, wszystkie istnieja');
 }
 
 // ---------------------------------------------------------------- 4. przyklad
 // README pokazuje przykladowe zgloszenie. Format wyjscia zmienia sie najczesciej
 // i najciszej ze wszystkiego, wiec sprawdzamy go PRZEBIEGIEM, nie oczami.
 {
-  const wyjscie = uruchom(['java', 'test/fixtures/java', '--config', CONFIG, '--lang', 'en']).out;
-  const wymagane = [
+  const output = run(['java', 'test/fixtures/java', '--config', CONFIG, '--lang', 'en']).out;
+  const required = [
     [/^## \[\d+\] .+ -> .+\s+sup=\d+\/\d+ conf=\d+% odd=\d+/m, 'naglowek reguly sup/conf/odd'],
     [/^ {3}WHAT IS INCONSISTENT$/m, 'sekcja WHAT IS INCONSISTENT'],
     [/^ {3}HOW IT IS DONE ELSEWHERE$/m, 'sekcja HOW IT IS DONE ELSEWHERE'],
     [/^ {3}READY-MADE FIX \(not applied\)$/m, 'sekcja READY-MADE FIX'],
     [/^\s+\+ \w+\.\w+\(/m, 'linia poprawki zaczynajaca sie od +'],
   ];
-  for (const [re, opis] of wymagane) {
-    if (re.test(wyjscie)) ok('przyklad', opis, 'wypisane przez narzedzie');
-    else zle('przyklad', opis, 'README to pokazuje, narzedzie tego nie wypisuje');
+  for (const [re, opis] of required) {
+    if (re.test(output)) ok('przyklad', opis, 'wypisane przez narzedzie');
+    else fail('przyklad', opis, 'README to pokazuje, narzedzie tego nie wypisuje');
   }
   // kolejnosc sekcji
-  const kolejnosc = ['WHAT IS INCONSISTENT', 'HOW IT IS DONE ELSEWHERE', 'READY-MADE FIX']
-    .map(s => wyjscie.indexOf(s));
-  if (kolejnosc.every(i => i >= 0) && kolejnosc[0] < kolejnosc[1] && kolejnosc[1] < kolejnosc[2])
+  const order = ['WHAT IS INCONSISTENT', 'HOW IT IS DONE ELSEWHERE', 'READY-MADE FIX']
+    .map(s => output.indexOf(s));
+  if (order.every(i => i >= 0) && order[0] < order[1] && order[1] < order[2])
     ok('przyklad', 'kolejnosc trzech sekcji', 'jak w README');
-  else zle('przyklad', 'kolejnosc trzech sekcji', 'inna niz w README');
+  else fail('przyklad', 'kolejnosc trzech sekcji', 'inna niz w README');
 
   // czy README pokazuje ten sam ksztalt naglowka
-  const wReadme = czytaj(EN).match(/^## \[\d+\] .+ sup=\d+\/\d+ conf=\d+% odd=\d+/m);
+  const wReadme = read(EN).match(/^## \[\d+\] .+ sup=\d+\/\d+ conf=\d+% odd=\d+/m);
   if (wReadme) ok('przyklad', 'README pokazuje ten ksztalt naglowka', wReadme[0].slice(0, 52) + '...');
-  else zle('przyklad', 'README pokazuje ten ksztalt naglowka', 'nie znalazlem go w README');
+  else fail('przyklad', 'README pokazuje ten ksztalt naglowka', 'nie znalazlem go w README');
 }
 
 // ---------------------------------------------------------------- 5. jezyki
 {
-  const te = tabele(czytaj(EN)), tp = tabele(czytaj(PL));
+  const te = tabele(read(EN)), tp = tabele(read(PL));
   if (te.length !== tp.length) {
-    zle('jezyki', 'liczba tabel', 'EN ' + te.length + ', PL ' + tp.length);
+    fail('jezyki', 'liczba tabel', 'EN ' + te.length + ', PL ' + tp.length);
   } else {
-    let zgodnych = 0;
+    let matching = 0;
     for (let i = 0; i < te.length; i++) {
-      const ke = te[i].map(komorki), kp = tp[i].map(komorki);
+      const ke = te[i].map(cells), kp = tp[i].map(cells);
       if (ke[0].length !== kp[0].length) {
-        zle('jezyki', 'tabela ' + (i + 1), 'rozna liczba kolumn: EN ' + ke[0].length + ', PL ' + kp[0].length);
+        fail('jezyki', 'tabela ' + (i + 1), 'rozna liczba kolumn: EN ' + ke[0].length + ', PL ' + kp[0].length);
         continue;
       }
       if (ke.length !== kp.length) {
-        zle('jezyki', 'tabela ' + (i + 1), 'rozna liczba wierszy: EN ' + ke.length + ', PL ' + kp.length);
+        fail('jezyki', 'tabela ' + (i + 1), 'rozna liczba wierszy: EN ' + ke.length + ', PL ' + kp.length);
         continue;
       }
       const rozne = [];
       for (let w = 0; w < ke.length; w++)
         for (let c = 0; c < ke[w].length; c++) {
-          const a = liczbyZ(ke[w][c]).join(','), b = liczbyZ(kp[w][c]).join(',');
+          const a = numbersIn(ke[w][c]).join(','), b = numbersIn(kp[w][c]).join(',');
           if (a !== b) rozne.push('w' + (w + 1) + 'k' + (c + 1) + ': EN[' + a + '] PL[' + b + ']');
         }
-      if (rozne.length) zle('jezyki', 'tabela ' + (i + 1), rozne.slice(0, 3).join('  '));
-      else zgodnych++;
+      if (rozne.length) fail('jezyki', 'tabela ' + (i + 1), rozne.slice(0, 3).join('  '));
+      else matching++;
     }
-    if (zgodnych) ok('jezyki', 'tabele o zgodnych liczbach', zgodnych + ' z ' + te.length);
+    if (matching) ok('jezyki', 'tabele o zgodnych liczbach', matching + ' z ' + te.length);
   }
 }
 
@@ -298,69 +298,69 @@ for (const [nazwa, plik] of [['EN', EN], ['PL', PL]]) {
 // "18,1%" — wiec obie sa sprowadzane do jednej postaci, zanim cokolwiek sie
 // porowna. Nawiasy sa wycinane: "(the list ends at seven)" i "(lista krotsza niz
 // 10)" mowia to samo innymi liczbami, a to proza, nie deklaracja.
-function rozdzialy(tekst) {
+function sections(text) {
   const out = [];
-  let cur = { tytul: '(przed pierwszym naglowkiem)', tresc: [] };
-  let wKod = false;
-  for (const l of tekst.split(/\r?\n/)) {
-    if (/^\s*```/.test(l)) { wKod = !wKod; continue; }
-    if (wKod) continue;
-    if (/^#{2,3} /.test(l)) { out.push(cur); cur = { tytul: l, tresc: [] }; continue; }
-    cur.tresc.push(l);
+  let cur = { tytul: '(przed pierwszym naglowkiem)', body: [] };
+  let inCode = false;
+  for (const l of text.split(/\r?\n/)) {
+    if (/^\s*```/.test(l)) { inCode = !inCode; continue; }
+    if (inCode) continue;
+    if (/^#{2,3} /.test(l)) { out.push(cur); cur = { tytul: l, body: [] }; continue; }
+    cur.body.push(l);
   }
   out.push(cur);
   return out;
 }
 
-function liczbyRozdzialu(tresc) {
-  let t = tresc.join(' ').replace(/\([^)]*\)/g, ' ');
+function numbersOfSection(body) {
+  let t = body.join(' ').replace(/\([^)]*\)/g, ' ');
   t = t.replace(/(\d)[\u0020\u00a0,](\d{3})(?!\d)/g, '$1$2');   // tysiace: spacja albo przecinek
   t = t.replace(/(\d),(\d{1,2})(?!\d)/g, '$1.$2');               // przecinek dziesietny
   return (t.match(/\d+(?:\.\d+)?/g) || []).sort();
 }
 
 {
-  const re = rozdzialy(czytaj(EN)), rp = rozdzialy(czytaj(PL));
+  const re = sections(read(EN)), rp = sections(read(PL));
   if (re.length !== rp.length) {
-    zle('jezyki', 'liczba rozdzialow', 'EN ' + re.length + ', PL ' + rp.length);
+    fail('jezyki', 'liczba rozdzialow', 'EN ' + re.length + ', PL ' + rp.length);
   } else {
-    let zgodnych = 0;
+    let matching = 0;
     for (let k = 0; k < re.length; k++) {
-      const a = liczbyRozdzialu(re[k].tresc), b = liczbyRozdzialu(rp[k].tresc);
-      if (a.join(',') === b.join(',')) { zgodnych++; continue; }
-      const zostale = b.slice();
-      const tylkoEN = a.filter(x => {
-        const m = zostale.indexOf(x);
+      const a = numbersOfSection(re[k].body), b = numbersOfSection(rp[k].body);
+      if (a.join(',') === b.join(',')) { matching++; continue; }
+      const remaining = b.slice();
+      const onlyEN = a.filter(x => {
+        const m = remaining.indexOf(x);
         if (m < 0) return true;
-        zostale.splice(m, 1);
+        remaining.splice(m, 1);
         return false;
       });
-      zle('jezyki', 'rozdzial ' + (k + 1) + ': ' + re[k].tytul.replace(/^#+ /, '').slice(0, 42),
-        (tylkoEN.length ? 'tylko EN: ' + tylkoEN.join(', ') + '   ' : '') +
-        (zostale.length ? 'tylko PL: ' + zostale.join(', ') : ''));
+      fail('jezyki', 'rozdzial ' + (k + 1) + ': ' + re[k].tytul.replace(/^#+ /, '').slice(0, 42),
+        (onlyEN.length ? 'tylko EN: ' + onlyEN.join(', ') + '   ' : '') +
+        (remaining.length ? 'tylko PL: ' + remaining.join(', ') : ''));
     }
-    if (zgodnych) ok('jezyki', 'rozdzialy o zgodnych liczbach', zgodnych + ' z ' + re.length);
+    if (matching) ok('jezyki', 'rozdzialy o zgodnych liczbach', matching + ' z ' + re.length);
   }
 }
 
 // ---------------------------------------------------------------- raport
 console.log('odd-one-out — does the README tell the truth?\n');
-const grupy = [...new Set(wyniki.map(w => w.grupa))];
-for (const g of grupy) {
-  const w = wyniki.filter(x => x.grupa === g);
-  console.log('  == ' + g + '  (' + w.filter(x => x.stan === 'OK').length + ' ok, ' +
-    w.filter(x => x.stan === 'FAIL').length + ' zle, ' + w.filter(x => x.stan === 'N/A').length + ' niesprawdzalnych)');
-  for (const x of w.filter(x => x.stan === 'FAIL'))
-    console.log('     FAIL  ' + x.co + WCIECIE + x.szczegol);
-  for (const x of w.filter(x => x.stan === 'N/A'))
-    console.log('     N/A   ' + x.co + WCIECIE + x.szczegol);
+const groups = [...new Set(results.map(w => w.grupa))];
+for (const g of groups) {
+  const w = results.filter(x => x.grupa === g);
+  console.log('  == ' + g + '  (' + w.filter(x => x.state === 'OK').length + ' ok, ' +
+    w.filter(x => x.state === 'FAIL').length + ' zle, ' + w.filter(x => x.state === 'N/A').length + ' niesprawdzalnych)');
+  for (const x of w.filter(x => x.state === 'FAIL'))
+    console.log('     FAIL  ' + x.co + INDENT + x.szczegol);
+  for (const x of w.filter(x => x.state === 'N/A'))
+    console.log('     N/A   ' + x.co + INDENT + x.szczegol);
 }
 
-const zlych = wyniki.filter(w => w.stan === 'FAIL').length;
-const brakow = wyniki.filter(w => w.stan === 'N/A').length;
-const dobrych = wyniki.filter(w => w.stan === 'OK').length;
+const zlych = results.filter(w => w.state === 'FAIL').length;
+const brakow = results.filter(w => w.state === 'N/A').length;
+const dobrych = results.filter(w => w.state === 'OK').length;
 console.log('');
-console.log('  sprawdzanych rzeczy: ' + wyniki.length +
+console.log('  sprawdzanych rzeczy: ' + results.length +
   '   zgadza sie: ' + dobrych + '   nie zgadza sie: ' + zlych +
   '   niesprawdzalnych mechanicznie: ' + brakow);
 if (zlych) {

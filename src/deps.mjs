@@ -204,8 +204,8 @@ for (const file of sources.js) {
       // const { prepare } = await import('./snapshot.mjs');
       const nm = node.childForFieldName('name');
       const val = node.childForFieldName('value');
-      const tekst = val ? val.text : '';
-      const m = tekst.match(/import\s*\(\s*['"]([^'"]+)['"]\s*\)/);
+      const text = val ? val.text : '';
+      const m = text.match(/import\s*\(\s*['"]([^'"]+)['"]\s*\)/);
       if (m && nm) {
         if (nm.type === 'object_pattern') {
           for (let i = 0; i < nm.childCount; i++) {
@@ -500,7 +500,7 @@ for (const f of findings.slice(0, TOP)) {
 }
 maybeWriteSnapshot(argv, {
   detector: 'deps', root: ROOT, args: argv.slice(1), cfg,
-  counts: { klasy: classes.size, operacjeOpakowane: wrappers.size, rozjazdy: findings.filter(f => f.kind === 'DIVERGENCE').length },
+  counts: { classes: classes.size, wrappedOps: wrappers.size, divergences: findings.filter(f => f.kind === 'DIVERGENCE').length },
   findings: snapFindings,
 });
 

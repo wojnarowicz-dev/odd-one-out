@@ -10,10 +10,10 @@
     "en"
   ],
   "counts": {
-    "migracje": 4,
-    "parRevokeGrant": 3,
-    "funkcjiZWzorcem": 3,
-    "bezGrantu": 1
+    "migrations": 4,
+    "revokeGrantPairs": 3,
+    "functionsWithPattern": 3,
+    "withoutGrant": 1
   },
   "findings": [
     {

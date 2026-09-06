@@ -10,9 +10,9 @@
     "en"
   ],
   "counts": {
-    "klasy": 8,
-    "operacjeOpakowane": 1,
-    "rozjazdy": 1
+    "classes": 8,
+    "wrappedOps": 1,
+    "divergences": 1
   },
   "findings": [
     {

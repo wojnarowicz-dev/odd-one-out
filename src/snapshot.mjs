@@ -171,10 +171,10 @@ export function diffSnapshots(oldSnap, newSnap) {
   const before = new Map((oldSnap ? oldSnap.findings : []).map(f => [f.id, f]));
   const after = new Map(newSnap.findings.map(f => [f.id, f]));
 
-  const nowe = [], zniklo = [], zmienione = [], bezZmian = [];
+  const added = [], gone = [], changed = [], unchanged = [];
   for (const [id, f] of after) {
     const b = before.get(id);
-    if (!b) { nowe.push(f); continue; }
+    if (!b) { added.push(f); continue; }
     const zmiany = [];
     for (const k of CHANGED_FIELDS) {
       const ov = b.meta ? b.meta[k] : undefined;
@@ -185,12 +185,12 @@ export function diffSnapshots(oldSnap, newSnap) {
         if (String(os) !== String(ns)) zmiany.push(k + ': ' + os + ' -> ' + ns);
       }
     }
-    if (zmiany.length) zmienione.push({ ...f, zmiany, wasLine: b.line });
-    else bezZmian.push(f);
+    if (zmiany.length) changed.push({ ...f, zmiany, wasLine: b.line });
+    else unchanged.push(f);
   }
-  for (const [id, f] of before) if (!after.has(id)) zniklo.push(f);
+  for (const [id, f] of before) if (!after.has(id)) gone.push(f);
 
-  return { nowe, zniklo, zmienione, bezZmian };
+  return { added, gone, changed, unchanged };
 }
 
 export function printDiff(oldSnap, newSnap, { showUnchanged = false } = {}) {
@@ -205,36 +205,36 @@ export function printDiff(oldSnap, newSnap, { showUnchanged = false } = {}) {
   if (oldSnap && JSON.stringify(oldSnap.args) !== JSON.stringify(newSnap.args))
     console.log(t('diffWarnThresholds', oldSnap.args.join(' '), newSnap.args.join(' ')));
   console.log('');
-  console.log(t('diffCounts', d.nowe.length, d.zniklo.length, d.zmienione.length, d.bezZmian.length));
+  console.log(t('diffCounts', d.added.length, d.gone.length, d.changed.length, d.unchanged.length));
   console.log('');
 
   const line = f => '   ' + f.file + (f.line ? ':' + f.line : '') + '   ' + f.label;
 
-  if (d.nowe.length) {
+  if (d.added.length) {
     console.log(t('diffSecNew'));
-    for (const f of d.nowe) console.log(line(f));
+    for (const f of d.added) console.log(line(f));
     console.log('');
   }
-  if (d.zniklo.length) {
+  if (d.gone.length) {
     console.log(t('diffSecGone'));
     console.log(t('diffSecGoneHint'));
-    for (const f of d.zniklo) console.log(line(f));
+    for (const f of d.gone) console.log(line(f));
     console.log('');
   }
-  if (d.zmienione.length) {
+  if (d.changed.length) {
     console.log(t('diffSecChanged'));
-    for (const f of d.zmienione) {
+    for (const f of d.changed) {
       console.log(line(f));
       console.log('      ' + f.zmiany.join(', '));
     }
     console.log('');
   }
-  if (showUnchanged && d.bezZmian.length) {
+  if (showUnchanged && d.unchanged.length) {
     console.log(t('diffSecUnchanged'));
-    for (const f of d.bezZmian) console.log(line(f));
+    for (const f of d.unchanged) console.log(line(f));
     console.log('');
   }
-  if (!d.nowe.length && !d.zniklo.length && !d.zmienione.length)
+  if (!d.added.length && !d.gone.length && !d.changed.length)
     console.log(t('diffNoChange'));
 
   return d;
@@ -277,13 +277,13 @@ export function prepare(argv, payload) {
         abs = path.resolve(payload.root, f.file);
         if (!fs.existsSync(abs)) abs = fs.existsSync(f.file) ? f.file : null;
       } catch { abs = null; }
-      const powod = abs ? cfg.mutedByComment(abs, f.line) : null;
-      if (powod) { mutedByCommentList.push({ ...f, powod }); return false; }
+      const reason = abs ? cfg.mutedByComment(abs, f.line) : null;
+      if (reason) { mutedByCommentList.push({ ...f, reason }); return false; }
       return true;
     });
   }
 
-  let poprzedni = null;
+  let previous = null;
   if (file) {
     // AN UNREADABLE PREVIOUS RUN IS SAID OUT LOUD. This used to swallow the
     // error, and the only trace was the ABSENCE of the "diff vs previous run"
@@ -291,25 +291,25 @@ export function prepare(argv, payload) {
     // the damaged file was then overwritten. Losing the baseline showed up as
     // one missing line of output, which nobody notices.
     try {
-      if (fs.existsSync(file)) poprzedni = readSnapshot(file);
+      if (fs.existsSync(file)) previous = readSnapshot(file);
     } catch (e) {
-      poprzedni = null;
+      previous = null;
       console.error('');
       console.error(t('snapshotUnreadable', file, e.code || e.message));
       console.error(t('snapshotUnreadableHint'));
     }
   }
 
-  const diff = poprzedni ? diffSnapshots(poprzedni, snap) : null;
+  const diff = previous ? diffSnapshots(previous, snap) : null;
   const toShow = (!diff || showAll)
     ? snap.findings
-    : [...diff.nowe, ...diff.zmienione];
+    : [...diff.added, ...diff.changed];
 
   if (file) writeSnapshot(file, snap);
 
   return {
     snap, toShow, diff, mutedByCommentList, file, showAll,
-    newCount: diff ? diff.nowe.length : snap.findings.length,
+    newCount: diff ? diff.added.length : snap.findings.length,
   };
 }
 
@@ -318,12 +318,12 @@ export function diffHeader(w) {
   if (w.mutedByCommentList.length) {
     console.log(t('mutedByComment', w.mutedByCommentList.length));
     for (const f of w.mutedByCommentList.slice(0, 5))
-      console.log('   ' + f.file + ':' + f.line + '  — ' + f.powod);
+      console.log('   ' + f.file + ':' + f.line + '  — ' + f.reason);
   }
   if (w.snap.mutedCount) console.log(t('mutedByConfig', w.snap.mutedCount));
   if (w.diff) {
     const d = w.diff;
-    console.log(t('diffVsPrevious', d.nowe.length, d.zniklo.length, d.zmienione.length, d.bezZmian.length));
+    console.log(t('diffVsPrevious', d.added.length, d.gone.length, d.changed.length, d.unchanged.length));
   }
   if (w.file) console.log(t('savedRun', w.file, w.snap.findings.length));
 }

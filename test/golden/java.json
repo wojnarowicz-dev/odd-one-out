@@ -11,10 +11,10 @@
   ],
   "counts": {
     "sources": 40,
-    "zasieg": "lambda",
-    "bledyParsowania": 0,
-    "jednostki": 200,
-    "regul": 4
+    "scope": "lambda",
+    "parseErrors": 0,
+    "units": 200,
+    "rules": 4
   },
   "findings": [
     {

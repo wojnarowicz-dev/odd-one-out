@@ -10,10 +10,10 @@
     "en"
   ],
   "counts": {
-    "stron": 1,
-    "blokowInline": 1,
-    "plikowSkryptowych": 0,
-    "sierot": 1
+    "pages": 1,
+    "inlineBlocks": 1,
+    "scriptFiles": 0,
+    "orphans": 1
   },
   "findings": [
     {

@@ -123,7 +123,7 @@ const w = prepare(argv, {
   root: POM,
   cfg,
   args: argv.slice(argv.indexOf('--pom') + 2),
-  counts: { wpisow: managed.length, zywych: live.length, martwych: dead.length, doSprawdzenia: suspect.length },
+  counts: { managed: managed.length, live: live.length, dead: dead.length, toCheck: suspect.length },
   findings: [
     ...dead.map(e => ({
       rule: 'martwy-wpis-dependencyManagement',

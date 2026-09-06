@@ -12,10 +12,10 @@
     "en"
   ],
   "counts": {
-    "wpisow": 3,
-    "zywych": 2,
-    "martwych": 1,
-    "doSprawdzenia": 0
+    "managed": 3,
+    "live": 2,
+    "dead": 1,
+    "toCheck": 0
   },
   "findings": [
     {

@@ -26,26 +26,26 @@ export function components(meta = {}) {
   const odd = Number(m.odd ?? m.viol ?? 1) || 1;
 
   // conventionality: straight from conf (Java), or from via/(via+odd) (the rest)
-  let konwencja = null;
-  if (m.conf !== undefined) konwencja = Number(m.conf);
+  let conventionality = null;
+  if (m.conf !== undefined) conventionality = Number(m.conf);
   else if (m.via !== undefined) {
     const via = Number(m.via) || 0;
-    konwencja = via + odd > 0 ? via / (via + odd) : 0;
+    conventionality = via + odd > 0 ? via / (via + odd) : 0;
   }
-  if (konwencja === null || Number.isNaN(konwencja)) konwencja = 0.5;
+  if (conventionality === null || Number.isNaN(conventionality)) conventionality = 0.5;
 
   // population: how many examples support the pattern; saturates at 10
   const pop = Number(m.sup ?? m.via ?? 0) || 0;
-  const populacja = Math.min(1, pop / 10);
+  const population = Math.min(1, pop / 10);
 
-  const rzadkosc = 1 / odd;
+  const rarity = 1 / odd;
 
-  return { konwencja, populacja, rzadkosc, odd, pop };
+  return { conventionality, population, rarity, odd, pop };
 }
 
 export function score(meta) {
   const c = components(meta);
-  return Math.round(100 * c.konwencja * c.populacja * c.rzadkosc);
+  return Math.round(100 * c.conventionality * c.population * c.rarity);
 }
 
 // States that are NOT findings have no business in the ranking — no matter how
@@ -66,7 +66,7 @@ function unitKey(f, detector) {
 }
 
 export function rankSnapshots(snapshots) {
-  const grupy = new Map();
+  const groups = new Map();
   for (const s of snapshots)
     for (const f of s.findings) {
       const kind = f.meta && f.meta.kind;
@@ -74,13 +74,13 @@ export function rankSnapshots(snapshots) {
       const detector = f.detector || s.detector;
       const k = unitKey(f, detector);
       const rec = { ...f, detector, root: s.root, score: score(f.meta), comp: components(f.meta) };
-      const prev = grupy.get(k);
-      if (!prev) { grupy.set(k, { ...rec, takze: [] }); continue; }
+      const prev = groups.get(k);
+      if (!prev) { groups.set(k, { ...rec, takze: [] }); continue; }
       // the strongest rule stays; weaker ones are listed beside it
-      if (rec.score > prev.score) grupy.set(k, { ...rec, takze: [...prev.takze, prev.rule] });
+      if (rec.score > prev.score) groups.set(k, { ...rec, takze: [...prev.takze, prev.rule] });
       else prev.takze.push(rec.rule);
     }
-  const out = [...grupy.values()];
+  const out = [...groups.values()];
   out.sort((a, b) => b.score - a.score || a.file.localeCompare(b.file));
   return out;
 }
@@ -140,7 +140,7 @@ export async function printRanking(snapshots, { top = 20, wiek = null, stabilnos
     console.log(String(i + 1).padStart(3) + '. [' + String(f.score).padStart(3) + ']  ' +
       f.detector.padEnd(5) + '  ' + f.file + (f.line ? ':' + f.line : ''));
     console.log('       ' + f.label);
-    console.log(t('rankComponents', (c.konwencja * 100).toFixed(0), c.pop, c.odd));
+    console.log(t('rankComponents', (c.conventionality * 100).toFixed(0), c.pop, c.odd));
     if (f.takze && f.takze.length) console.log(t('rankAlsoViolates', f.takze.join(', ')));
     if (f.wiek) console.log(t('rankAge', f.wiek.describe));
     if (stabilnosc && f.meta && f.meta.stabDesc)

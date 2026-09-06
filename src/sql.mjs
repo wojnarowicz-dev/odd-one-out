@@ -138,7 +138,7 @@ const w = prepare(argv, {
   root: DIR,
   cfg,
   args: argv.slice(1),
-  counts: { migracje: files.length, parRevokeGrant: both.length, funkcjiZWzorcem: distinct, bezGrantu: onlyRevoke.length },
+  counts: { migrations: files.length, revokeGrantPairs: both.length, functionsWithPattern: distinct, withoutGrant: onlyRevoke.length },
   findings: reported.map(o => ({
     rule: 'revoke-bez-grant-execute',
     file: o.file,

@@ -233,7 +233,7 @@ findings.sort((a, b) => a.callCount - b.callCount || a.file.localeCompare(b.file
 const { prepare, diffHeader, resultExit } = await import('./snapshot.mjs');
 const w = prepare(argv, {
   detector: 'js', root: ROOT, args: argv.slice(1), cfg,
-  counts: { stron: pagesScanned, blokowInline: inlineBlocks, plikowSkryptowych: sources.script.length, sierot: findings.length },
+  counts: { pages: pagesScanned, inlineBlocks, scriptFiles: sources.script.length, orphans: findings.length },
   findings: findings.map(z => ({
     rule: 'sierota',
     file: z.file,

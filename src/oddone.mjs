@@ -208,10 +208,10 @@ for (const file of files) {
 
   // the declaration that encloses this call; with several, take the narrowest
   const declaringUnitFor = (name, poz) => {
-    const lista = declarations.get(name);
-    if (!lista) return null;
+    const list = declarations.get(name);
+    if (!list) return null;
     let best = null;
-    for (const d of lista) {
+    for (const d of list) {
       if (poz < d.start || poz > d.end) continue;
       if (!best || (d.end - d.start) < (best.end - best.start)) best = d;
     }
@@ -550,7 +550,7 @@ for (const r of rules) {
 }
 const w = prepare(argv, {
   detector: 'java', root: ROOT, args: argv.slice(1), cfg,
-  counts: { sources: parsed, zasieg: SCOPE, bledyParsowania: parseErrors.length, jednostki: all.length, regul: rules.length },
+  counts: { sources: parsed, scope: SCOPE, parseErrors: parseErrors.length, units: all.length, rules: rules.length },
   findings: snapFindings,
 });
 const visible = new Set(w.toShow.map(f => f.rule + '|' + f.file + '|' + f.line));

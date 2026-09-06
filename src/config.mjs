@@ -87,7 +87,7 @@ export function loadConfig(argv = [], root = process.cwd()) {
   const mute = new Map();
   for (const m of raw.mute || []) {
     if (typeof m === 'string') mute.set(m, '');
-    else if (m && m.id) mute.set(m.id, m.powod || m.reason || '');
+    else if (m && m.id) mute.set(m.id, m.reason || m.reason || '');
   }
 
   const norm = p => String(p).replace(/\\/g, '/');

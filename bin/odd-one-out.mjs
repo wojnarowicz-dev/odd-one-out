@@ -96,7 +96,7 @@ if (cmd === 'diff') {
   const d = printDiff(readSnapshot(files[0]), readSnapshot(files[1]),
     { showUnchanged: rest.includes('--all') });
   // The exit code carries information for CI: 1 = there are new findings.
-  process.exit(d.nowe.length ? 1 : 0);
+  process.exit(d.added.length ? 1 : 0);
 }
 
 if (cmd === 'rank') {
