@@ -601,11 +601,44 @@ od takiego, który tylko coś wypisuje — a wypisują tak samo.
 czterech zestawach jako sędzim i 23,42% przy samych testach złotych. Każdy inny
 plik w `src/` jest niezmierzony, więc o nich nie wiadomo nic.
 
-**Podejrzenie, nie ustalenie:** większość ocalałych wygląda, jakby siedziała
-w wypisywanym tekście, a nie w logice — `t('settings')` zamienione na `t("")`
-przechodzi, bo testy złote porównują zapis JSON, a nie ekran. To jest odczyt
-listy ocalałych, nie pomiar. Nikt ich nie sklasyfikował i dopóki tego nie zrobi,
-zostaje domysłem.
+**Podejrzenie mówiło, że większość ocalałych siedzi w wypisywanym tekście.
+Zostało zmierzone na drugim pliku i jest fałszywe.** `src/oddone.mjs` — detektor,
+który daje 387 z 391 zgłoszeń na prawdziwym projekcie — poszedł jako następny:
+**910 mutantów, 468 zabitych, 14 timeoutów, 428 ocalałych, wynik 52,97%**
+w 5 godzin 33 minuty, przy tym samym sędzim z czterech zestawów.
+
+Z 428 ocalałych **2 siedzą w wypisywanym tekście, a 426 w logice.** Domysł był
+błędny i błędnie pocieszający: sugerował, że niezmierzona część jest kosmetyką.
+
+| obszar pliku | mutantów zabitych | z całości | obszar |
+|---|---|---|---|
+| stabilność wzorca | 50 / 56 | **89%** | ocena |
+| kopanie reguł | 24 / 29 | **83%** | rdzeń |
+| jednostki i odbiorniki | 43 / 70 | 61% | rdzeń |
+| flagi i ustawienia | 25 / 56 | 45% | |
+| rozpoznawanie typów | 42 / 133 | **32%** | włączone domyślnie |
+| filtr akcesorów | 34 / 116 | **29%** | włączone domyślnie |
+| aliasy | 15 / 201 | **7%** | **wyłączone domyślnie** |
+
+**Połowa wszystkich ocalałych (213 z 428) siedzi w gałęzi `aliases`, wyłączonej
+domyślnie.** Żaden test jej nie włącza, więc nic nie może tam zabić mutanta — kod
+jest zmierzony jako nieprzetestowany, bo jest nieprzetestowany, a jest
+nieprzetestowany, bo został zmierzony jako szkodliwy i wyłączony. To jest spójne,
+nie niepokojące.
+
+Dwie liczby, które mają znaczenie, to **rozpoznawanie typów na 32%** i **filtr
+akcesorów na 29%**, bo oba są włączone domyślnie i oba kształtują każde zgłoszenie.
+Wzorce są za małe, żeby je przećwiczyć: lista akcesorów wymienia dwa tuziny nazw,
+a `test/fixtures` używa trzech. To jest konkretna następna robota — i jest to
+robota przy wzorcach, nie przy testach.
+
+| plik | mutantów | zabitych | ocalałych | wynik | czas |
+|---|---|---|---|---|---|
+| `src/snapshot.mjs` | 316 | 72 + 2 | 242 | 23,42% | 1 m 57 s (sam golden) |
+| `src/snapshot.mjs` | 316 | 82 + 18 | 216 | 31,65% | 118 m (cztery zestawy) |
+| `src/oddone.mjs` | 910 | 468 + 14 | 428 | **52,97%** | 333 m (cztery zestawy) |
+
+Cała reszta `src/` pozostaje niezmierzona.
 
 Powód, dla którego kończy się na jednym pliku, to koszt: ten jeden zajął
 **118 minut**. Całe `src/` to byłby prawie cały dzień i dlatego mutacje siedzą
@@ -876,6 +909,20 @@ niezadeklarowany — dwaj niezależni świadkowie) wobec **DO SPRAWDZENIA**
 (nieobecny w drzewie, ale zadeklarowany — zwykle drzewo z innej rewizji).
 
 Pusty wynik jest poprawnym wynikiem.
+
+## Co sześć nieudanych pomiarów robi w README
+
+Sześć pomysłów w tym dokumencie zostało zmierzonych i odrzuconych: reguła
+timeoutu HTTP (przesłanka nie trzyma się w prawdziwym kodzie), detektor Pythona
+(brak znanej odpowiedzi), formuła rankingu z JADET (każda pozycja, na której
+zależało, pogorszyła się), kara za miejsca naruszające wiele reguł (moja własna
+hipoteza, obalona moimi własnymi liczbami), MUBench (nie do uruchomienia tutaj,
+a droga częściowa dałaby liczbę brzmiącą jak wynik z benchmarku, nim nie będąc)
+oraz sygnał wieku (zmierzony, nie pomógł, domyślnie wyłączony).
+
+**Są tutaj, bo narzędzie publikujące wyłącznie to, co wyszło, nie daje czym ocenić
+tego, co publikuje** — ten sam pomiar, który odrzucił tych sześć, stoi za każdą
+liczbą, która została.
 
 ## Liczby, nie przymiotniki
 

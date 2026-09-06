@@ -601,11 +601,43 @@ from one that merely produces output — and the output looks the same either wa
 31.65% with all four suites judging, 23.42% with the golden tests alone. Every
 other file under `src/` is unmeasured, so nothing at all is known about them.
 
-**A suspicion, not a finding:** most of the survivors look like they sit in
-printed text rather than in logic — `t('settings')` mutated to `t("")` passes,
-because the golden tests compare the JSON snapshot and not the screen. That is
-a reading of the survivor list, not a measurement. Nobody has classified them,
-and until somebody does it stays a guess.
+**The suspicion was that most survivors sit in printed text. It was measured on
+a second file and it is false.** `src/oddone.mjs` — the detector that produces
+387 of 391 findings on a real project — was run next: **910 mutants, 468 killed,
+14 timeouts, 428 survived, a score of 52.97%** in 5 hours 33 minutes, judged by
+the same four suites.
+
+Of the 428 survivors, **2 sit in printed text and 426 in logic.** The guess was
+wrong, and wrongly comforting: it suggested the untested part was cosmetic.
+
+| region of the file | mutants killed | of total | region |
+|---|---|---|---|
+| pattern stability | 50 / 56 | **89%** | scoring |
+| rule mining | 24 / 29 | **83%** | the core |
+| units and receivers | 43 / 70 | 61% | the core |
+| flags and setup | 25 / 56 | 45% | |
+| type resolution | 42 / 133 | **32%** | on by default |
+| accessor filter | 34 / 116 | **29%** | on by default |
+| aliases | 15 / 201 | **7%** | **off by default** |
+
+**Half of all survivors (213 of 428) live in the `aliases` branch, which is off by
+default.** No test turns it on, so nothing can kill a mutant there — the code is
+measured as untested because it is untested, and it is untested because it was
+measured as harmful and disabled. That is consistent, not alarming.
+
+The two numbers that do matter are **type resolution at 32%** and the **accessor
+filter at 29%**, because both are on by default and both shape every finding. The
+fixtures are too small to exercise them: the accessor list names two dozen methods
+and `test/fixtures` uses three of them. That is the concrete next piece of work,
+and it is fixture work rather than test work.
+
+| file | mutants | killed | survived | score | time |
+|---|---|---|---|---|---|
+| `src/snapshot.mjs` | 316 | 72 + 2 | 242 | 23.42% | 1 m 57 s (golden only) |
+| `src/snapshot.mjs` | 316 | 82 + 18 | 216 | 31.65% | 118 m (four suites) |
+| `src/oddone.mjs` | 910 | 468 + 14 | 428 | **52.97%** | 333 m (four suites) |
+
+Everything else under `src/` is still unmeasured.
 
 The reason it stops at one file is cost: that file took **118 minutes**. All of
 `src/` would be most of a day, which is why mutation testing lives behind
@@ -880,6 +912,20 @@ nowhere — two independent witnesses) versus **TO_CHECK** (absent from the tree
 but declared — usually a tree taken from the wrong revision).
 
 An empty result is a correct result.
+
+## What six failed measurements are doing in a README
+
+Six ideas in this document were measured and rejected: the HTTP-timeout rule
+(the premise does not hold in real code), the Python detector (no known answer),
+JADET's ranking formula (every position that mattered got worse), the penalty for
+sites violating many rules (my own hypothesis, refuted by my own numbers),
+MUBench (cannot be run here, and the partial route would produce a number that
+sounds like a benchmark without being one), and the age signal (measured, did not
+help, off by default).
+
+**They are here because a tool that publishes only what worked gives you no way
+to judge what it publishes** — the same measurement that rejected these six is the
+one standing behind every number that stayed.
 
 ## Numbers, not adjectives
 
