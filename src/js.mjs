@@ -196,8 +196,8 @@ for (const f of sources.html) {
   for (const b of blocks) {
     if (!b.external) continue;
     const cel = b.external.replace(/^\.?\//, '').split('?')[0];
-    for (const [pathArg, nazwy] of globalsFromFile)
-      if (pathArg.endsWith(cel)) for (const n of nazwy) known.add(n);
+    for (const [pathArg, names] of globalsFromFile)
+      if (pathArg.endsWith(cel)) for (const n of names) known.add(n);
   }
 
   // own definitions from ALL inline scripts on this page
