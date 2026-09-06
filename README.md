@@ -859,6 +859,50 @@ was written.
 continuous history; here it does not, and pretending otherwise would be worse
 than leaving it off.
 
+## JavaFX classes — eight findings checked, zero defects
+
+The tool was run on a JavaFX desktop application for Windows: 111 Java files,
+61,729 lines. Result: **518 rules, 164 findings**.
+
+The eight highest-ranked were checked by reading the code. **None of them was
+a defect.**
+
+| # | rule | why it fired |
+|---|---|---|
+| 1-3 | `Stage#setOnHidden`, `Stage#getIcons`, `Stage#setOnShown` across three files | window-configuration methods; every site sets a different subset |
+| 4 | `Region#getTranslateY -> Region#setOpacity` | the read is the animation's starting point; `ScaleTransition` does the setting |
+| 5 | `TextField#setPrefWidth -> TextField#textProperty` | a helper that sizes the field |
+| 6 | `StringBuilder#length -> StringBuilder#append` | **wrong receiver type**: the variable is a `String`, not a `StringBuilder` |
+| 10 | `HttpResponse#statusCode -> HttpResponse#body` | sign-out decides on the HTTP status; there is no body to read |
+| 11 | `Files#createFile -> Files#exists` | existence is checked one line above, via `Files.isRegularFile` |
+| 15 | `zoomBaseW -> videoFitHeightForStage` | it computes **width**; its twin `zoomBaseH` calls the height one |
+
+### The cause
+
+“On this receiver, method A usually appears next to method B, and here it does
+not” — that is what the rule says. With **builder-style APIs** (`Stage`,
+`MediaPlayer`, `Region`, `TextField`) co-occurrence **is not a convention**. It is
+a statistic of what each site happened to need: one window sets an icon and
+a scene, another only attaches an event, a third only a size. A pair model cannot
+tell “everyone does this because it is required” apart from
+“everyone does this because it is what they happened to need”.
+
+Two of the findings have a separate and simpler cause: matching on the method
+NAME rather than its meaning (`Files.isRegularFile` is not `Files.exists`), and
+a failure to resolve the receiver's type.
+
+### What this means for the 33%
+
+The 33% precision was measured on different material. **With JavaFX classes it is
+optimistic** — in this sample not one of the eight held up.
+
+### What was not checked
+
+**156 of the 164 findings.** They have the same shape — `Stage#`, `MediaPlayer#`,
+`Region#` — so the same result can be expected, but that is a **suspicion, not
+a finding**. The eight highest-ranked were checked because those are the ones
+a reader reaches first.
+
 ## Exclusions and mutes
 
 Two **different** things, deliberately kept apart:
@@ -964,15 +1008,16 @@ four and takes about six seconds.
 
 Every one of them has been made to fail on purpose at least once. A gate that
 has never failed is a gate nobody has checked.
-## What six failed measurements are doing in a README
+## What seven failed measurements are doing in a README
 
-Six ideas in this document were measured and rejected: the HTTP-timeout rule
+Seven ideas in this document were measured and rejected: the HTTP-timeout rule
 (the premise does not hold in real code), the Python detector (no known answer),
 JADET's ranking formula (every position that mattered got worse), the penalty for
 sites violating many rules (my own hypothesis, refuted by my own numbers),
 MUBench (cannot be run here, and the partial route would produce a number that
 sounds like a benchmark without being one), and the age signal (measured, did not
-help, off by default).
+help, off by default), and JavaFX classes (eight findings checked, zero defects —
+with builder-style APIs this tool's headline number is optimistic).
 
 **They are here because a tool that publishes only what worked gives you no way
 to judge what it publishes** — the same measurement that rejected these six is the

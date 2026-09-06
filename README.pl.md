@@ -862,6 +862,50 @@ Dlatego `--wiek` **zostaje wyłączone domyślnie**. Ma szansę działać w repo
 z ciągłą historią, gdzie kod powstawał w gicie od początku — tu nie działa i nie
 udaję, że działa.
 
+## Klasy JavaFX — sprawdzone osiem zgłoszeń, zero defektów
+
+Narzędzie puszczono na aplikację JavaFX na Windows: 111 plików Javy,
+61 729 linii. Wynik: **518 reguł, 164 zgłoszenia**.
+
+Osiem najwyżej ocenionych sprawdzono, czytając kod. **Żadne nie okazało się
+defektem.**
+
+| # | reguła | dlaczego ją wypuściła |
+|---|---|---|
+| 1-3 | `Stage#setOnHidden`, `Stage#getIcons`, `Stage#setOnShown` w trzech plikach | metody konfiguracji okna; każde miejsce ustawia inny podzbiór |
+| 4 | `Region#getTranslateY -> Region#setOpacity` | odczyt jest punktem wyjścia animacji, a ustawia `ScaleTransition` |
+| 5 | `TextField#setPrefWidth -> TextField#textProperty` | pomocnik od wymiarów pola |
+| 6 | `StringBuilder#length -> StringBuilder#append` | **zły typ odbiornika**: zmienna jest `String`, nie `StringBuilder` |
+| 10 | `HttpResponse#statusCode -> HttpResponse#body` | wylogowanie rozstrzyga po kodzie HTTP, ciała nie ma czego czytać |
+| 11 | `Files#createFile -> Files#exists` | istnienie sprawdzone linijkę wyżej, przez `Files.isRegularFile` |
+| 15 | `zoomBaseW -> videoFitHeightForStage` | liczy **szerokość**; bliźniacze `zoomBaseH` woła wersję dla wysokości |
+
+### Przyczyna
+
+„Na tym odbiorniku metoda A zwykle występuje obok metody B, a tutaj nie
+występuje” — tak brzmi reguła. Przy **API budowniczych** (`Stage`,
+`MediaPlayer`, `Region`, `TextField`) współwystępowanie **nie jest konwencją**.
+Jest statystyką tego, co w danym miejscu akurat było potrzebne: jedno okno
+ustawia ikonę i scenę, drugie tylko podpina zdarzenie, trzecie tylko rozmiar.
+Model par nie odróżnia „wszyscy tak robią, bo tak trzeba” od
+„wszyscy tak robią, bo akurat tego potrzebowali”.
+
+Dwa zgłoszenia z tabeli mają przyczynę osobną i prostszą: dopasowanie po NAZWIE
+metody bez jej znaczenia (`Files.isRegularFile` nie jest `Files.exists`) oraz
+błąd rozpoznania typu odbiornika.
+
+### Co to znaczy dla 33%
+
+Trafność 33% zmierzono na innym materiale. **Przy klasach JavaFX jest
+optymistyczna** — w tej próbce nie potwierdziło się ani jedno z ośmiu zgłoszeń.
+
+### Czego nie sprawdzono
+
+**156 z 164 zgłoszeń.** Mają ten sam kształt — `Stage#`, `MediaPlayer#`,
+`Region#` — więc spodziewać się można tego samego wyniku, ale to **podejrzenie,
+nie ustalenie**. Sprawdzono osiem najwyżej ocenionych, bo to one trafiają do
+człowieka pierwsze.
+
 ## Wykluczenia i wyciszenia
 
 Dwie **różne** rzeczy, celowo rozdzielone:
@@ -961,7 +1005,7 @@ pierwsze i trwa około sześciu sekund.
 
 Każda z nich została celowo doprowadzona do porażki co najmniej raz. Bramka,
 która nigdy nie padła, jest bramką, której nikt nie sprawdził.
-## Co sześć nieudanych pomiarów robi w README
+## Co siedem nieudanych pomiarów robi w README
 
 Sześć pomysłów w tym dokumencie zostało zmierzonych i odrzuconych: reguła
 timeoutu HTTP (przesłanka nie trzyma się w prawdziwym kodzie), detektor Pythona
@@ -969,7 +1013,9 @@ timeoutu HTTP (przesłanka nie trzyma się w prawdziwym kodzie), detektor Python
 zależało, pogorszyła się), kara za miejsca naruszające wiele reguł (moja własna
 hipoteza, obalona moimi własnymi liczbami), MUBench (nie do uruchomienia tutaj,
 a droga częściowa dałaby liczbę brzmiącą jak wynik z benchmarku, nim nie będąc)
-oraz sygnał wieku (zmierzony, nie pomógł, domyślnie wyłączony).
+sygnał wieku (zmierzony, nie pomógł, domyślnie wyłączony) oraz klasy JavaFX
+(osiem sprawdzonych zgłoszeń, zero defektów — przy API budowniczych główna
+liczba tego narzędzia jest optymistyczna).
 
 **Są tutaj, bo narzędzie publikujące wyłącznie to, co wyszło, nie daje czym ocenić
 tego, co publikuje** — ten sam pomiar, który odrzucił tych sześć, stoi za każdą
