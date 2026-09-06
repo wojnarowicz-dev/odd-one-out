@@ -943,6 +943,27 @@ but declared — usually a tree taken from the wrong revision).
 
 An empty result is a correct result.
 
+## How this is tested
+
+Ten commands, each answering a different question. `npm test` runs the first
+four and takes about six seconds.
+
+| command | what it answers |
+|---|---|
+| `npm test` | everything below that runs after a bare clone |
+| `npm run golden` | does a full run over `test/fixtures` still produce exactly the recorded output, **fingerprints included** |
+| `npm run resilience` | does a damaged input fail loudly or carry on — never quietly return zero. Eleven scenarios, each run twice, damaged and healthy, so a message a healthy run also prints cannot count as speaking |
+| `npm run lang-check` | is any English left in a Polish message, any Polish in an English one, or any prose printed without going through the dictionary |
+| `npm run readme-check` | does this README tell the truth — commands, numbers, links, the example output and the two languages, all checked by RUNNING the tool rather than by reading the text |
+| `npm run amplify` | does the output actually depend on the input. Each fixture is damaged in a way whose consequence is known, and a count that does not move is a failure even when the tool "worked" |
+| `npm run known-answers` | do the five real defects that justify each detector still get found, checked at the revision **before** each fix. Needs two private checkouts; says SKIP with the reason when they are absent, never a pass |
+| `npm run foreign` | has anything changed in what the tool says about netty, JSON-java and spring-petclinic — counts **and** fingerprints |
+| `npm run mutation` | would these tests notice if the code were wrong. Stryker is not a dependency; a missing one is a SKIP with the install command |
+| `npm run self-check` | does the tool find anything in its own source |
+| `npm run full` | all of it, mutation testing included — hours, not seconds |
+
+Every one of them has been made to fail on purpose at least once. A gate that
+has never failed is a gate nobody has checked.
 ## What six failed measurements are doing in a README
 
 Six ideas in this document were measured and rejected: the HTTP-timeout rule
@@ -1071,6 +1092,27 @@ precisely that reason.
 > only numbers in this document are the ones measured below, on a concrete
 > repository, plus PR-Miner's 18.1% from the literature.
 
+## Why the rule names are Polish
+
+A finding carries a rule identifier: `sierota`, `revoke-bez-grant-execute`,
+`martwy-wpis-dependencyManagement`, `wpis-nieobecny-w-drzewie`. Everything else a
+person sees was translated; these were not, and that is **a decision rather than
+an oversight**.
+
+The fingerprint of a finding is computed from **detector, rule, file and anchor**.
+Renaming a rule changes the identifier of every finding it ever produced, which
+would invalidate the saved runs of everyone using the tool: the next run would
+report the whole list as NEW and the previous one as GONE, and the diff — the
+default mode, the thing the tool is for — would lie for one run in a way that
+looks exactly like a project that changed a great deal.
+
+That is not a hypothetical. Removing a single NUL byte from the fingerprint key
+once changed every identifier in this repository while every count stayed the
+same, which is why the baselines here capture fingerprints and not just numbers.
+A rename would do the same thing on purpose.
+
+The names appear in machine-readable output. They are not shown as prose: the
+sentence a person reads goes through the dictionary and is in their language.
 ## Why it is built this way
 
 **Why tree-sitter rather than regular expressions (Java).** The rule works on

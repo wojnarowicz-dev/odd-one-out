@@ -940,6 +940,27 @@ niezadeklarowany — dwaj niezależni świadkowie) wobec **DO SPRAWDZENIA**
 
 Pusty wynik jest poprawnym wynikiem.
 
+## Jak to jest testowane
+
+Dziesięć komend, każda odpowiada na inne pytanie. `npm test` uruchamia cztery
+pierwsze i trwa około sześciu sekund.
+
+| komenda | na co odpowiada |
+|---|---|
+| `npm test` | wszystko poniżej, co działa po zwykłym sklonowaniu |
+| `npm run golden` | czy pełny przebieg po `test/fixtures` nadal daje dokładnie zapisany wynik, **łącznie z odciskami** |
+| `npm run resilience` | czy uszkodzone wejście pada głośno albo przechodzi — nigdy po cichu nie zwraca zera. Jedenaście scenariuszy, każdy uruchamiany dwa razy, uszkodzony i zdrowy, żeby komunikat drukowany także przez zdrowy przebieg nie mógł uchodzić za odpowiedź |
+| `npm run lang-check` | czy w polskim komunikacie został angielski, w angielskim polski, albo czy jakaś proza jest drukowana z pominięciem słownika |
+| `npm run readme-check` | czy to README mówi prawdę — komendy, liczby, odnośniki, przykład wyjścia i zgodność obu wersji, wszystko sprawdzane URUCHOMIENIEM narzędzia, nie czytaniem tekstu |
+| `npm run amplify` | czy wynik naprawdę zależy od wejścia. Każdy wzorzec psuty w sposób o znanym skutku, a liczba, która się nie ruszyła, jest porażką nawet wtedy, gdy narzędzie „zadziałało" |
+| `npm run known-answers` | czy pięć prawdziwych defektów uzasadniających każdy detektor nadal jest znajdowanych, sprawdzane na rewizji **sprzed** każdej naprawy. Wymaga dwóch prywatnych repozytoriów; przy ich braku daje SKIP z powodem, nigdy zaliczenia |
+| `npm run foreign` | czy zmieniło się to, co narzędzie mówi o netty, JSON-java i spring-petclinic — liczby **oraz** odciski |
+| `npm run mutation` | czy te testy zauważyłyby, gdyby kod był błędny. Stryker nie jest zależnością; jego brak to SKIP z komendą instalacji |
+| `npm run self-check` | czy narzędzie znajduje coś we własnym źródle |
+| `npm run full` | wszystko razem, z mutacjami — godziny, nie sekundy |
+
+Każda z nich została celowo doprowadzona do porażki co najmniej raz. Bramka,
+która nigdy nie padła, jest bramką, której nikt nie sprawdził.
 ## Co sześć nieudanych pomiarów robi w README
 
 Sześć pomysłów w tym dokumencie zostało zmierzonych i odrzuconych: reguła
@@ -1064,6 +1085,28 @@ oraz jawne rozdzielenie stanów `ROZJAZD` / `MIGRACJA W TOKU` /
 > usunięte. Jedyne liczby w tym dokumencie to te zmierzone niżej, na konkretnym
 > repozytorium, plus 18,1% PR-Minera z publikacji.
 
+## Dlaczego nazwy reguł są po polsku
+
+Zgłoszenie niesie identyfikator reguły: `sierota`, `revoke-bez-grant-execute`,
+`martwy-wpis-dependencyManagement`, `wpis-nieobecny-w-drzewie`. Wszystko inne, co
+widzi człowiek, zostało przetłumaczone; te nie — i jest to **decyzja, a nie
+niedoróbka**.
+
+Odcisk zgłoszenia liczy się z **detektora, reguły, pliku i kotwicy**.
+Przemianowanie reguły zmienia identyfikator każdego zgłoszenia, jakie kiedykolwiek
+wyprodukowała, co unieważniłoby zapisy wszystkich, którzy narzędzia używają:
+kolejny przebieg zgłosiłby całą listę jako NOWE, a poprzednią jako ZNIKNĘŁO,
+i różnica między przebiegami — tryb domyślny, czyli to, po co to narzędzie jest —
+skłamałaby przez jeden przebieg w sposób nie do odróżnienia od projektu, w którym
+naprawdę zmieniło się bardzo dużo.
+
+To nie jest rozważanie teoretyczne. Usunięcie jednego bajtu NUL z klucza odcisku
+zmieniło kiedyś w tym repozytorium każdy identyfikator, podczas gdy wszystkie
+liczby zostały te same — i właśnie dlatego punkty odniesienia zapisują tutaj
+odciski, a nie same liczby. Przemianowanie zrobiłoby to samo, tyle że celowo.
+
+Nazwy pojawiają się w wyjściu maszynowym. Nie są pokazywane jako proza: zdanie,
+które czyta człowiek, idzie przez słownik i jest w jego języku.
 ## Dlaczego tak, a nie inaczej
 
 **Dlaczego tree-sitter, a nie wyrażenia regularne (Java).** Reguła działa na
