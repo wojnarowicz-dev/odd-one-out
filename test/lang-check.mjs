@@ -21,6 +21,10 @@
 //   2. Polish inside an English message      (polish-words.txt, plus any of
 //                                             ąćęłńóśźż, which is a leak alone)
 //   3. Prose printed without going through the dictionary at all
+//   4. The two sentences npm shows a stranger, against src/scope.mjs
+//
+// Check 4 arrived last and for the same reason as the rest: the description
+// named four things, the keywords named one, and neither named all six.
 //
 // Both word lists are data, not code: deciding what counts as a technical term
 // is editorial and changes as messages change, and burying it in a script makes
@@ -29,6 +33,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { messages } from '../src/lang.mjs';
+import { SCOPE, CLAIMED_DETECTORS } from '../src/scope.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, '..');
@@ -121,21 +126,83 @@ for (const dir of SCAN_DIRS) {
   }
 }
 
+// ---------------------------------------------------------------- 4
+// The two sentences npm shows a stranger: the description and the keywords.
+// These cannot be BUILT from src/scope.mjs the way a message can be — package.json
+// is data npm reads, not code this tool runs — so they are checked instead. That
+// is the weaker of the two, and being the weaker one is why it is worth having.
+//
+// The list is itself checked against the detectors that exist, otherwise adding
+// a detector and forgetting the list would leave this green and the npm page wrong.
+const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+const kw = (pkg.keywords || []).map(k => k.toLowerCase());
+
+// `Java` sits inside `JavaScript`, so a plain substring test would let a
+// description naming only one of them pass as naming both. No regular
+// expression here on purpose: a name is data from src/scope.mjs, and escaping
+// it for a pattern is one more thing that can quietly stop matching.
+const LETTER = c => c !== undefined && /[A-Za-z]/.test(c);
+function namesIt(text, name) {
+  let at = text.indexOf(name);
+  while (at !== -1) {
+    if (!LETTER(text[at - 1]) && !LETTER(text[at + name.length])) return true;
+    at = text.indexOf(name, at + 1);
+  }
+  return false;
+}
+for (const row of SCOPE) {
+  if (!namesIt(pkg.description, row.name))
+    problems.push({ kind: 'not named in the description', key: 'package.json', word: row.name });
+  if (!kw.includes(row.keyword))
+    problems.push({ kind: 'not in the keywords', key: 'package.json', word: row.keyword });
+}
+if (kw.length !== new Set(kw).size)
+  problems.push({ kind: 'duplicate keyword', key: 'package.json' });
+for (const k of pkg.keywords || [])
+  if (k !== k.toLowerCase())
+    problems.push({ kind: 'keyword not lowercase', key: 'package.json', word: k });
+if (DIACRITICS.test(pkg.description))
+  problems.push({ kind: 'Polish letters in the description', key: 'package.json', text: pkg.description });
+for (const w of words(pkg.description))
+  if (polish.has(w.toLowerCase()) && !allowed.has(w.toLowerCase()))
+    problems.push({ kind: 'Polish in the description', key: 'package.json', word: w });
+
+// The detectors in bin/ are the ground truth for what is claimed above.
+const binSrc = fs.readFileSync(path.join(ROOT, 'bin', 'odd-one-out.mjs'), 'utf8');
+const real = [...binSrc.matchAll(/^ {2}(\w+): \{\n(?:.*\n)*?\s*module: (null|'[^']+')/gm)]
+  .filter(m => m[2] !== 'null').map(m => m[1]).sort();
+if (real.length < 5)
+  problems.push({ kind: 'cannot read the detectors out of bin/', key: 'bin/odd-one-out.mjs', word: real.join(' ') });
+for (const d of real)
+  if (!CLAIMED_DETECTORS.includes(d))
+    problems.push({ kind: 'detector claimed by no row of SCOPE', key: 'src/scope.mjs', word: d });
+for (const d of CLAIMED_DETECTORS)
+  if (!real.includes(d))
+    problems.push({ kind: 'SCOPE claims a detector that does not exist', key: 'src/scope.mjs', word: d });
+
 // ---------------------------------------------------------------- report
 console.log('odd-one-out — dictionary\n');
 console.log('  keys checked: ' + checked);
 console.log('  technical terms allowed: ' + allowed.size + ', Polish words watched: ' + polish.size);
 console.log('  files scanned for loose prose: ' + SCAN_DIRS.join(', '));
+console.log('  scope rows checked against package.json: ' + SCOPE.length);
 
 if (problems.length === 0) {
-  console.log('\n  both directions clean, nothing printed outside the dictionary');
+  console.log('\n  both directions clean, nothing outside the dictionary, npm page agrees with src/scope.mjs');
 } else {
   console.log('\n  ' + problems.length + ' problem(s):\n');
   for (const p of problems) {
-    console.log('    ' + p.kind.padEnd(30) + p.key + (p.word ? '   "' + p.word + '"' : ''));
+    console.log('    ' + p.kind.padEnd(w) + p.key + (p.word ? '   "' + p.word + '"' : ''));
     if (p.text) console.log('        ' + p.text.slice(0, 100));
   }
-  console.log('\n  Translate it, move it into src/lang.mjs, or — if it is a technical term');
-  console.log('  that must stay as it is — add it to technical-terms.txt with a reason.');
+  if (problems.some(p => p.key !== 'package.json' && p.key !== 'src/scope.mjs')) {
+    console.log('\n  Translate it, move it into src/lang.mjs, or — if it is a technical term');
+    console.log('  that must stay as it is — add it to technical-terms.txt with a reason.');
+  }
+  if (problems.some(p => p.key === 'package.json' || p.key === 'src/scope.mjs')) {
+    console.log('\n  package.json is the first impression on npm. Name the thing in the');
+    console.log('  description and add its keyword — or drop the row from src/scope.mjs');
+    console.log('  if this build no longer reads it.');
+  }
   process.exit(1);
 }
