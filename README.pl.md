@@ -16,6 +16,16 @@ progów z sufitu; porównuje kod do reszty tego samego repozytorium.
 **Nie zmienia plików.** Przy każdym zgłoszeniu pokazuje gotową poprawkę do
 wklejenia.
 
+## Uruchomienie bez instalowania
+
+```
+npx odd-one-out java ./src/main/java
+npx odd-one-out js .
+```
+
+Node 18 albo nowszy. Nie trzeba klonować ani niczego ustawiać. Pięć detektorów —
+`java`, `deps`, `pom`, `sql`, `js` — i każdy bierze katalog do przeczytania.
+
 *English version of this document: [README.md](README.md).*
 
 ## Jak wygląda jedno zgłoszenie

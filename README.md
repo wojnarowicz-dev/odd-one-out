@@ -17,6 +17,16 @@ to the rest of the same repository.
 
 **It never changes files.** Every finding comes with a ready-made fix to paste.
 
+## Run it without installing
+
+```
+npx odd-one-out java ./src/main/java
+npx odd-one-out js .
+```
+
+Node 18 or newer. Nothing to clone and nothing to configure. Five detectors —
+`java`, `deps`, `pom`, `sql`, `js` — and each one takes the directory to read.
+
 *Polska wersja tego dokumentu: [README.pl.md](README.pl.md).*
 
 ## What one finding looks like

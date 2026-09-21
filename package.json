@@ -12,12 +12,18 @@
     "bin",
     "src",
     "skills",
-    "test",
     "README.md",
     "README.pl.md",
-    "LICENSE",
-    "stryker.config.json"
+    "LICENSE"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wojnarowicz-dev/odd-one-out.git"
+  },
+  "homepage": "https://github.com/wojnarowicz-dev/odd-one-out#readme",
+  "bugs": {
+    "url": "https://github.com/wojnarowicz-dev/odd-one-out/issues"
+  },
   "engines": {
     "node": ">=18"
   },
