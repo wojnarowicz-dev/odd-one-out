@@ -138,11 +138,47 @@ const exists = p => { try { return fs.existsSync(p); } catch { return false; } }
 }
 
 // ---------------------------------------------------------------- 4. java
+//
+// A PINNED REVISION, NOT THE WORKING TREE. This answer records LINE NUMBERS, and
+// it used to read whatever was checked out — so any unrelated edit above those
+// lines turned a known answer red. It did: measured 2026-09-21, both answers were
+// FAIL while the tool was finding all three sites, moved. Loading.java had
+// drifted by 2 lines (397 -> 395, 411 -> 409) and Menu.java by 273 (5754 -> 6027).
+// Nothing was lost; the question was being asked about the wrong lines.
+//
+// This is the tool's own rule turned on its own test suite. The README says the
+// fingerprint of a finding holds no line number, precisely because line numbers
+// move on every unrelated edit. The suite was doing what the tool refuses to do.
+//
+// 6a8e1fb is the revision current on 2026-09-02, the day this answer was written.
+// The pom and js answers were already pinned this way; java was the odd one out.
+const JAVA_PIN = '6a8e1fb';
 {
-  const src = path.join(VAA, 'main', 'src', 'main', 'java');
-  if (!exists(src)) {
-    record('Loading.java:397 / :411 (java)', 'SKIP', 'no sources at ' + src + ' — set OOO_VAA');
-    record('Menu.java:5754 (java)', 'SKIP', 'no sources at ' + src + ' — set OOO_VAA');
+  const outDir = path.join(TMP, 'java-pinned');
+  let src = null;
+  let why = 'no checkout at ' + VAA + ' — set OOO_VAA';
+  if (exists(VAA)) {
+    try {
+      fs.mkdirSync(outDir, { recursive: true });
+      const tar = execFileSync('git', ['archive', JAVA_PIN, 'main/src/main/java'],
+        { cwd: VAA, maxBuffer: 5e8 });
+      // Relative name, unpacked from inside outDir — see the js answer above for
+      // why no colon may reach the tar command line on Windows.
+      fs.writeFileSync(path.join(outDir, 'java.tar'), tar);
+      execFileSync('tar', ['-xf', 'java.tar'], { cwd: outDir, stdio: 'ignore' });
+      fs.rmSync(path.join(outDir, 'java.tar'), { force: true });
+      const unpacked = path.join(outDir, 'main', 'src', 'main', 'java');
+      if (exists(unpacked)) src = unpacked;
+      else why = 'extracted ' + JAVA_PIN + ' but no main/src/main/java inside it';
+    } catch (e) {
+      // Not swallowed: a broken fixture must not read as "material unavailable".
+      why = 'extracting ' + JAVA_PIN + ' failed — ' +
+        String(e.message).replace(/[\r\n]+/g, ' ').slice(0, 120);
+    }
+  }
+  if (!src) {
+    record('Loading.java:397 / :411 (java)', 'SKIP', why);
+    record('Menu.java:5754 (java)', 'SKIP', why);
   } else {
     const { findings } = run(['java', src, '--only', 'setOnError']);
     const at = (name, line) => (findings || []).some(f => f.file.includes(name) && f.line === line);
