@@ -47,6 +47,11 @@ const CASES = [
   { name: 'java', args: ['java', 'test/fixtures/java'] },
   { name: 'js', args: ['js', 'test/fixtures/js'] },
   { name: 'sql', args: ['sql', 'test/fixtures/sql'] },
+  // Osobne katalogi, nie dopiski do test/fixtures/sql: tamten pinuje
+  // revokeGrantPairs=3, dokladnie na progu MINCONV, a test/amplify.mjs celowo
+  // scina te konwencje ponizej progu. Dorzucenie tam plikow przesuneloby oba pomiary.
+  { name: 'sql-types', args: ['sql', 'test/fixtures/sql-types'] },
+  { name: 'sql-regrant', args: ['sql', 'test/fixtures/sql-regrant'] },
   { name: 'pom', args: ['pom', '--pom', 'test/fixtures/pom/pom.xml', '--tree', 'test/fixtures/pom/deptree.txt'] },
   { name: 'deps', args: ['deps', 'test/fixtures/deps'] },
 ].map(c => ({ ...c, args: [...c.args, '--config', CONFIG] }));

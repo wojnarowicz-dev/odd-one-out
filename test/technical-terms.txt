@@ -109,3 +109,7 @@ stab
 # --- words Polish uses unchanged
 import
 inline
+
+# --- typy zwracane w PostgreSQL; slowa kluczowe SQL, nie do tlumaczenia
+trigger      # `returns trigger` — nazwa typu, tak stoi w kodzie migracji
+event        # czesc `event_trigger`, tego samego rodzaju nazwa typu

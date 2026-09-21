@@ -68,6 +68,24 @@ function acl(stmt) {
   return { kind, privs, objType, name, args, roles, text: s };
 }
 
+// --- extracting CREATE FUNCTION: name -> what it RETURNS ---
+//
+// The rule below must not touch trigger functions. PostgreSQL checks EXECUTE on
+// a trigger function at CREATE TRIGGER, not when the trigger fires, and calling
+// one directly fails with 0A000 "trigger functions can only be called as
+// triggers". For them `revoke` with no matching `grant` is the correct end
+// state, not half a pair — and suggesting the grant undoes a hardening migration.
+//
+// The declaration may sit in a DIFFERENT file from the revoke, so the map spans
+// the whole directory and a later `create or replace` wins, the way the
+// database would see it.
+const NEVER_NEEDS_EXECUTE = new Set(['trigger', 'event_trigger']);
+function declaration(stmt) {
+  const m = norm(stmt).match(
+    /^create\s+(?:or\s+replace\s+)?function\s+([^\s(]+)\s*\([^)]*\)\s*returns\s+(?:setof\s+)?([a-z_][a-z0-9_]*)/i);
+  return m ? { name: m[1].toLowerCase(), returns: m[2].toLowerCase() } : null;
+}
+
 // --- reading the migrations ---
 const { loadConfig } = await import('./config.mjs');
 const cfg = loadConfig(argv, DIR);
@@ -78,12 +96,15 @@ const files = fs.readdirSync(DIR).filter(f => f.endsWith('.sql') && !cfg.isExclu
   if (missing) { console.log(missing); process.exit(0); }
 }
 const perFile = [];
+const declaredType = new Map();   // nazwa funkcji -> co zwraca; pozniejsza deklaracja wygrywa
 for (const f of files) {
   const sql = readSource(path.join(DIR, f));
   const acls = [];
   for (const st of statements(sql)) {
     const a = acl(st.text);
     if (a) acls.push({ ...a, file: f, line: sql.slice(0, st.start).split('\n').length });
+    const d = declaration(st.text);
+    if (d) declaredType.set(d.name, d.returns);
   }
   perFile.push({ file: f, acls });
 }
@@ -102,12 +123,39 @@ for (const pf of perFile) {
     (granted.has(name) ? both : onlyRevoke).push({ file: pf.file, name, a });
 }
 
+// TYP NIEZNANY ZNACZY ZGLASZAMY. Deklaracji moze nie byc w tym katalogu — funkcja
+// powstala gdzie indziej albo wczesniej niz zakres skanowania. Wyciszenie czegos,
+// czego nie sprawdzilismy, jest gorsze niz jedno zgloszenie za duzo, wiec
+// pomijamy WYLACZNIE te funkcje, o ktorych wiemy, ze zwracaja trigger.
+//
+// Populacja `both` zostaje nietknieta: projekt, ktory nadaje EXECUTE takze
+// funkcjom wyzwalaczy, nadal swiadczy o konwencji.
+const skippedByType = onlyRevoke.filter(o => NEVER_NEEDS_EXECUTE.has(declaredType.get(o.name)));
+const candidates = onlyRevoke.filter(o => !NEVER_NEEDS_EXECUTE.has(declaredType.get(o.name)));
+
 // --- czy pozniejsza migracja to naprawila ---
-const grantedLater = new Map();
+//
+// WSZYSTKIE nadania, nie pierwsze. Funkcja zwykle dostaje EXECUTE przy tworzeniu,
+// gdzies dalej traci je przez revoke bez pary, a jeszcze pozniej dostaje z powrotem.
+// Mapa pamietajaca tylko PIERWSZE nadanie widziala wtedy to sprzed odebrania,
+// uznawala, ze naprawy nie ma, i kazala dopisac grant stojacy juz w katalogu.
+const grantsFor = new Map();
 for (const pf of perFile)
   for (const a of pf.acls)
-    if (a.kind === 'grant' && FN.has(a.objType) && /execute|all/.test(a.privs))
-      if (!grantedLater.has(a.name)) grantedLater.set(a.name, { file: pf.file, roles: a.roles });
+    if (a.kind === 'grant' && FN.has(a.objType) && /execute|all/.test(a.privs)) {
+      if (!grantsFor.has(a.name)) grantsFor.set(a.name, []);
+      grantsFor.get(a.name).push({ file: pf.file, roles: a.roles });
+    }
+// pierwsze nadanie PO pliku, w ktorym odebrano; pliki sa posortowane, a nazwa
+// migracji zaczyna sie od znacznika czasu, wiec porownanie nazw to porownanie czasu
+const fixedAfter = o => (grantsFor.get(o.name) || []).find(g => g.file > o.file) || null;
+
+// NAPRAWIONE POZNIEJ NIE LICZY SIE DO KODU WYJSCIA. Czerwone budowanie na rzeczy,
+// ktora w tym samym katalogu jest juz naprawiona, uczy wylaczac narzedzie.
+// Zgloszenie zostaje widoczne, w osobnej sekcji, i NIE idzie do migawki — inaczej
+// `diff` policzylby je jako nowe i kod wyjscia wrocilby tylna furtka.
+const fixedLater = candidates.filter(o => fixedAfter(o));
+const deviations = candidates.filter(o => !fixedAfter(o));
 
 const rel = f => f;
 console.log(t('sqlTitle'));
@@ -115,6 +163,7 @@ console.log(t('sqlDir', DIR));
 console.log(t('sqlStats', files.length, perFile.reduce((s, p) => s + p.acls.length, 0)));
 const distinct = new Set(both.map(b => b.name)).size;
 console.log(t('sqlPairs', both.length, distinct, onlyRevoke.length));
+if (skippedByType.length) console.log(t('sqlSkippedTriggers', skippedByType.length));
 console.log('');
 
 // BELOW THE THRESHOLD NOTHING IS REPORTED — INCLUDING IN THE SNAPSHOT.
@@ -129,7 +178,7 @@ console.log('');
 //
 // The COUNTS below still describe the whole population. "Too little data" is a
 // statement about the evidence, not a reason to hide how much of it there was.
-const reported = both.length < MINCONV ? [] : onlyRevoke;
+const reported = both.length < MINCONV ? [] : deviations;
 
 // ---- run snapshot and diff ----
 const { prepare, diffHeader, resultExit } = await import('./snapshot.mjs');
@@ -138,7 +187,15 @@ const w = prepare(argv, {
   root: DIR,
   cfg,
   args: argv.slice(1),
-  counts: { migrations: files.length, revokeGrantPairs: both.length, functionsWithPattern: distinct, withoutGrant: onlyRevoke.length },
+  counts: {
+    migrations: files.length,
+    revokeGrantPairs: both.length,
+    functionsWithPattern: distinct,
+    withoutGrant: onlyRevoke.length,
+    skippedTriggerFunctions: skippedByType.length,
+    fixedInALaterMigration: fixedLater.length,
+    deviations: deviations.length,
+  },
   findings: reported.map(o => ({
     rule: 'revoke-bez-grant-execute',
     file: o.file,
@@ -155,11 +212,10 @@ resultExit(w.newCount ? 1 : 0);
 
 if (both.length < MINCONV) {
   console.log(t('sqlTooFew', both.length, MINCONV));
-} else if (onlyRevoke.length === 0) {
+} else if (deviations.length === 0 && fixedLater.length === 0) {
   console.log(t('sqlNoDeviations'));
 } else {
-  onlyRevoke.filter(o => visible.has(o.file + ':' + o.a.line)).forEach((o, i) => {
-    const fixed = grantedLater.get(o.name);
+  deviations.filter(o => visible.has(o.file + ':' + o.a.line)).forEach((o, i) => {
     console.log('## [' + (i + 1) + '] ' + o.name + '  —  ' + rel(o.file));
     console.log('');
     console.log(t('secInconsistent'));
@@ -177,18 +233,28 @@ if (both.length < MINCONV) {
     }
     console.log('');
     console.log(t('secFix'));
-    if (fixed && fixed.file > o.file) {
-      console.log(t('sqlFixedLater', rel(fixed.file)));
-      console.log('       grant execute ... to ' + fixed.roles.join(', '));
-      console.log(t('sqlFixedLater2'));
-    } else {
-      console.log(t('sqlFixNew', rel(o.file)));
-      console.log(t('sqlFixNew2'));
-      console.log('     grant execute on function ' + o.name + ' ' + (o.a.args || '(...)') +
-        ' to service_role;');
-    }
+    console.log(t('sqlFixNew', rel(o.file)));
+    console.log(t('sqlFixNew2'));
+    console.log('     grant execute on function ' + o.name + ' ' + (o.a.args || '(...)') +
+      ' to service_role;');
     console.log('');
   });
+
+  // NAPRAWIONE POZNIEJ — wypisane, nieliczone. Osobna sekcja, zeby nie mieszalo sie
+  // z tym, na co trzeba zareagowac, i zeby nie znikalo bez sladu.
+  if (fixedLater.length) {
+    console.log(t('sqlFixedSection', fixedLater.length));
+    console.log('');
+    for (const o of fixedLater) {
+      const g = fixedAfter(o);
+      console.log('  ' + o.name + '  —  ' + rel(o.file) + ':' + o.a.line);
+      console.log(t('sqlFixedLater', rel(g.file)));
+      console.log('       grant execute ... to ' + g.roles.join(', '));
+    }
+    console.log('');
+    console.log(t('sqlFixedLater2'));
+    console.log('');
+  }
 }
 
 // One sentence if any source was not valid UTF-8. Printed last, so it is the

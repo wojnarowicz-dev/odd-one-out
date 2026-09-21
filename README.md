@@ -246,6 +246,31 @@ On the first run (no snapshot yet) every finding is new, so the code is `1`. On
 the next run with unchanged code — `0`. A usage error (bad path, missing
 argument) exits `2`.
 
+### What the `sql` detector no longer counts — changed in 0.2.0
+
+Two kinds of finding are still printed and no longer touch the exit code.
+
+**A function that returns `trigger` or `event_trigger` is not a deviation.**
+PostgreSQL checks EXECUTE on a trigger function at `CREATE TRIGGER`, not when
+the trigger fires, and calling one directly fails with `0A000 trigger functions
+can only be called as triggers`. For them `revoke` with no matching `grant` is
+the correct end state, not half a pair — and the fix this tool used to suggest
+would have undone a hardening migration. The run says how many were skipped, so
+"not checked" and "checked, clean" do not look alike.
+
+**A finding already repaired by a later migration is shown in its own section,
+not counted.** The directory already contains the grant; a red build over
+something already fixed teaches people to switch the tool off. It is printed
+under *FIXED IN A LATER MIGRATION*, and it is kept out of the snapshot as well,
+or `diff` would count it as new and the exit code would return through the back
+door.
+
+The type is read from `create [or replace] function … returns …`, which may sit
+in a different migration from the revoke, so the whole directory is read. **When
+the declaration is not in the scanned directory the type is unknown and the
+finding stays** — muting something nobody checked is worse than one finding too
+many.
+
 ### Diff details
 
 The output is split into **NEW**, **GONE**, **CHANGED** (same site, different
@@ -696,7 +721,7 @@ was simulated on the same snapshots before touching a line of the tool.
 | known answer | current | u × s / v | u × s / v + the 10× rule |
 |---|---|---|---|
 | `closeAiReqLightbox` (js) | **1** | **1** | **1** |
-| `release_rate_slot` (sql) | **5** | 6 | 6 |
+| `20260901130000` (sql) | **5** | 6 | 6 |
 | `io.thorntail:javafx` (pom) | **8** | 18 | **dropped** |
 | `Menu.java:5753/5754` (java) | **34** | 47 | **dropped** |
 | `Loading.java:397` (java) | **41** | 61 | **dropped** |
@@ -744,7 +769,7 @@ their number should push the noise down.
 | site | rules violated | verdict |
 |---|---|---|
 | `closeAiReqLightbox` (js) | 1 | true |
-| `release_rate_slot` (sql) | 1 | true |
+| `20260901130000` (sql) | 1 | true |
 | `io.thorntail:javafx` (pom) | 1 | true |
 | `Loading.java:397` / `:411` (java) | 4 each | true, verified |
 | **`Menu.java:5753/5754` (java)** | **21** | **true, verified** |
@@ -762,7 +787,7 @@ Simulated anyway, on the same snapshots:
 | known answer | current | ÷ n | ÷ √n | ÷ (1+log₂n) |
 |---|---|---|---|---|
 | `closeAiReqLightbox` (js) | **1** | 1 | 1 | 1 |
-| `release_rate_slot` (sql) | **6** | 2 | 2 | 2 |
+| `20260901130000` (sql) | **6** | 2 | 2 | 2 |
 | `io.thorntail:javafx` (pom) | **10** | 4 | 4 | 4 |
 | `Menu.java:5753/5754` (java) | **34** | **167 — last** | 160 | 159 |
 | `Loading.java:397` (java) | **41** | 138 | 85 | 103 |
@@ -1093,7 +1118,7 @@ The other detectors, each on a pair with a known answer:
 
 | detector | findings | true |
 |---|---|---|
-| `sql` | 1 | 1 — `release_rate_slot` |
+| `sql` | 1 | 1 — `20260901130000` |
 | `pom` | 1 | 1 — `io.thorntail:javafx` |
 | `js` | 1 | 1 — `closeAiReqLightbox` |
 | `deps` | 0 (of 51 before filtering) | no grounds to report |

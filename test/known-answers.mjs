@@ -42,24 +42,45 @@ function run(args) {
   const snap = path.join(TMP, 'run-' + Math.random().toString(36).slice(2) + '.json');
   const r = spawnSync(process.execPath, [CLI, ...args, '--json', snap],
     { encoding: 'utf8', maxBuffer: 1e9 });
-  let findings = null;
-  try { findings = JSON.parse(fs.readFileSync(snap, 'utf8')).findings; } catch { /* left null */ }
-  return { findings, stdout: r.stdout || '', status: r.status };
+  let findings = null, counts = null;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(snap, 'utf8'));
+    findings = parsed.findings;
+    counts = parsed.counts;
+  } catch { /* left null */ }
+  return { findings, counts, stdout: r.stdout || '', status: r.status };
 }
 
 const exists = p => { try { return fs.existsSync(p); } catch { return false; } };
 
 // ---------------------------------------------------------------- 1. sql
+//
+// THE ANSWER IS A PLACE, NOT A NAME. The site is identified by the timestamp of
+// the migration that introduced it and of the one that repaired it. The function
+// name stayed here for a while and it had no business being in a public
+// repository — the answer is just as specific without it.
+//
+// WHAT CHANGED IN 0.2.0. The directory now contains the repair, so this is no
+// longer a deviation and no longer in the snapshot: it belongs to FIXED IN
+// A LATER MIGRATION, which is shown and not counted. The known answer is that
+// the rule STILL SEES IT and files it correctly — losing it from the output
+// altogether would be the regression.
+const SQL_INTRODUCED = '20260901130000';
+const SQL_REPAIRED = '20260901150000';
 {
   const dir = path.join(VAA, 'supabase', 'migrations');
   if (!exists(dir)) {
-    record('release_rate_slot (sql)', 'SKIP', 'no migrations at ' + dir + ' — set OOO_VAA');
+    record('grant missing in one migration (sql)', 'SKIP', 'no migrations at ' + dir + ' — set OOO_VAA');
   } else {
-    const { findings } = run(['sql', dir]);
-    const hit = (findings || []).find(f =>
-      f.anchor === 'public.release_rate_slot' && f.file.startsWith('20260901130000'));
-    record('release_rate_slot (sql)', hit ? 'PASS' : 'FAIL',
-      hit ? hit.file + ':' + hit.line : 'not among ' + (findings ? findings.length : '?') + ' findings');
+    const { counts, stdout } = run(['sql', dir]);
+    const seen = stdout.includes(SQL_INTRODUCED);
+    const paired = stdout.includes(SQL_REPAIRED);
+    const filed = (counts && counts.fixedInALaterMigration) >= 1;
+    const ok = seen && paired && filed;
+    record('grant missing in one migration (sql)', ok ? 'PASS' : 'FAIL',
+      ok ? 'seen, and filed as repaired by a later migration'
+        : 'introduced=' + seen + ' repaired=' + paired +
+          ' fixedInALaterMigration=' + (counts ? counts.fixedInALaterMigration : '?'));
   }
 }
 

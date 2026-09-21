@@ -229,8 +229,10 @@ const S = {
   'sqlBody3': { en: '     `revoke ... from public` takes it away from EVERY role that had it only that way —', pl: '     `revoke ... from public` zabiera je KAZDEJ roli, ktora miala je tylko tak —' },
   'sqlBody4': { en: '     including service_role. After this migration only the owner can call it.', pl: '     w tym service_role. Po tej migracji funkcje moze wolac juz tylko wlasciciel.' },
   'sqlBody5': { en: '     Pattern: {0} functions in these migrations have both revoke AND grant, this one does not.', pl: '     Wzorzec: {0} funkcji w tych migracjach ma revoke I grant, ta jedna nie.' },
-  'sqlFixedLater': { en: '     NOTE: a later migration already fixes this — {0}', pl: '     UWAGA: pozniejsza migracja juz to naprawia — {0}' },
-  'sqlFixedLater2': { en: '     The finding stays as proof that the rule catches this bug at the moment it appears.', pl: '     Zgloszenie zostaje jako dowod, ze regula lapie ten blad w chwili wprowadzenia.' },
+  'sqlSkippedTriggers': { en: 'skipped: {0} function(s) returning trigger or event_trigger — a trigger function never needs EXECUTE', pl: 'pominietych: {0} funkcji zwracajacych trigger albo event_trigger — funkcji wyzwalacza EXECUTE nie jest potrzebne' },
+  'sqlFixedSection': { en: 'FIXED IN A LATER MIGRATION ({0}) — shown, not counted', pl: 'NAPRAWIONE W POZNIEJSZEJ MIGRACJI ({0}) — wypisane, nieliczone' },
+  'sqlFixedLater': { en: '       fixed by {0}', pl: '       naprawia to {0}' },
+  'sqlFixedLater2': { en: '  These do not change the exit code: the fix is already in this directory. A red build over something already repaired teaches people to switch the tool off.', pl: '  Te nie zmieniaja kodu wyjscia: naprawa jest juz w tym katalogu. Czerwone budowanie na rzeczy naprawionej uczy wylaczac narzedzie.' },
   'sqlFixNew': { en: '     // a NEW migration, not an edit to {0} —', pl: '     // NOWA migracja, nie dopisek do {0} —' },
   'sqlFixNew2': { en: '     //   that one is already deployed, and Supabase remembers migrations by name.', pl: '     //   tamta jest juz wdrozona, a Supabase pamieta migracje po nazwie.' },
 

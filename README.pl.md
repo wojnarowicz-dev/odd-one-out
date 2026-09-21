@@ -235,6 +235,30 @@ Przy pierwszym uruchomieniu (brak zapisu) wszystkie zgłoszenia są nowe, więc 
 to `1`. Przy kolejnym bez zmian w kodzie — `0`. Błąd użycia (zła ścieżka, brak
 argumentu) kończy się kodem `2`.
 
+### Czego detektor `sql` już nie liczy — zmiana w 0.2.0
+
+Dwa rodzaje zgłoszeń są nadal wypisywane i przestają wpływać na kod wyjścia.
+
+**Funkcja zwracająca `trigger` albo `event_trigger` nie jest odstępstwem.**
+PostgreSQL sprawdza EXECUTE na funkcji wyzwalacza przy `CREATE TRIGGER`, a nie
+przy odpaleniu wyzwalacza; wywołanie wprost kończy się błędem `0A000 trigger
+functions can only be called as triggers`. Dla nich `revoke` bez pary jest
+stanem docelowym, nie połową pary — a poprawka, którą narzędzie dotąd
+podpowiadało, odwracała migrację utwardzającą. Przebieg wypisuje, ile funkcji
+pominięto, żeby „niesprawdzone" i „sprawdzone, czysto" nie wyglądały tak samo.
+
+**Zgłoszenie naprawione późniejszą migracją idzie do osobnej sekcji i się nie
+liczy.** Naprawa jest już w katalogu, a czerwone budowanie na rzeczy naprawionej
+uczy wyłączać narzędzie. Wypisujemy je pod nagłówkiem *NAPRAWIONE W PÓŹNIEJSZEJ
+MIGRACJI* i trzymamy poza zapisem przebiegu — inaczej `diff` policzyłby je jako
+nowe i kod wyjścia wróciłby tylną furtką.
+
+Typ czytamy z `create [or replace] function … returns …`, które może stać
+w innej migracji niż odebranie, więc czytany jest cały katalog. **Gdy deklaracji
+nie ma w skanowanym katalogu, typ jest nieznany i zgłoszenie zostaje** —
+wyciszenie czegoś, czego nikt nie sprawdził, jest gorsze niż jedno zgłoszenie
+za dużo.
+
 ### Szczegóły różnicy
 
 Wyjście dzieli się na **NOWE**, **ZNIKNĘŁO**, **ZMIENIONE** (to samo miejsce,
@@ -697,7 +721,7 @@ tych samych zapisach, zanim tknąłem linijkę narzędzia.
 | znana odpowiedź | obecna | u × s / v | u × s / v + wymóg 10× |
 |---|---|---|---|
 | `closeAiReqLightbox` (js) | **1** | **1** | **1** |
-| `release_rate_slot` (sql) | **5** | 6 | 6 |
+| `20260901130000` (sql) | **5** | 6 | 6 |
 | `io.thorntail:javafx` (pom) | **8** | 18 | **wypadła** |
 | `Menu.java:5753/5754` (java) | **34** | 47 | **wypadła** |
 | `Loading.java:397` (java) | **41** | 61 | **wypadła** |
@@ -745,7 +769,7 @@ liczbę powinno zepchnąć szum w dół.
 | miejsce | naruszonych reguł | werdykt |
 |---|---|---|
 | `closeAiReqLightbox` (js) | 1 | prawdziwe |
-| `release_rate_slot` (sql) | 1 | prawdziwe |
+| `20260901130000` (sql) | 1 | prawdziwe |
 | `io.thorntail:javafx` (pom) | 1 | prawdziwe |
 | `Loading.java:397` / `:411` (java) | po 4 | prawdziwe, zweryfikowane |
 | **`Menu.java:5753/5754` (java)** | **21** | **prawdziwe, zweryfikowane** |
@@ -763,7 +787,7 @@ Zasymulowane mimo to, na tych samych zapisach:
 | znana odpowiedź | obecna | ÷ n | ÷ √n | ÷ (1+log₂n) |
 |---|---|---|---|---|
 | `closeAiReqLightbox` (js) | **1** | 1 | 1 | 1 |
-| `release_rate_slot` (sql) | **6** | 2 | 2 | 2 |
+| `20260901130000` (sql) | **6** | 2 | 2 | 2 |
 | `io.thorntail:javafx` (pom) | **10** | 4 | 4 | 4 |
 | `Menu.java:5753/5754` (java) | **34** | **167 — ostatnia** | 160 | 159 |
 | `Loading.java:397` (java) | **41** | 138 | 85 | 103 |
@@ -1095,7 +1119,7 @@ Pozostałe detektory, każdy na parze ze znaną odpowiedzią:
 
 | detektor | zgłoszeń | prawdziwych |
 |---|---|---|
-| `sql` | 1 | 1 — `release_rate_slot` |
+| `sql` | 1 | 1 — `20260901130000` |
 | `pom` | 1 | 1 — `io.thorntail:javafx` |
 | `js` | 1 | 1 — `closeAiReqLightbox` |
 | `deps` | 0 (z 51 przed odsianiem) | brak podstaw do zgłoszenia |

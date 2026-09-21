@@ -1,0 +1,52 @@
+{
+  "mutedCount": 0,
+  "version": 1,
+  "tool": "odd-one-out",
+  "detector": "sql",
+  "args": [
+    "--config",
+    "test/fixtures/golden.config.json",
+    "--lang",
+    "en"
+  ],
+  "counts": {
+    "migrations": 4,
+    "revokeGrantPairs": 3,
+    "functionsWithPattern": 3,
+    "withoutGrant": 4,
+    "skippedTriggerFunctions": 2,
+    "fixedInALaterMigration": 0,
+    "deviations": 2
+  },
+  "findings": [
+    {
+      "id": "b1ec5077763c",
+      "detector": "sql",
+      "rule": "revoke-bez-grant-execute",
+      "file": "0003_unknown_type.sql",
+      "anchor": "public.widget_elsewhere",
+      "line": 7,
+      "label": "public.widget_elsewhere — revoke bez grant execute w tej samej migracji",
+      "meta": {
+        "via": 3,
+        "odd": 4
+      },
+      "unitId": "052952480ef7"
+    },
+    {
+      "id": "f9a4c47a0419",
+      "detector": "sql",
+      "rule": "revoke-bez-grant-execute",
+      "file": "0004_plain_function.sql",
+      "anchor": "public.widget_delta",
+      "line": 8,
+      "label": "public.widget_delta — revoke bez grant execute w tej samej migracji",
+      "meta": {
+        "via": 3,
+        "odd": 4
+      },
+      "unitId": "bd92374669fd"
+    }
+  ],
+  "root": "test/fixtures/sql-types"
+}

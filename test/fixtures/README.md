@@ -16,6 +16,8 @@ checkouts, and it says SKIP with a reason when they are missing.
 | `sql/` | `revoke ... on function` is paired with `grant execute` in the same migration | `20260104000000_release_slot.sql` revokes and never grants | `minconv=3`: 3 migrations hold the pair |
 | `pom/` | entries in `<dependencyManagement>` are in the tree or declared in `<dependencies>` | `io.thorntail:javafx` is in neither | DEAD needs both witnesses: absent from `deptree.txt` AND undeclared |
 | `deps/` | the file system is reached through `fixture.io.Fs` | `Direct1` and `Direct2` call `java.nio.file.Files` straight | `minvia=5`, `maxodd=3`: 5 classes via the layer, 2 around it |
+| `sql-types/` | as `sql/`, but the rule must first ask what the function RETURNS | `widget_elsewhere` (type unknown) and `widget_delta` (`returns void`) revoke and never grant | two trigger functions revoke and never grant and are NOT deviations; `skippedTriggerFunctions=2` says so out loud |
+| `sql-regrant/` | as `sql/`, plus: a grant AFTER the revoke repairs it, a grant BEFORE it does not | `gadget_probe` was granted before the revoke and never after | `gadget_touch` is granted again in a later migration: shown in its own section, `deviations=1`, exit 1 comes from `gadget_probe` alone |
 
 ## Fixtures that are silent on purpose
 

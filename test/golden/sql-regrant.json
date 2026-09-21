@@ -10,29 +10,29 @@
     "en"
   ],
   "counts": {
-    "migrations": 4,
+    "migrations": 6,
     "revokeGrantPairs": 3,
     "functionsWithPattern": 3,
-    "withoutGrant": 1,
+    "withoutGrant": 2,
     "skippedTriggerFunctions": 0,
-    "fixedInALaterMigration": 0,
+    "fixedInALaterMigration": 1,
     "deviations": 1
   },
   "findings": [
     {
-      "id": "6ae52eb41b1d",
+      "id": "ca795f174e16",
       "detector": "sql",
       "rule": "revoke-bez-grant-execute",
-      "file": "20260104000000_release_slot.sql",
-      "anchor": "public.release_slot",
-      "line": 12,
-      "label": "public.release_slot — revoke bez grant execute w tej samej migracji",
+      "file": "0006_lock_probe.sql",
+      "anchor": "public.gadget_probe",
+      "line": 2,
+      "label": "public.gadget_probe — revoke bez grant execute w tej samej migracji",
       "meta": {
         "via": 3,
-        "odd": 1
+        "odd": 2
       },
-      "unitId": "788489070c8e"
+      "unitId": "34417059d377"
     }
   ],
-  "root": "test/fixtures/sql"
+  "root": "test/fixtures/sql-regrant"
 }
