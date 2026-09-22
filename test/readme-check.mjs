@@ -113,6 +113,65 @@ for (const [file, text] of [['EN', read(EN)], ['PL', read(PL)]]) {
   }
 }
 
+// --------------------------------------------- 1a. czy czytelnik to w ogole ma
+//
+// THIS GATE MEASURES IN THE CLONE. Every command above is run, or looked up,
+// HERE — in a repository where `test/fixtures/` exists and `src/` is the source
+// of this tool. The person who installs from npm has none of that: the package
+// carries bin, src, skills and the two pages, and nothing else. An example
+// pointing at a path that lives here and does not ship would pass this file for
+// ever and fail for every reader, and there is no input at which the sections
+// above would say otherwise.
+//
+// A READER'S PATH IS NOT THIS PACKAGE'S PATH. `./src/main/java` names a
+// directory in SOMEBODY ELSE'S project and is absent here; `test/fixtures/java`
+// is present here and does not travel. Only the second is a broken promise, and
+// one question separates them: does this path exist in this repository?
+//
+// RUNTIME ARTEFACTS ARE EXCLUDED. `.odd-one-out/` is the directory the tool
+// WRITES — `odd-one-out java ... --json .odd-one-out/java.json` creates the file
+// the next line reads. It exists here because the tool has been run here, not
+// because the package was supposed to bring it.
+//
+// Measured before the gate was written: of the paths named in both pages, the
+// only ones that exist in the repository are under `.odd-one-out/`. So this
+// layer goes in as a guard for the future, not as a fix — the red below had to
+// be provoked deliberately, with an example pointing at `test/fixtures/java`.
+{
+  // One command string, no argument array: npm is a .cmd on Windows and needs
+  // the shell, and node deprecates passing ARGUMENTS through one. Written this
+  // way the warning does not print over the report of a gate that passed.
+  const packed = JSON.parse(spawnSync('npm pack --dry-run --json',
+    { cwd: ROOT, encoding: 'utf8', shell: true, maxBuffer: 1e9 }).stdout);
+  const shipped = new Set(packed[0].files.map(f => f.path.replace(/\\/g, '/')));
+  const shipsDir = (d) => [...shipped].some(f =>
+    f === d || f.startsWith(d.replace(/\/+$/, '') + '/'));
+  const RUNTIME = /^\.?\/?\.odd-one-out\//;
+  const SEP = /[/\\]/;
+
+  if (!shipped.size) fail('paczka', 'lista plikow paczki', 'npm pack nic nie zwrocil');
+  else ok('paczka', 'lista plikow paczki', shipped.size + ' plikow');
+
+  let dobrych = 0;
+  for (const [k, gdzie] of commands) {
+    const zrodlo = ' [' + [...new Set(gdzie)].join('+') + ']';
+    const polecenie = k.split(/\s+#/)[0].trim();
+    if (!TOOL.test(polecenie)) continue;
+
+    const sciezki = polecenie.replace(TOOL, '').trim().split(/\s+/)
+      .filter(a => a && !a.startsWith('-') && !a.startsWith('<') && a !== '.')
+      .filter(a => SEP.test(a));
+    const poza = sciezki.filter(p => !RUNTIME.test(p) &&
+      fs.existsSync(path.join(ROOT, p)) && !shipped.has(p) && !shipsDir(p));
+
+    if (poza.length)
+      fail('paczka', polecenie.slice(0, 46) + zrodlo,
+        poza.join(', ') + ' — jest w repozytorium i NIE jedzie w paczce, czytelnik tego nie ma');
+    else dobrych++;
+  }
+  ok('paczka', 'przyklady wskazuja na to, co czytelnik ma', dobrych + ' polecen');
+}
+
 for (const [k, gdzie] of commands) {
   const source = ' [' + [...new Set(gdzie)].join('+') + ']';
   const withoutComment = k.split(/\s+#/)[0].trim();
