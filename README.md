@@ -17,6 +17,37 @@ to the rest of the same repository.
 
 **It never changes files.** Every finding comes with a ready-made fix to paste.
 
+## What changed in 0.4.0
+
+**If you run `deps` in CI, read this line: it can now return `1`.** Every other
+detector reads the previous run and reports what is NEW. `deps` wrote snapshots
+and never read one, so a second run listed the same deviations as the first,
+word for word — and the 0.3.0 note below said exactly that, apologising for it
+on screen. It now takes the same path as the rest: `1` when a deviation
+appeared that was not there last time, `0` for a state somebody has already
+seen, `--fail-on-state` for anyone who wants the other contract. Measured on
+117 classes of a real Java tree: first run 18 findings and exit `1`; second run
+`NEW=0 GONE=0 CHANGED=0 unchanged=18`, no sections printed, exit `0`; `--all`
+brings the full list back.
+
+**The `deps` snapshot is no longer cut by `--top`.** It was built from the
+first ten findings, so the baseline — and every diff taken against it —
+depended on a display flag: two runs differing only in `--top` reported
+different "new deviations" over untouched code. The file now holds everything
+and `--top` limits the printout, which is what it is for.
+
+Everything else is a gate rather than a feature:
+
+* **A new layer runs every detector twice** and requires the second run to know
+  about the first. Nothing measured that before: the golden suite compares the
+  CONTENTS of a snapshot, and no layer ran a detector twice. Five detectors
+  claimed the differential contract and four kept it, for a release.
+* **The README gate now asks whether a path an example names is one the reader
+  has.** Every command on this page is checked inside the repository, where
+  `test/` exists; the package ships `bin`, `src`, `skills` and these two pages.
+  `./src/main/java` names a directory in somebody else's project and is not a
+  broken promise; a path that lives here and does not travel is.
+
 ## What changed in 0.3.0
 
 **If you run this in CI, read this line: the exit codes moved.** `2` now means

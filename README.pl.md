@@ -16,6 +16,38 @@ progów z sufitu; porównuje kod do reszty tego samego repozytorium.
 **Nie zmienia plików.** Przy każdym zgłoszeniu pokazuje gotową poprawkę do
 wklejenia.
 
+## Co się zmieniło w 0.4.0
+
+**Jeśli uruchamiasz `deps` w CI, przeczytaj ten wiersz: teraz może zwrócić
+`1`.** Każdy inny detektor czyta poprzedni przebieg i zgłasza to, co NOWE.
+`deps` zapisywał migawki i nigdy żadnej nie czytał, więc drugi przebieg
+wypisywał te same odchylenia co pierwszy, co do słowa — i notka z 0.3.0 niżej
+mówiła dokładnie to, przepraszając za to na ekranie. Teraz idzie tą samą drogą
+co reszta: `1`, gdy odchylenie pojawiło się od ostatniego razu, `0` dla stanu,
+który ktoś już widział, `--fail-on-state` dla chcących drugiego kontraktu.
+Zmierzone na 117 klasach prawdziwego drzewa Javy: pierwszy przebieg 18 zgłoszeń
+i kod `1`; drugi `NOWE=0 ZNIKNELO=0 ZMIENIONE=0 bez zmian=18`, zero sekcji,
+kod `0`; `--all` przywraca pełną listę.
+
+**Migawka `deps` nie jest już cięta przez `--top`.** Powstawała z pierwszych
+dziesięciu zgłoszeń, więc baza porównań — i każda różnica wobec niej —
+zależała od przełącznika wyświetlania: dwa przebiegi różniące się wyłącznie
+`--top` zgłaszały inne „nowe odchylenia" nad nietkniętym kodem. Plik trzyma
+teraz wszystko, a `--top` ogranicza wydruk, czyli to, do czego służy.
+
+Reszta to bramki, nie funkcje:
+
+* **Nowa warstwa uruchamia każdy detektor dwa razy** i wymaga, żeby drugi
+  przebieg wiedział o pierwszym. Nic tego wcześniej nie mierzyło: zestaw
+  golden porównuje ZAWARTOŚĆ migawki, a żadna warstwa nie uruchamiała
+  detektora dwukrotnie. Pięć detektorów obiecywało kontrakt różnicowy,
+  cztery go dotrzymywały — przez całe wydanie.
+* **Bramka README pyta teraz, czy ścieżka z przykładu jest tym, co czytelnik
+  ma.** Każde polecenie z tej strony jest sprawdzane w repozytorium, gdzie
+  `test/` istnieje; paczka wiezie `bin`, `src`, `skills` i te dwie strony.
+  `./src/main/java` nazywa katalog w cudzym projekcie i nie jest złamaną
+  obietnicą; ścieżka, która leży tutaj i nie jedzie — jest.
+
 ## Co się zmieniło w 0.3.0
 
 **Jeśli uruchamiasz to w CI, przeczytaj ten wiersz: kody wyjścia się zmieniły.**
