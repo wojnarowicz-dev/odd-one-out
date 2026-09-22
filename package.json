@@ -35,14 +35,15 @@
     "known-answers": "node test/known-answers.mjs",
     "golden": "node test/golden.mjs",
     "sql-types": "node test/sql-types.mjs",
-    "test": "node test/golden.mjs && node test/sql-types.mjs && node test/resilience.mjs && node test/lang-check.mjs && node test/readme-check.mjs",
+    "test": "node test/golden.mjs && node test/sql-types.mjs && node test/resilience.mjs && node test/baseline.mjs && node test/lang-check.mjs && node test/readme-check.mjs",
     "resilience": "node test/resilience.mjs",
     "lang-check": "node test/lang-check.mjs",
     "foreign": "node test/foreign.mjs",
     "amplify": "node test/amplify.mjs",
     "mutation": "node test/mutation.mjs",
     "full": "npm test && node test/amplify.mjs && node test/mutation.mjs",
-    "readme-check": "node test/readme-check.mjs"
+    "readme-check": "node test/readme-check.mjs",
+    "baseline": "node test/baseline.mjs"
   },
   "keywords": [
     "static-analysis",

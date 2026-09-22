@@ -20,9 +20,20 @@ export const language = LANG;
 
 const S = {
   // ---------- wspólne ----------
+  // NO --json MEANS NO BASELINE, which is a different sentence from the one
+  // this key used to carry. It said "this detector keeps no baseline": true of
+  // the detector then, false now that it reads the previous run like every
+  // other one. What remains is the ordinary first-run case — nowhere to write
+  // this run, so nothing for the next one to compare against.
   'depsNoBaseline': {
-    en: '   this detector keeps no baseline, so it cannot tell a new finding from an old one — use --fail-on-state to fail on any',
-    pl: '   ten detektor nie trzyma bazy porownan, wiec nie odrozni nowego zgloszenia od starego — uzyj --fail-on-state, zeby padac na kazdym' },
+    en: '   no --json <file>: nothing is written, so no run will ever have this one to compare against',
+    pl: '   brak --json <plik>: nic nie jest zapisywane, wiec zaden przebieg nie bedzie mial tego do porownania' },
+  // A FIRST RUN IS NOT THE SAME SENTENCE AS NO BASELINE AT ALL. --json was
+  // given and the file has now been written; the next run will have something
+  // to compare against. Saying "no --json" here would have been false.
+  'depsFirstRun': {
+    en: '   first run against this file: there was nothing to compare with, so everything above counts as new',
+    pl: '   pierwszy przebieg wobec tego pliku: nie bylo z czym porownac, wiec wszystko powyzej liczy sie jako nowe' },
   'summaryLine': {
     en: 'summary: actionable={0}  explained={1}  notApplicable={2}  unreachable={3}',
     pl: 'podsumowanie: doDecyzji={0}  wyjasnione={1}  nieDotyczy={2}  nieodczytane={3}' },

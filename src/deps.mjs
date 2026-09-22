@@ -427,7 +427,52 @@ for (const [op, wraps] of wrappers) {
 }
 findings.sort((a, b) => b.score - a.score);
 
-// ---- 5. raport z gotową poprawką ----
+// ---- 5. przebieg, zapis i różnica wobec poprzedniego ----
+//
+// THIS DETECTOR HAD NO MEMORY. It used maybeWriteSnapshot(), which writes and
+// never reads, so every run listed the same deviations as if it had never seen
+// them before. The four siblings go through prepare(), which reads the previous
+// run and diffs against it. Here there was no baseline, so there was no such
+// thing as a new finding, and the run ended with a sentence apologising for it.
+//
+// THE SNAPSHOT IS NO LONGER CUT BY --top. It was built from
+// findings.slice(0, TOP), so the BASELINE — and every future diff with it —
+// depended on a display flag: two runs differing only in --top would have
+// reported different "new deviations" over untouched code. The file now holds
+// everything; --top still limits the printout, which is what it is for. (The
+// same defect was found and fixed in the `java` detector; this is its twin.)
+//
+// ONE FINDING, SEVERAL ENTRIES. A finding is "operation X, layer Y, and the K
+// classes that bypass it", and the snapshot records one entry per BYPASSING
+// CLASS, because that is the thing that appears and disappears. So a finding is
+// printed when at least one of its classes is new or changed, and its header
+// says how many there are in total — the reader needs to see that the other
+// three were already there yesterday.
+const { prepare, diffHeader, resultExit } = await import('./snapshot.mjs');
+const rowsOf = (f) => {
+  const [extType, extMethod] = f.op.split('#');
+  return f.odd.map(o => ({
+    rule: extType + '.' + extMethod,
+    file: rel(classes.get(o).file),
+    anchor: short(f.facade),
+    line: (f.sites.find(s => s.fqn === o) || { hits: [{}] }).hits[0].line || 0,
+    label: f.kind + ' — ' + extType.split('.').pop() + '.' + extMethod +
+      ' wprost, zamiast przez ' + short(f.facade),
+    meta: { kind: f.kind, via: f.via.length, odd: f.odd.length },
+  }));
+};
+const snapFindings = findings.flatMap(rowsOf);
+
+const w = prepare(argv, {
+  detector: 'deps', root: ROOT, args: argv.slice(1), cfg,
+  counts: { classes: classes.size, wrappedOps: wrappers.size, divergences: findings.filter(f => f.kind === 'DIVERGENCE').length },
+  findings: snapFindings,
+});
+const visible = new Set(w.toShow.map(f => f.rule + '|' + f.file + '|' + f.line));
+const toPrint = findings.filter(f =>
+  rowsOf(f).some(r => visible.has(r.rule + '|' + r.file + '|' + r.line)));
+
+// ---- 6. raport z gotową poprawką ----
 console.log(t('depsTitle'));
 console.log(t('root') + ROOT);
 console.log(t('depsStats', classes.size, extCallers.size, wrappers.size));
@@ -436,9 +481,15 @@ const nOf = k => findings.filter(f => f.kind === k).length;
 console.log(t('depsCounts', nOf('DIVERGENCE'), nOf('MIGRATION'), nOf('TOO_LITTLE')));
 if (nOf('DIVERGENCE') === 0)
   console.log(t('depsNoDivergence'));
+diffHeader(w);
+// KEPT ON PURPOSE. maybeWriteSnapshot() printed this line and diffHeader() does
+// not, so the move would have quietly taken the thresholds-and-exclusions line
+// away from the only detector that had it. Losing output is a change, not a
+// side effect of a refactor.
+if (cfg) console.log(t('settings') + cfg.describe());
 console.log('');
 
-findings.slice(0, TOP).forEach((f, i) => {
+toPrint.slice(0, TOP).forEach((f, i) => {
   const [extType, extMethod] = f.op.split('#');
   const facadeSimple = classes.get(f.facade).simple;
   const best = f.methods[0];
@@ -494,30 +545,6 @@ findings.slice(0, TOP).forEach((f, i) => {
   console.log('');
 });
 
-// ---- run snapshot ----
-const { maybeWriteSnapshot } = await import('./snapshot.mjs');
-const snapFindings = [];
-for (const f of findings.slice(0, TOP)) {
-  const [extType, extMethod] = f.op.split('#');
-  for (const o of f.odd) {
-    const c = classes.get(o);
-    snapFindings.push({
-      rule: extType + '.' + extMethod,
-      file: rel(c.file),
-      anchor: short(f.facade),
-      line: (f.sites.find(s => s.fqn === o) || { hits: [{}] }).hits[0].line || 0,
-      label: f.kind + ' — ' + extType.split('.').pop() + '.' + extMethod +
-        ' wprost, zamiast przez ' + short(f.facade),
-      meta: { kind: f.kind, via: f.via.length, odd: f.odd.length },
-    });
-  }
-}
-maybeWriteSnapshot(argv, {
-  detector: 'deps', root: ROOT, args: argv.slice(1), cfg,
-  counts: { classes: classes.size, wrappedOps: wrappers.size, divergences: findings.filter(f => f.kind === 'DIVERGENCE').length },
-  findings: snapFindings,
-});
-
 // FOUR STATES, ONE LINE, BECAUSE A BUILD READS ONE NUMBER.
 //
 // THIS DETECTOR COULD NOT FAIL A BUILD AT ALL. Every other detector here ends
@@ -525,19 +552,17 @@ maybeWriteSnapshot(argv, {
 // found — twenty-one findings on the material it was measured against, and a
 // green build over every one of them.
 //
-// AND IT STILL CANNOT SAY WHAT IS *NEW*. The others go through prepare(),
-// which reads the previous snapshot and diffs against it; this one uses
-// maybeWriteSnapshot(), which writes and never reads. With no baseline there
-// is no such thing as a new finding here, so the default contract cannot be
-// differential — and making it state-based instead would turn every project
-// with a known divergence permanently red, which is the failure this whole
-// release is avoiding.
+// AND UNTIL NOW IT COULD NOT SAY WHAT WAS *NEW*, so the contract could not be
+// the differential one the other four have. It now reads the previous run
+// (see section 5), so it is differential by default like its siblings: 1 when
+// a deviation appeared that was not there last time, 0 for a state somebody
+// has already seen. --fail-on-state is still there for the other contract.
 //
-// So: 2 when nothing could be read, as everywhere else; 1 only when somebody
-// asks for the state contract with --fail-on-state; 0 otherwise, exactly as
-// today. Giving this detector a real baseline is its own unit of work and is
-// recorded as one — it changes what the detector prints, not only what it
-// returns.
+// WITHOUT --json THERE IS STILL NO BASELINE, and that is said rather than
+// assumed: with nowhere to write the run, prepare() has nothing to compare
+// against, every finding counts as new, and depsNoBaseline explains the
+// sentence. That is the honest reading — the first run on a project really
+// does see all of it for the first time.
 const summary = summaryOf({
   actionable: snapFindings.length,
   unreadable: nonUtf8Files().length,
@@ -546,12 +571,15 @@ console.log('');
 console.log(t('summaryLine', summary.actionable, summary.explained,
   summary.notApplicable, summary.unreachable));
 if (summary.unreachable > 0 && summary.actionable === 0) console.log(t('summaryUnread'));
-if (summary.actionable > 0 && !argv.includes('--fail-on-state'))
-  console.log(t('depsNoBaseline'));
+// TWO DIFFERENT SENTENCES, BECAUSE THEY ARE TWO DIFFERENT SITUATIONS. Without
+// --json nothing is written and no future run will have a baseline either;
+// with --json and no file yet, this run has just created one. Both mean
+// "everything above counts as new", and only the second one gets better.
+if (!w.diff && summary.actionable > 0 && !argv.includes('--fail-on-state'))
+  console.log(t(w.file ? 'depsFirstRun' : 'depsNoBaseline'));
 
-const { resultExit } = await import('./snapshot.mjs');
 resultExit(exitCodeFor(summary, {
-  newActionable: 0,                       // no baseline: nothing is ever "new"
+  newActionable: w.newCount,
   failOnState: argv.includes('--fail-on-state'),
 }));
 
