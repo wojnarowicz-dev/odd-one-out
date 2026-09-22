@@ -20,6 +20,20 @@ export const language = LANG;
 
 const S = {
   // ---------- wspólne ----------
+  'depsNoBaseline': {
+    en: '   this detector keeps no baseline, so it cannot tell a new finding from an old one — use --fail-on-state to fail on any',
+    pl: '   ten detektor nie trzyma bazy porownan, wiec nie odrozni nowego zgloszenia od starego — uzyj --fail-on-state, zeby padac na kazdym' },
+  'summaryLine': {
+    en: 'summary: actionable={0}  explained={1}  notApplicable={2}  unreachable={3}',
+    pl: 'podsumowanie: doDecyzji={0}  wyjasnione={1}  nieDotyczy={2}  nieodczytane={3}' },
+  'summaryUnread': {
+    en: '   nothing here was actionable AND something could not be read, so this run proves nothing (exit 2)',
+    pl: '   nic tu nie bylo do decyzji, a czegos nie dalo sie odczytac, wiec ten przebieg niczego nie dowodzi (kod 2)' },
+  'usageExitTitle': { en: 'EXIT CODES', pl: 'KODY WYJSCIA' },
+  'usageExit0': { en: '  0   ran, and nothing new is actionable', pl: '  0   przebieglo, nic nowego do decyzji' },
+  'usageExit1': { en: '  1   NEW deviations (with --fail-on-state: any at all)', pl: '  1   NOWE odchylenia (z --fail-on-state: jakiekolwiek)' },
+  'usageExit2': { en: '  2   NOTHING was actionable AND something could not be read', pl: '  2   NIC nie bylo do decyzji, a czegos nie dalo sie odczytac' },
+  'usageExit2b': { en: '      (nothing of this kind found here, a file that will not parse)', pl: '      (nie znaleziono nic dla tego detektora, plik nie do sparsowania)' },
   'root': { en: 'root=', pl: 'root=' },
   'settings': { en: 'settings: ', pl: 'ustawienia: ' },
   'savedRun': { en: 'run snapshot saved: {0}  (findings: {1})', pl: 'zapis przebiegu: {0}  (zgloszen: {1})' },

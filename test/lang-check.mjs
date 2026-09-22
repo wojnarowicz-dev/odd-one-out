@@ -191,6 +191,11 @@ if (problems.length === 0) {
   console.log('\n  both directions clean, nothing outside the dictionary, npm page agrees with src/scope.mjs');
 } else {
   console.log('\n  ' + problems.length + ' problem(s):\n');
+  // THE WIDTH WAS NEVER DEFINED, and nobody found out because this branch had
+  // never run: the layer counted its problems and then crashed instead of
+  // naming them. A failure path that has never executed is not a failure path
+  // — it is a sentence nobody has read.
+  const w = Math.max(...problems.map(p => p.kind.length)) + 2;
   for (const p of problems) {
     console.log('    ' + p.kind.padEnd(w) + p.key + (p.word ? '   "' + p.word + '"' : ''));
     if (p.text) console.log('        ' + p.text.slice(0, 100));

@@ -7,7 +7,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { t } from './lang.mjs';
 import { makeFlag } from './args.mjs';
-import { readSource, reportNonUtf8 } from './input.mjs';
+import { readSource, reportNonUtf8, nonUtf8Files } from './input.mjs';
+import { summaryOf, exitCodeFor } from './summary.mjs';
 
 const argv = process.argv.slice(2);
 const ROOT = argv[0];
@@ -64,7 +65,20 @@ const files = javaFiles(ROOT);
 {
   const { noSourcesIn } = await import('./population.mjs');
   const missing = noSourcesIn(files.length, '.java', ROOT);
-  if (missing) { console.log(missing); process.exit(0); }
+  if (missing) {
+    console.log(missing);
+    // NOTHING READ IS NOT A CLEAN RESULT. This branch said exactly that and
+    // then exited 0, so a build pointed at a directory holding nothing of
+    // this detector's kind was told the project was fine. The sentence was
+    // right and the number contradicted it, and the number is the half a
+    // build reads.
+    const summary = summaryOf({ nothingRead: true });
+    console.log('');
+    console.log(t('summaryLine', summary.actionable, summary.explained,
+      summary.notApplicable, summary.unreachable));
+    console.log(t('summaryUnread'));
+    process.exit(2);
+  }
 }
 const units = new Map();
 const parseErrors = [];
@@ -554,7 +568,23 @@ const w = prepare(argv, {
   findings: snapFindings,
 });
 const visible = new Set(w.toShow.map(f => f.rule + '|' + f.file + '|' + f.line));
-resultExit(w.newCount ? 1 : 0);
+
+// FOUR STATES, ONE LINE, BECAUSE A BUILD READS ONE NUMBER.
+const summary = summaryOf({
+  actionable: snapFindings.length,
+  parseErrors: parseErrors.length,
+  unreadable: nonUtf8Files().length,
+  // explained and notApplicable are zero because this detector has no
+  // such category: a rule block is either reported or was never a candidate.
+});
+console.log('');
+console.log(t('summaryLine', summary.actionable, summary.explained,
+  summary.notApplicable, summary.unreachable));
+if (summary.unreachable > 0 && summary.actionable === 0) console.log(t('summaryUnread'));
+resultExit(exitCodeFor(summary, {
+  newActionable: w.newCount,
+  failOnState: argv.includes('--fail-on-state'),
+}));
 
 // ---- report ----
 console.log(t('javaTitle'));

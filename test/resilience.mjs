@@ -79,23 +79,49 @@ function run(args) {
 
 // ---------------------------------------------------------------- scenarios
 const SCENARIOS = [];
-const scenario = (name, damage, build, speaks, control) =>
-  SCENARIOS.push({ name, damage, build, speaks, control });
+// A SCENARIO MAY NAME THE CODE IT MUST RETURN.
+//
+// The states below grade what a run SAID. They do not grade what it returned,
+// and an exit code is a contract with a build. Learned the hard way in a
+// sibling tool: with the exit rule reverted, the decisive scenario there moved
+// from LOUD to SPOKE — a different label, both of them PASSING, and the layer
+// stayed green over a build contract that had been undone.
+const scenario = (name, damage, build, speaks, control, expectExit = null) =>
+  SCENARIOS.push({ name, damage, build, speaks, control, expectExit });
 
+// FIVE DETECTORS, FIVE DOORS, and each said "nothing of my kind here" and then
+// exited 0 — a build pointed at the wrong directory was told the project was
+// clean by whichever detector it happened to run. These three scenarios existed
+// and passed throughout, because they checked the SENTENCE and never the number.
 scenario('empty directory (java)', 'nothing to read at all',
   () => ['java', dir('pusty-java')],
   ['No .java files'],
-  () => pristine('java'));
+  () => pristine('java'), 2);
 
 scenario('empty directory (sql)', 'nothing to read at all',
   () => ['sql', dir('pusty-sql')],
   ['No .sql files'],
-  () => pristine('sql', 'sql'));
+  () => pristine('sql', 'sql'), 2);
 
 scenario('empty directory (deps)', 'nothing to read at all',
   () => ['deps', dir('pusty-deps')],
   ['No .java'],
-  () => pristine('deps', 'deps'));
+  () => pristine('deps', 'deps'), 2);
+
+// THE CONTROL, AND IT IS THE HALF THAT KEEPS THE RULE NARROW. A run that read
+// its material and found something must NOT be dragged to 2 by a file it could
+// not parse. Measured before this was written: java on the pinned Java tree
+// reports six deviations with two parse errors beside them, and 2 there would
+// mean every real project is permanently unreadable.
+scenario('a parse error, and findings all the same', 'one file will not parse, the rest do',
+  () => {
+    const d = pristine('java');
+    fs.writeFileSync(path.join(d[1], 'Broken.java'),
+      Buffer.from([0x00, 0xff, 0xfe, 0x7b, 0x7b, 0x7b, 0x00, 0x01]));
+    return d;
+  },
+  ['parse errors in: Broken.java'],
+  () => pristine('java'), 1);
 
 scenario('binary junk in a .java file', 'one source file is not source at all',
   () => {
@@ -226,7 +252,9 @@ for (const s of SCENARIOS) {
   const useless = s.speaks.filter(k => damaged.out.includes(k) && healthy.out.includes(k));
 
   const status = damaged.status;
-  const state = (status !== 0 && status !== 1 && status !== 2) ? 'CRASH'
+  const wrongExit = s.expectExit !== null && status !== s.expectExit;
+  const state = wrongExit ? 'WRONG-EXIT'
+    : (status !== 0 && status !== 1 && status !== 2) ? 'CRASH'
     : status === 2 ? 'LOUD'
       : said.length ? 'SPOKE' : 'SILENT';
 
@@ -302,5 +330,12 @@ if (silent.length) {
   for (const r of silent) console.log('    ' + r.name + ' — ' + r.damage + ', and nothing said');
   console.log('\n  A run that returns nothing without saying why cannot be told from a clean run.');
 }
-if (silent.length || crashed.length || propertyFailed) process.exit(1);
+const wrongExitRows = rows.filter(r => r.state === 'WRONG-EXIT');
+if (wrongExitRows.length) {
+  console.log('\n  Wrong exit code:');
+  for (const r of wrongExitRows)
+    console.log('    ' + r.name + ' — expected ' + r.expectExit +
+      ', and a build reads that number and nothing else');
+}
+if (silent.length || crashed.length || propertyFailed || wrongExitRows.length) process.exit(1);
 if (skipped.length) process.exit(2);

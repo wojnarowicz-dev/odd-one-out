@@ -17,7 +17,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { t } from './lang.mjs';
 import { makeFlag } from './args.mjs';
-import { readSource, reportNonUtf8 } from './input.mjs';
+import { readSource, reportNonUtf8, nonUtf8Files } from './input.mjs';
+import { summaryOf, exitCodeFor } from './summary.mjs';
 
 const argv = process.argv.slice(2);
 const ROOT = argv[0];
@@ -56,7 +57,20 @@ const sources = collectSources(ROOT);
 {
   const { noSourcesIn } = await import('./population.mjs');
   const missing = noSourcesIn(sources.java.length + sources.js.length, '.java/.js/.ts', ROOT);
-  if (missing) { console.log(missing); process.exit(0); }
+  if (missing) {
+    console.log(missing);
+    // NOTHING READ IS NOT A CLEAN RESULT. This branch said exactly that and
+    // then exited 0, so a build pointed at a directory holding nothing of
+    // this detector's kind was told the project was fine. The sentence was
+    // right and the number contradicted it, and the number is the half a
+    // build reads.
+    const summary = summaryOf({ nothingRead: true });
+    console.log('');
+    console.log(t('summaryLine', summary.actionable, summary.explained,
+      summary.notApplicable, summary.unreachable));
+    console.log(t('summaryUnread'));
+    process.exit(2);
+  }
 }
 
 let parserJs = null;
@@ -503,6 +517,43 @@ maybeWriteSnapshot(argv, {
   counts: { classes: classes.size, wrappedOps: wrappers.size, divergences: findings.filter(f => f.kind === 'DIVERGENCE').length },
   findings: snapFindings,
 });
+
+// FOUR STATES, ONE LINE, BECAUSE A BUILD READS ONE NUMBER.
+//
+// THIS DETECTOR COULD NOT FAIL A BUILD AT ALL. Every other detector here ends
+// in resultExit(); this one ended in nothing, so it returned 0 whatever it
+// found — twenty-one findings on the material it was measured against, and a
+// green build over every one of them.
+//
+// AND IT STILL CANNOT SAY WHAT IS *NEW*. The others go through prepare(),
+// which reads the previous snapshot and diffs against it; this one uses
+// maybeWriteSnapshot(), which writes and never reads. With no baseline there
+// is no such thing as a new finding here, so the default contract cannot be
+// differential — and making it state-based instead would turn every project
+// with a known divergence permanently red, which is the failure this whole
+// release is avoiding.
+//
+// So: 2 when nothing could be read, as everywhere else; 1 only when somebody
+// asks for the state contract with --fail-on-state; 0 otherwise, exactly as
+// today. Giving this detector a real baseline is its own unit of work and is
+// recorded as one — it changes what the detector prints, not only what it
+// returns.
+const summary = summaryOf({
+  actionable: snapFindings.length,
+  unreadable: nonUtf8Files().length,
+});
+console.log('');
+console.log(t('summaryLine', summary.actionable, summary.explained,
+  summary.notApplicable, summary.unreachable));
+if (summary.unreachable > 0 && summary.actionable === 0) console.log(t('summaryUnread'));
+if (summary.actionable > 0 && !argv.includes('--fail-on-state'))
+  console.log(t('depsNoBaseline'));
+
+const { resultExit } = await import('./snapshot.mjs');
+resultExit(exitCodeFor(summary, {
+  newActionable: 0,                       // no baseline: nothing is ever "new"
+  failOnState: argv.includes('--fail-on-state'),
+}));
 
 // One sentence if any source was not valid UTF-8. Printed last, so it is the
 // line left on screen rather than something scrolled past.

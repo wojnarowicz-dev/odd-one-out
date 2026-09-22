@@ -20,7 +20,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { t } from './lang.mjs';
 import { makeFlag } from './args.mjs';
-import { readSource, reportNonUtf8 } from './input.mjs';
+import { readSource, reportNonUtf8, nonUtf8Files } from './input.mjs';
+import { summaryOf, exitCodeFor } from './summary.mjs';
 import { Parser, Language } from 'web-tree-sitter';
 import { createRequire } from 'node:module';
 
@@ -168,7 +169,20 @@ const sources = collect(ROOT);
 {
   const { noSourcesIn } = await import('./population.mjs');
   const missing = noSourcesIn(sources.html.length + sources.script.length, '.html/.js/.ts', ROOT);
-  if (missing) { console.log(missing); process.exit(0); }
+  if (missing) {
+    console.log(missing);
+    // NOTHING READ IS NOT A CLEAN RESULT. This branch said exactly that and
+    // then exited 0, so a build pointed at a directory holding nothing of
+    // this detector's kind was told the project was fine. The sentence was
+    // right and the number contradicted it, and the number is the half a
+    // build reads.
+    const summary = summaryOf({ nothingRead: true });
+    console.log('');
+    console.log(t('summaryLine', summary.actionable, summary.explained,
+      summary.notApplicable, summary.unreachable));
+    console.log(t('summaryUnread'));
+    process.exit(2);
+  }
 }
 const rel = f => path.relative(ROOT, f).replace(/\\/g, '/');
 
@@ -268,7 +282,20 @@ w.toShow.slice(0, TOP).forEach((f, i) => {
   console.log('');
 });
 
-resultExit(w.newCount ? 1 : 0);
+
+// FOUR STATES, ONE LINE, BECAUSE A BUILD READS ONE NUMBER.
+const summary = summaryOf({
+  actionable: findings.length,
+  unreadable: nonUtf8Files().length,
+});
+console.log('');
+console.log(t('summaryLine', summary.actionable, summary.explained,
+  summary.notApplicable, summary.unreachable));
+if (summary.unreachable > 0 && summary.actionable === 0) console.log(t('summaryUnread'));
+resultExit(exitCodeFor(summary, {
+  newActionable: w.newCount,
+  failOnState: argv.includes('--fail-on-state'),
+}));
 
 // One sentence if any source was not valid UTF-8. Printed last, so it is the
 // line left on screen rather than something scrolled past.

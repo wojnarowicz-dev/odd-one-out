@@ -16,7 +16,8 @@
 import fs from 'node:fs';
 import { flagAll as allValues } from './args.mjs';
 import { t } from './lang.mjs';
-import { readSource, reportNonUtf8 } from './input.mjs';
+import { readSource, reportNonUtf8, nonUtf8Files } from './input.mjs';
+import { summaryOf, exitCodeFor } from './summary.mjs';
 
 const argv = process.argv.slice(2);
 const flagAll = (n) => allValues(argv, n);
@@ -142,7 +143,20 @@ const w = prepare(argv, {
 const visible = new Set(w.toShow.map(f => f.anchor));
 diffHeader(w);
 console.log('');
-resultExit(w.newCount ? 1 : 0);
+
+// FOUR STATES, ONE LINE, BECAUSE A BUILD READS ONE NUMBER.
+const summary = summaryOf({
+  actionable: dead.length,
+  unreadable: nonUtf8Files().length,
+});
+console.log('');
+console.log(t('summaryLine', summary.actionable, summary.explained,
+  summary.notApplicable, summary.unreachable));
+if (summary.unreachable > 0 && summary.actionable === 0) console.log(t('summaryUnread'));
+resultExit(exitCodeFor(summary, {
+  newActionable: w.newCount,
+  failOnState: argv.includes('--fail-on-state'),
+}));
 
 for (const s of suspect.filter(x => visible.has(x.key))) {
   console.log(t('pomSuspect1', s.key));

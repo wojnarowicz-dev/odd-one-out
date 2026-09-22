@@ -14,7 +14,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { makeFlag } from './args.mjs';
 import { t } from './lang.mjs';
-import { readSource, reportNonUtf8 } from './input.mjs';
+import { readSource, reportNonUtf8, nonUtf8Files } from './input.mjs';
+import { summaryOf, exitCodeFor } from './summary.mjs';
 
 const argv = process.argv.slice(2);
 const DIR = argv[0];
@@ -93,7 +94,20 @@ const files = fs.readdirSync(DIR).filter(f => f.endsWith('.sql') && !cfg.isExclu
 {
   const { noSourcesIn } = await import('./population.mjs');
   const missing = noSourcesIn(files.length, '.sql', DIR);
-  if (missing) { console.log(missing); process.exit(0); }
+  if (missing) {
+    console.log(missing);
+    // NOTHING READ IS NOT A CLEAN RESULT. This branch said exactly that and
+    // then exited 0, so a build pointed at a directory holding nothing of
+    // this detector's kind was told the project was fine. The sentence was
+    // right and the number contradicted it, and the number is the half a
+    // build reads.
+    const summary = summaryOf({ nothingRead: true });
+    console.log('');
+    console.log(t('summaryLine', summary.actionable, summary.explained,
+      summary.notApplicable, summary.unreachable));
+    console.log(t('summaryUnread'));
+    process.exit(2);
+  }
 }
 const perFile = [];
 const declaredType = new Map();   // nazwa funkcji -> co zwraca; pozniejsza deklaracja wygrywa
@@ -208,7 +222,24 @@ const w = prepare(argv, {
 const visible = new Set(w.toShow.map(f => f.file + ':' + f.line));
 diffHeader(w);
 console.log('');
-resultExit(w.newCount ? 1 : 0);
+
+// FOUR STATES, ONE LINE, BECAUSE A BUILD READS ONE NUMBER.
+const summary = summaryOf({
+  actionable: deviations.length,
+  // A function fixed by a later migration WAS looked at and a reason exists.
+  explained: fixedLater.length,
+  // A trigger function never needs EXECUTE: out of scope by construction.
+  notApplicable: skippedByType.length,
+  unreadable: nonUtf8Files().length,
+});
+console.log('');
+console.log(t('summaryLine', summary.actionable, summary.explained,
+  summary.notApplicable, summary.unreachable));
+if (summary.unreachable > 0 && summary.actionable === 0) console.log(t('summaryUnread'));
+resultExit(exitCodeFor(summary, {
+  newActionable: w.newCount,
+  failOnState: argv.includes('--fail-on-state'),
+}));
 
 if (both.length < MINCONV) {
   console.log(t('sqlTooFew', both.length, MINCONV));
