@@ -1,6 +1,6 @@
 {
   "name": "odd-one-out",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Finds places that deviate from the convention of the project itself: N times this way, once differently. Java, JavaScript, TypeScript, Maven pom.xml, SQL migrations on Supabase.",
   "license": "MIT",
   "author": "Aleksander Wojnarowicz",

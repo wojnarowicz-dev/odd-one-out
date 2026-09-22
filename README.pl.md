@@ -16,6 +16,42 @@ progów z sufitu; porównuje kod do reszty tego samego repozytorium.
 **Nie zmienia plików.** Przy każdym zgłoszeniu pokazuje gotową poprawkę do
 wklejenia.
 
+## Co się zmieniło w 0.3.0
+
+**Jeśli uruchamiasz to w CI, przeczytaj ten wiersz: kody wyjścia się zmieniły.**
+`2` znaczy teraz *nic nie było do decyzji, a czegoś nie dało się odczytać* —
+pusty katalog, plik nie do sparsowania. Wszystkie pięć detektorów wychodziło
+tam z `0`: każdy wypisywał staranne zdanie, że nie ma nic swojego rodzaju do
+przeczytania, i mówił budowaniu, że projekt jest w porządku. Jeśli Twoje
+zadanie traktuje każdy niezerowy kod jako porażkę, nic się nie zmienia. Jeśli
+je rozróżnia, `2` jest teraz osiągalne tam, gdzie wcześniej było `0`.
+
+**A `deps` w ogóle nie umiał zepsuć budowania.** Kończył bez ustawienia kodu,
+więc zwracał `0` niezależnie od tego, co znalazł — dwadzieścia jeden zgłoszeń
+na mierzonym materiale i zielone budowanie nad każdym z nich. Teraz zwraca
+`2`, gdy nic nie dało się odczytać, i `1` przy `--fail-on-state`. Nadal nie
+odróżni NOWEGO zgłoszenia od starego, bo zapisuje migawki i nigdy żadnej nie
+czyta — i teraz mówi to na ekranie, zamiast zostawiać to domysłom.
+
+**Plik, którego nie da się sparsować, nie unieważnia przebiegu.** Drzewa Javy,
+na których to mierzono, mają dwa i trzy błędy parsowania i dalej wychodzą z
+`1`, bo zgłosiły sześć i trzysta dziewięćdziesiąt trzy prawdziwe odchylenia.
+`2` jest dla przebiegu, który nie rozstrzygnął niczego.
+
+Każdy przebieg niesie teraz pole `summary`, na ekranie i w JSON-ie:
+
+```json
+"summary": {
+  "actionable": 6, "explained": 0, "notApplicable": 0, "unreachable": 2,
+  "unreachableIs": { "aQuestionForAPerson": 0, "couldNotBeRead": 2 }
+}
+```
+
+Pięć detektorów nie ma wszystkich czterech stanów. `sql` ma, bo już wcześniej
+liczył powody, dla których coś odkłada; `java`, `js`, `pom` i `deps` nie mają
+kategorii „obejrzane i odłożone" w ogóle, więc te liczby są zerami — bo
+kategoria nie istnieje, a nie dlatego, że nic w nią nie wpadło.
+
 ## Uruchomienie bez instalowania
 
 ```

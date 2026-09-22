@@ -17,6 +17,43 @@ to the rest of the same repository.
 
 **It never changes files.** Every finding comes with a ready-made fix to paste.
 
+## What changed in 0.3.0
+
+**If you run this in CI, read this line: the exit codes moved.** `2` now means
+*nothing was actionable AND something could not be read* — an empty directory,
+a file that will not parse. All five detectors used to exit `0` there, each
+printing a careful sentence saying there was nothing of its kind to read and
+then telling the build the project was fine. If your job treats any non-zero
+code as failure, nothing changes for you. If it distinguishes them, `2` is now
+reachable on a run that previously returned `0`.
+
+**And `deps` could not fail a build at all.** It ended without setting an exit
+code, so it returned `0` whatever it found — twenty-one findings on the
+material it was measured against, and a green build over every one. It now
+returns `2` when nothing could be read and `1` under `--fail-on-state`. It
+still cannot tell a NEW finding from an old one, because it writes snapshots
+and never reads one, and it now says so on screen instead of leaving you to
+guess.
+
+**A file that will not parse does not make a run worthless.** The Java trees
+this was measured on have two and three parse errors and still exit `1`,
+because they reported six and three hundred and ninety-three real deviations.
+`2` is for a run that concluded nothing.
+
+Every run now carries a `summary` field, on screen and in the JSON:
+
+```json
+"summary": {
+  "actionable": 6, "explained": 0, "notApplicable": 0, "unreachable": 2,
+  "unreachableIs": { "aQuestionForAPerson": 0, "couldNotBeRead": 2 }
+}
+```
+
+The five detectors do not all have four states. `sql` has all four because it
+already counted the reasons it sets things aside; `java`, `js`, `pom` and
+`deps` have no "looked at and set aside" category at all, so those numbers are
+zero — because the category does not exist, not because nothing fell into it.
+
 ## Run it without installing
 
 ```
